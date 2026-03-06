@@ -286,6 +286,17 @@ let teams=[];
 let matches=[];
 let scorers=[];
 
+  // Force Standings tab as active on page load
+document.addEventListener("DOMContentLoaded", () => {
+    // Remove active from all sections and tabs
+    document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    // Activate Standings tab (3rd tab)
+    const standingsTab = document.querySelector(".tab:nth-child(3)");
+    standingsTab.classList.add("active");
+    document.getElementById("standings").classList.add("active");
+});
+  
 async function loadData(){
 
   // Load teams
