@@ -269,287 +269,246 @@ onAuthStateChanged
 
 
 const firebaseConfig = {
-
 apiKey: "AIzaSyAmlSol_3Wmfs53A98sEdEm-uSaByGzo28",
 authDomain: "tournament-sys.firebaseapp.com",
 projectId: "tournament-sys",
 storageBucket: "tournament-sys.firebasestorage.app",
 messagingSenderId: "519201807872",
 appId: "1:519201807872:web:9054f639cbd8190d9ec2e5"
-
 };
 
 const app = initializeApp(firebaseConfig);
-
 const db = getFirestore(app);
 const auth = getAuth(app);
 
 let isAdmin=false;
-
 let teams=[];
 let matches=[];
 let scorers=[];
 
 async function loadData(){
 
-teams=[];
-matches=[];
-scorers=[];
+  // Load teams
+  teams = [];
+  const t = await getDocs(collection(db,"teams"));
+  t.forEach(d => teams.push({...d.data(),id:d.id}));
 
-const t=await getDocs(collection(db,"teams"));
-t.forEach(d=>teams.push({...d.data(),id:d.id}));
+  // Load matches
+  matches = [];
+  const m = await getDocs(collection(db,"matches"));
+  m.forEach(d => matches.push({...d.data(),id:d.id}));
 
-const m=await getDocs(collection(db,"matches"));
-m.forEach(d=>matches.push({...d.data(),id:d.id}));
+  // Load scorers
+  scorers = [];
+  const s = await getDocs(collection(db,"scorers"));
+  s.forEach(d => scorers.push({...d.data(),id:d.id}));
 
-const s=await getDocs(collection(db,"scorers"));
-s.forEach(d=>scorers.push({...d.data(),id:d.id}));
-
-render();
-
+  // Render all
+  renderTeams();
+  renderMatches();
+  renderStandings();
+  renderScorers();
 }
 
-window.login=async function(){
-
-let email=document.getElementById("email").value;
-let pass=document.getElementById("password").value;
-
-await signInWithEmailAndPassword(auth,email,pass);
-
+window.login = async function(){
+  let email = document.getElementById("email").value;
+  let pass = document.getElementById("password").value;
+  await signInWithEmailAndPassword(auth,email,pass);
 }
 
-window.logout=function(){
-
-signOut(auth);
-
+window.logout = function(){
+  signOut(auth);
 }
 
 onAuthStateChanged(auth,user=>{
-
-if(user){
-
-isAdmin=true;
-document.getElementById("status").innerText="Admin Mode";
-
-}else{
-
-isAdmin=false;
-document.getElementById("status").innerText="Viewer Mode";
-
-}
-
+  if(user){
+    isAdmin=true;
+    document.getElementById("status").innerText="Admin Mode";
+  }else{
+    isAdmin=false;
+    document.getElementById("status").innerText="Viewer Mode";
+  }
 });
 
-
-window.openTab=function(id,e){
-
-document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"))
-document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"))
-
-document.getElementById(id).classList.add("active")
-e.target.classList.add("active")
-
+window.openTab = function(id,e){
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"))
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"))
+  document.getElementById(id).classList.add("active")
+  e.target.classList.add("active")
 }
 
-
-window.addTeam=async function(){
-
-if(!isAdmin)return alert("Admin only");
-
-let name=document.getElementById("teamName").value;
-let logo=document.getElementById("teamLogo").value;
-
-await addDoc(collection(db,"teams"),{name,logo})
-
-loadData();
-
+window.addTeam = async function(){
+  if(!isAdmin) return alert("Admin only");
+  let name=document.getElementById("teamName").value;
+  let logo=document.getElementById("teamLogo").value;
+  await addDoc(collection(db,"teams"),{name,logo});
+  loadData();
 }
 
-
-window.deleteTeam=async function(id){
-
-if(!isAdmin)return;
-
-await deleteDoc(doc(db,"teams",id))
-
-loadData();
-
+window.deleteTeam = async function(id){
+  if(!isAdmin) return;
+  await deleteDoc(doc(db,"teams",id));
+  loadData();
 }
 
-
-window.addMatch=async function(){
-
-if(!isAdmin)return;
-
-let t1=document.getElementById("team1").value
-let t2=document.getElementById("team2").value
-let date=document.getElementById("date").value
-
-await addDoc(collection(db,"matches"),{
-
-team1:t1,
-team2:t2,
-date:date,
-s1:null,
-s2:null,
-y1:0,
-y2:0
-
-})
-
-loadData();
-
+window.addMatch = async function(){
+  if(!isAdmin) return;
+  let t1=document.getElementById("team1").value;
+  let t2=document.getElementById("team2").value;
+  let date=document.getElementById("date").value;
+  await addDoc(collection(db,"matches"),{
+    team1:t1, team2:t2, date:date, s1:null, s2:null, y1:0, y2:0
+  });
+  loadData();
 }
 
-
-window.deleteMatch=async function(id){
-
-if(!isAdmin)return;
-
-await deleteDoc(doc(db,"matches",id))
-
-loadData();
-
+window.deleteMatch = async function(id){
+  if(!isAdmin) return;
+  await deleteDoc(doc(db,"matches",id));
+  loadData();
 }
 
-
-window.enterResult=async function(id){
-
-if(!isAdmin)return;
-
-let s1=parseInt(prompt("Score team1"))
-let s2=parseInt(prompt("Score team2"))
-
-await updateDoc(doc(db,"matches",id),{
-
-s1:s1,
-s2:s2
-
-})
-
-loadData();
-
+window.enterResult = async function(id){
+  if(!isAdmin) return;
+  let s1=parseInt(prompt("Score team1"));
+  let s2=parseInt(prompt("Score team2"));
+  await updateDoc(doc(db,"matches",id),{s1,s2});
+  loadData();
 }
 
-
-window.addYellow=async function(id){
-
-if(!isAdmin)return;
-
-let y1=parseInt(prompt("Yellow Team1"))
-let y2=parseInt(prompt("Yellow Team2"))
-
-await updateDoc(doc(db,"matches",id),{
-
-y1:y1,
-y2:y2
-
-})
-
-loadData();
-
+window.addYellow = async function(id){
+  if(!isAdmin) return;
+  let y1=parseInt(prompt("Yellow Team1"));
+  let y2=parseInt(prompt("Yellow Team2"));
+  await updateDoc(doc(db,"matches",id),{y1,y2});
+  loadData();
 }
 
+window.addScorer = async function(){
+  if(!isAdmin) return;
+  let player=document.getElementById("playerName").value;
+  let team=document.getElementById("playerTeam").value;
+  let goals=parseInt(document.getElementById("playerGoals").value);
+  await addDoc(collection(db,"scorers"),{player,team,goals});
+  loadData();
+}
+
+window.deleteScorer = async function(id){
+  if(!isAdmin) return;
+  await deleteDoc(doc(db,"scorers",id));
+  loadData();
+}
+
+// ---- RENDER FUNCTIONS ----
+
+function renderTeams(){
+  let teamList=document.getElementById("teamList");
+  teamList.innerHTML="";
+  teams.forEach(t=>{
+    teamList.innerHTML+=`
+      <li class="teamRow">
+      <img src="${t.logo||''}">
+      ${t.name}
+      <button class="deleteBtn" onclick="deleteTeam('${t.id}')">Delete</button>
+      </li>`;
+  });
+
+  let select1=document.getElementById("team1");
+  let select2=document.getElementById("team2");
+  let playerTeam=document.getElementById("playerTeam");
+  select1.innerHTML=""; select2.innerHTML=""; playerTeam.innerHTML="";
+  teams.forEach(t=>{
+    select1.innerHTML+=`<option>${t.name}</option>`;
+    select2.innerHTML+=`<option>${t.name}</option>`;
+    playerTeam.innerHTML+=`<option>${t.name}</option>`;
+  });
+}
+
+function renderMatches(){
+  let matchTable=document.getElementById("matchTable");
+  matchTable.innerHTML="";
+  matches.forEach(m=>{
+    let score=m.s1===null?"-":m.s1+" : "+m.s2;
+    matchTable.innerHTML+=`
+    <tr>
+      <td>${m.date}</td>
+      <td>${m.team1}</td>
+      <td>${score}</td>
+      <td>${m.team2}</td>
+      <td><button onclick="enterResult('${m.id}')">Enter</button></td>
+      <td><button onclick="addYellow('${m.id}')">Card</button></td>
+      <td><button class="deleteBtn" onclick="deleteMatch('${m.id}')">Delete</button></td>
+    </tr>`;
+  });
+}
 
 function calculateStandings(){
-
-let table={};
-
-teams.forEach(t=>{
-table[t.name]={p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0,y:0}
-})
-
-matches.forEach(m=>{
-
-if(m.s1===null)return;
-
-let t1=table[m.team1]
-let t2=table[m.team2]
-
-t1.p++
-t2.p++
-
-t1.gf+=m.s1
-t1.ga+=m.s2
-
-t2.gf+=m.s2
-t2.ga+=m.s1
-
-t1.y+=m.y1||0
-t2.y+=m.y2||0
-
-if(m.s1>m.s2){t1.w++;t2.l++;t1.pts+=3}
-else if(m.s2>m.s1){t2.w++;t1.l++;t2.pts+=3}
-else{t1.d++;t2.d++;t1.pts++;t2.pts++}
-
-})
-
-return table
-
+  let table={};
+  teams.forEach(t=>{table[t.name]={p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0,y:0}});
+  matches.forEach(m=>{
+    if(m.s1===null) return;
+    let t1=table[m.team1]; let t2=table[m.team2];
+    t1.p++; t2.p++;
+    t1.gf+=m.s1; t1.ga+=m.s2;
+    t2.gf+=m.s2; t2.ga+=m.s1;
+    t1.y+=m.y1||0; t2.y+=m.y2||0;
+    if(m.s1>m.s2){t1.w++;t2.l++;t1.pts+=3}
+    else if(m.s2>m.s1){t2.w++;t1.l++;t2.pts+=3}
+    else{t1.d++;t2.d++;t1.pts++;t2.pts++}
+  });
+  return table;
 }
 
-
-function render(){
-
-let teamList=document.getElementById("teamList")
-teamList.innerHTML=""
-
-teams.forEach(t=>{
-
-teamList.innerHTML+=`
-
-<li class="teamRow">
-<img src="${t.logo||''}">
-${t.name}
-<button class="deleteBtn" onclick="deleteTeam('${t.id}')">Delete</button>
-</li>
-
-`
-
-})
-
-let select1=document.getElementById("team1")
-let select2=document.getElementById("team2")
-let playerTeam=document.getElementById("playerTeam")
-
-select1.innerHTML=""
-select2.innerHTML=""
-playerTeam.innerHTML=""
-
-teams.forEach(t=>{
-select1.innerHTML+=`<option>${t.name}</option>`
-select2.innerHTML+=`<option>${t.name}</option>`
-playerTeam.innerHTML+=`<option>${t.name}</option>`
-})
-
-let matchTable=document.getElementById("matchTable")
-matchTable.innerHTML=""
-
-matches.forEach(m=>{
-
-let score=m.s1===null?"-":m.s1+" : "+m.s2
-
-matchTable.innerHTML+=`
-
-<tr>
-<td>${m.date}</td>
-<td>${m.team1}</td>
-<td>${score}</td>
-<td>${m.team2}</td>
-<td><button onclick="enterResult('${m.id}')">Enter</button></td>
-<td><button onclick="addYellow('${m.id}')">Card</button></td>
-<td><button class="deleteBtn" onclick="deleteMatch('${m.id}')">Delete</button></td>
-</tr>
-
-`
-
-})
-
+function renderStandings(){
+  let standings=calculateStandings();
+  let arr=[];
+  for(let t in standings){
+    let d=standings[t];
+    arr.push({team:t,...d,gd:d.gf-d.ga,suspend:Math.floor(d.y/3)});
+  }
+  arr.sort((a,b)=>b.pts-a.pts||b.gd-a.gd);
+  let table=document.getElementById("standingsTable");
+  table.innerHTML="";
+  arr.forEach((t,i)=>{
+    let c=""; if(i==0)c="rank1"; if(i==1)c="rank2"; if(i==2)c="rank3";
+    table.innerHTML+=`
+    <tr class="${c}">
+      <td>${i+1}</td>
+      <td>${t.team}</td>
+      <td>${t.p}</td>
+      <td>${t.w}</td>
+      <td>${t.d}</td>
+      <td>${t.l}</td>
+      <td>${t.gf}</td>
+      <td>${t.ga}</td>
+      <td>${t.gd}</td>
+      <td>${t.pts}</td>
+      <td>${t.y}</td>
+      <td>${t.suspend}</td>
+    </tr>`;
+  });
 }
 
-loadData()
+function renderScorers(){
+  let scorerTable=document.getElementById("scorerTable");
+  scorerTable.innerHTML="";
+  // sort by goals descending
+  let sorted=scorers.sort((a,b)=>b.goals-a.goals);
+  sorted.forEach((s,i)=>{
+    scorerTable.innerHTML+=`
+    <tr>
+      <td>${i+1}</td>
+      <td>${s.player}</td>
+      <td>${s.team}</td>
+      <td>${s.goals}</td>
+      <td><button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete</button></td>
+    </tr>`;
+  });
+}
+
+// Load all data on page start
+loadData();
 
 </script>
-
 </body>
 </html>
