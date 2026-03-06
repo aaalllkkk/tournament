@@ -6,7 +6,7 @@
 
 <style>
 
-/* SAME DESIGN */
+/* SAME STYLE AS ORIGINAL */
 
 body{
 font-family:Segoe UI;
@@ -16,36 +16,10 @@ margin:0;
 padding:20px;
 }
 
-h1{text-align:center;}
-
-.tabs{
-display:flex;
-gap:10px;
+.loginBox{
+text-align:center;
 margin-bottom:20px;
-justify-content:center;
-flex-wrap:wrap;
 }
-
-.tab{
-background:#1e293b;
-padding:10px 18px;
-cursor:pointer;
-border-radius:6px;
-}
-
-.tab.active{
-background:#38bdf8;
-color:black;
-}
-
-.section{
-display:none;
-background:#1e293b;
-padding:20px;
-border-radius:10px;
-}
-
-.section.active{display:block;}
 
 input,select{
 padding:8px;
@@ -62,24 +36,11 @@ background:#38bdf8;
 cursor:pointer;
 }
 
-table{
-width:100%;
-border-collapse:collapse;
-margin-top:15px;
-}
-
-th,td{
-border-bottom:1px solid #334155;
-padding:8px;
-text-align:center;
-}
-
-.teamLogo{
-width:30px;
-height:30px;
-object-fit:cover;
-border-radius:4px;
-margin-right:6px;
+.section{
+background:#1e293b;
+padding:20px;
+border-radius:10px;
+margin-bottom:20px;
 }
 
 </style>
@@ -89,17 +50,22 @@ margin-right:6px;
 
 <h1>🏆 Tournament Admin</h1>
 
-<div class="tabs">
-<div class="tab active" onclick="openTab('teams',event)">Teams</div>
-<div class="tab" onclick="openTab('schedule',event)">Matches</div>
+<div class="loginBox">
+
+<input id="email" placeholder="Admin Email">
+<input id="password" type="password" placeholder="Password">
+
+<button onclick="login()">Login</button>
+
 </div>
 
-<div id="teams" class="section active">
+
+<div class="section">
 
 <h2>Add Team</h2>
 
 <input id="teamName" placeholder="Team Name">
-<input type="file" id="teamLogoInput">
+<input type="file" id="teamLogo">
 
 <button onclick="addTeam()">Add Team</button>
 
@@ -107,33 +73,43 @@ margin-right:6px;
 
 </div>
 
-<div id="schedule" class="section">
 
-<h2>Create Match</h2>
+<div class="section">
+
+<h2>Add Match</h2>
 
 <select id="team1"></select>
 <select id="team2"></select>
+
 <input id="date" placeholder="Date">
+<input id="s1" placeholder="Score">
+<input id="s2" placeholder="Score">
 
-<button onclick="addMatch()">Add Match</button>
+<button onclick="addMatch()">Save Match</button>
 
-<table>
+</div>
 
-<thead>
-<tr>
-<th>Date</th>
-<th>Team 1</th>
-<th>Score</th>
-<th>Team 2</th>
-<th>Goals</th>
-<th>Yellow</th>
-<th>Delete</th>
-</tr>
-</thead>
 
-<tbody id="matchTable"></tbody>
+<div class="section">
 
-</table>
+<h2>Add Goal</h2>
+
+<input id="playerName" placeholder="Player">
+<input id="playerTeam" placeholder="Team">
+
+<button onclick="addGoal()">Add Goal</button>
+
+</div>
+
+
+<div class="section">
+
+<h2>Add Yellow Card</h2>
+
+<input id="cardName" placeholder="Player">
+<input id="cardTeam" placeholder="Team">
+
+<button onclick="addCard()">Add Card</button>
 
 </div>
 
@@ -141,7 +117,8 @@ margin-right:6px;
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig={
 apiKey:"AIzaSyAmlSol_3Wmfs53A98sEdEm-uSaByGzo28",
@@ -151,133 +128,64 @@ projectId:"tournament-sys"
 
 const app=initializeApp(firebaseConfig)
 const db=getFirestore(app)
+const auth=getAuth(app)
 
-let teams=[]
-let matches=[]
+window.login=async function(){
 
-function openTab(id,e){
+const email=document.getElementById("email").value
+const password=document.getElementById("password").value
 
-document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"))
-document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"))
+await signInWithEmailAndPassword(auth,email,password)
 
-document.getElementById(id).classList.add("active")
-e.target.classList.add("active")
-
-}
-
-async function loadTeams(){
-
-teams=[]
-
-const querySnapshot=await getDocs(collection(db,"teams"))
-
-querySnapshot.forEach(docSnap=>{
-teams.push({id:docSnap.id,...docSnap.data()})
-})
-
-renderTeams()
+alert("Login Success")
 
 }
 
-async function addTeam(){
+window.addTeam=async function(){
 
-let name=document.getElementById("teamName").value.trim()
-let file=document.getElementById("teamLogoInput").files[0]
+let name=document.getElementById("teamName").value
 
-if(name==="")return
-
-let logo=""
-
-if(file){
-
-const reader=new FileReader()
-
-reader.onload=async function(e){
-
-logo=e.target.result
-
-await addDoc(collection(db,"teams"),{
-name:name,
-logo:logo
-})
-
-loadTeams()
+await addDoc(collection(db,"teams"),{name:name})
 
 }
 
-reader.readAsDataURL(file)
-
-}else{
-
-await addDoc(collection(db,"teams"),{
-name:name,
-logo:""
-})
-
-loadTeams()
-
-}
-
-}
-
-async function deleteTeam(id){
-
-await deleteDoc(doc(db,"teams",id))
-loadTeams()
-
-}
-
-function renderTeams(){
-
-let teamList=document.getElementById("teamList")
-teamList.innerHTML=""
-
-let select1=document.getElementById("team1")
-let select2=document.getElementById("team2")
-
-select1.innerHTML=""
-select2.innerHTML=""
-
-teams.forEach(t=>{
-
-let logoHTML=t.logo?`<img class="teamLogo" src="${t.logo}">`:""
-
-teamList.innerHTML+=`
-<li>
-${logoHTML}${t.name}
-<button onclick="deleteTeam('${t.id}')">Delete</button>
-</li>
-`
-
-select1.innerHTML+=`<option>${t.name}</option>`
-select2.innerHTML+=`<option>${t.name}</option>`
-
-})
-
-}
-
-async function addMatch(){
-
-let t1=document.getElementById("team1").value
-let t2=document.getElementById("team2").value
-let date=document.getElementById("date").value
+window.addMatch=async function(){
 
 await addDoc(collection(db,"matches"),{
-team1:t1,
-team2:t2,
-date:date,
-score1:0,
-score2:0
+
+team1:team1.value,
+team2:team2.value,
+date:date.value,
+s1:s1.value,
+s2:s2.value
+
 })
 
 }
 
-window.openTab=openTab
-window.addTeam=addTeam
-window.deleteTeam=deleteTeam
-window.addMatch=addMatch
+window.addGoal=async function(){
 
-loadTeams()
+await addDoc(collection(db,"scorers"),{
+
+name:playerName.value,
+team:playerTeam.value,
+goals:1
+
+})
+
+}
+
+window.addCard=async function(){
+
+await addDoc(collection(db,"cards"),{
+
+name:cardName.value,
+team:cardTeam.value,
+cards:1
+
+})
+
+}
 
 </script>
 
