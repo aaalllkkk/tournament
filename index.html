@@ -287,6 +287,13 @@ let teams=[];
 let matches=[];
 let scorers=[];
 
+  // ---------- Toggle ----------
+  function toggleFolder(n) {
+  const table = document.getElementById(`weekday-${n}`);
+  if (table.style.display === "none") table.style.display = "table";
+  else table.style.display = "none";
+}
+
   // Force Standings tab as active on page load
 document.addEventListener("DOMContentLoaded", () => {
     // Remove active from all sections and tabs
@@ -408,6 +415,15 @@ window.deleteScorer = async function(id){
   await deleteDoc(doc(db,"scorers",id));
 }
 
+  // ---------- Place here ----------
+async function deleteMatch(id) {
+  if(!isAdmin) return alert("Admin only");
+  await deleteDoc(doc(db, "matches", id));
+  // No need to call loadData() if using onSnapshot()
+}
+// ----------------------------------
+
+  
 // ---- RENDER FUNCTIONS ----
 
 function renderTeams(){
@@ -433,38 +449,62 @@ function renderTeams(){
   });
 }
 
-function renderMatches(){
-  let matchTable=document.getElementById("matchTable");
-  matchTable.innerHTML="";
-  
-  // Sort matches by date so Weekday grouping works
-matches.sort((a, b) => new Date(a.date) - new Date(b.date));
-  
+function renderMatches() {
+  const container = document.getElementById("schedule");
+
+  // keep your current Create Match input elements
+  container.innerHTML = `
+    <h2>Create Match</h2>
+    <select id="team1"></select>
+    <select id="team2"></select>
+    <input id="date" placeholder="Date">
+    <button onclick="addMatch()">Add Match</button>
+  `;
+
+  // Sort matches by date
+  matches.sort((a, b) => new Date(a.date) - new Date(b.date));
+
   let weekDay = 1;
+  let lastDate = null;
 
-matches.forEach((m, index) => {
-  let score = m.s1 === null ? "-" : m.s1 + " : " + m.s2;
+  matches.forEach(m => {
+    if (m.date !== lastDate) {
+      container.innerHTML += `
+        <div class="weekday-folder">
+          <h3 onclick="toggleFolder(${weekDay})">Weekday ${weekDay} ▼</h3>
+          <table id="weekday-${weekDay}" class="weekday-table">
+            <tr>
+              <th>Date</th><th>Team 1</th><th>Score</th><th>Team 2</th><th>Result</th><th>Yellow</th><th>Delete</th>
+            </tr>
+          </table>
+        </div>`;
+      weekDay++;
+      lastDate = m.date;
+    }
 
-  // Add a row for the weekday header at the start of each new day
-  if (index === 0 || m.date !== matches[index - 1].date) {
-    matchTable.innerHTML += `
-      <tr style="background:#1e293b;font-weight:bold;">
-        <td colspan="6">Weekday ${weekDay}</td>
+    const table = document.getElementById(`weekday-${weekDay-1}`);
+    const score = m.s1===null ? "-" : `${m.s1} : ${m.s2}`;
+    table.innerHTML += `
+      <tr>
+        <td>${m.date}</td>
+        <td>${m.team1}</td>
+        <td>${score}</td>
+        <td>${m.team2}</td>
+        <td><button onclick="enterResult('${m.id}')">Enter</button></td>
+        <td><button onclick="addYellow('${m.id}')">Card</button></td>
+        <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>
       </tr>`;
-    weekDay++;
-  }
+  });
 
-  // Add the match row
-  matchTable.innerHTML += `
-    <tr>
-      <td>${m.date}</td>
-      <td>${m.team1}</td>
-      <td>${score}</td>
-      <td>${m.team2}</td>
-      <td><button onclick="enterResult('${m.id}')">Enter</button></td>
-      <td><button onclick="addYellow('${m.id}')">Card</button></td>
-    </tr>`;
-});
+  // Fill team selects
+  const select1 = document.getElementById("team1");
+  const select2 = document.getElementById("team2");
+  select1.innerHTML = "";
+  select2.innerHTML = "";
+  teams.forEach(t => {
+    select1.innerHTML += `<option>${t.name}</option>`;
+    select2.innerHTML += `<option>${t.name}</option>`;
+  });
 }
 
 function calculateStandings(){
