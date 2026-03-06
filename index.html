@@ -364,14 +364,7 @@ window.addTeam = async function(){
   let logo=document.getElementById("teamLogo").value;
   await addDoc(collection(db,"teams"),{name,logo});
 }
-// ---------- Add Weekday options ----------
-const weekdaySelect = document.getElementById("matchWeekday");
-for (let i = 1; i <= 21; i++) {
-  const option = document.createElement("option");
-  option.value = i;
-  option.textContent = `Weekday ${i}`;
-  weekdaySelect.appendChild(option);
-}
+
 window.deleteTeam = async function(id){
   if(!isAdmin) return;
   await deleteDoc(doc(db,"teams",id));
@@ -468,7 +461,14 @@ function renderMatches() {
     <input id="date" placeholder="Date">
     <button onclick="addMatch()">Add Match</button>
   `;
-
+// ---------- Add Weekday options ----------
+const weekdaySelect = document.getElementById("matchWeekday");
+for (let i = 1; i <= 21; i++) {
+  const option = document.createElement("option");
+  option.value = i;
+  option.textContent = `Weekday ${i}`;
+  weekdaySelect.appendChild(option);
+}
   // Sort matches by date
 matches.sort((a, b) => a.weekday - b.weekday || new Date(a.date) - new Date(b.date));
 
