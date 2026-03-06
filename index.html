@@ -222,6 +222,7 @@ border-radius:4px;
 <h2>Top Scorers</h2>
 
 <input id="playerName" placeholder="Player">
+<input id="playerImage" placeholder="Player Image URL">
 <select id="playerTeam"></select>
 <input id="playerGoals" placeholder="Goals">
 
@@ -400,10 +401,12 @@ window.addYellow = async function(id){
 
 window.addScorer = async function(){
   if(!isAdmin) return;
-  let player=document.getElementById("playerName").value;
-  let team=document.getElementById("playerTeam").value;
-  let goals=parseInt(document.getElementById("playerGoals").value);
-  await addDoc(collection(db,"scorers"),{player,team,goals});
+  let player = document.getElementById("playerName").value;
+  let team = document.getElementById("playerTeam").value;
+  let goals = parseInt(document.getElementById("playerGoals").value);
+  let image = document.getElementById("playerImage").value;  // <-- new line
+
+  await addDoc(collection(db,"scorers"), {player, team, goals, image}); // include image
   loadData();
 }
 
@@ -485,21 +488,28 @@ function renderStandings(){
   table.innerHTML="";
   arr.forEach((t,i)=>{
     let c=""; if(i==0)c="rank1"; if(i==1)c="rank2"; if(i==2)c="rank3";
-    table.innerHTML+=`
-    <tr class="${c}">
-      <td>${i+1}</td>
-      <td>${t.team}</td>
-      <td>${t.p}</td>
-      <td>${t.w}</td>
-      <td>${t.d}</td>
-      <td>${t.l}</td>
-      <td>${t.gf}</td>
-      <td>${t.ga}</td>
-      <td>${t.gd}</td>
-      <td>${t.pts}</td>
-      <td>${t.y}</td>
-      <td>${t.suspend}</td>
-    </tr>`;
+   
+    // Find the team object to get the logo
+let teamObj = teams.find(team => team.name === t.team);
+
+table.innerHTML+=`
+<tr class="${c}">
+  <td>${i+1}</td>
+  <td>
+    <img src="${teamObj?.logo||''}" style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
+    ${t.team}
+  </td>
+  <td>${t.p}</td>
+  <td>${t.w}</td>
+  <td>${t.d}</td>
+  <td>${t.l}</td>
+  <td>${t.gf}</td>
+  <td>${t.ga}</td>
+  <td>${t.gd}</td>
+  <td>${t.pts}</td>
+  <td>${t.y}</td>
+  <td>${t.suspend}</td>
+</tr>`;
   });
 }
 
@@ -509,14 +519,20 @@ function renderScorers(){
   // sort by goals descending
   let sorted=scorers.sort((a,b)=>b.goals-a.goals);
   sorted.forEach((s,i)=>{
-    scorerTable.innerHTML+=`
-    <tr>
-      <td>${i+1}</td>
-      <td>${s.player}</td>
-      <td>${s.team}</td>
-      <td>${s.goals}</td>
-      <td><button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete</button></td>
-    </tr>`;
+   scorerTable.innerHTML+=`
+<tr>
+  <td>${i+1}</td>
+  <td>
+    <img src="${s.image||''}" style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
+    ${s.player}
+  </td>
+  <td>
+    <img src="${teams.find(team=>team.name===s.team)?.logo||''}" style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
+    ${s.team}
+  </td>
+  <td>${s.goals}</td>
+  <td><button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete</button></td>
+</tr>`;
   });
 }
 
