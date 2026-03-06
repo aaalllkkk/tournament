@@ -331,15 +331,6 @@ onSnapshot(collection(db, "scorers"), (snapshot) => {
   renderScorers();
 });
   
-  // Dynamically populate Weekday 1–21
-  const weekdaySelect = document.getElementById("matchWeekday");
-for (let i = 1; i <= 21; i++) {
-  const option = document.createElement("option");
-  option.value = i;
-  option.textContent = `Weekday ${i}`;
-  weekdaySelect.appendChild(option);
-}
-
 window.login = async function(){
   let email = document.getElementById("email").value;
   let pass = document.getElementById("password").value;
@@ -373,7 +364,14 @@ window.addTeam = async function(){
   let logo=document.getElementById("teamLogo").value;
   await addDoc(collection(db,"teams"),{name,logo});
 }
-
+// ---------- Add Weekday options ----------
+const weekdaySelect = document.getElementById("matchWeekday");
+for (let i = 1; i <= 21; i++) {
+  const option = document.createElement("option");
+  option.value = i;
+  option.textContent = `Weekday ${i}`;
+  weekdaySelect.appendChild(option);
+}
 window.deleteTeam = async function(id){
   if(!isAdmin) return;
   await deleteDoc(doc(db,"teams",id));
