@@ -1,163 +1,553 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>League Standings</title>
+<meta charset="UTF-8">
+<title>Tournament Manager</title>
 
 <style>
+
 body{
-font-family:Arial;
-background:#111;
+font-family:Segoe UI;
+background:#0f172a;
 color:white;
+margin:0;
+padding:20px;
+}
+
+h1{
 text-align:center;
+margin-bottom:10px;
+}
+
+.tabs{
+display:flex;
+gap:10px;
+margin-bottom:20px;
+justify-content:center;
+flex-wrap:wrap;
+}
+
+.tab{
+background:#1e293b;
+padding:10px 18px;
+cursor:pointer;
+border-radius:6px;
+}
+
+.tab.active{
+background:#38bdf8;
+color:black;
+}
+
+.section{
+display:none;
+background:#1e293b;
+padding:20px;
+border-radius:10px;
+}
+
+.section.active{
+display:block;
+}
+
+input,select{
+padding:8px;
+margin:5px;
+border-radius:6px;
+border:none;
+}
+
+button{
+padding:8px 12px;
+border:none;
+border-radius:6px;
+background:#38bdf8;
+cursor:pointer;
+}
+
+button:hover{
+opacity:0.9;
+}
+
+.deleteBtn{
+background:#ef4444;
+color:white;
 }
 
 table{
-margin:auto;
+width:100%;
 border-collapse:collapse;
-width:80%;
+margin-top:15px;
 }
 
 th,td{
-border:1px solid #555;
+border-bottom:1px solid #334155;
 padding:8px;
+text-align:center;
 }
 
-th{
-background:#333;
+.rank1{color:gold;font-weight:bold;}
+.rank2{color:silver;}
+.rank3{color:#cd7f32;}
+
+.teamRow{
+display:flex;
+align-items:center;
+gap:10px;
+margin:5px 0;
 }
 
-.team-logo{
-width:25px;
-height:25px;
-vertical-align:middle;
-margin-right:6px;
+.teamRow img{
+width:32px;
+height:32px;
+object-fit:cover;
+border-radius:4px;
 }
+
 </style>
-
 </head>
 
 <body>
 
-<h1>League Standings</h1>
+<h1>🏆 Tournament Manager</h1>
 
-<table id="standings">
+<div class="tabs">
+<div class="tab active" onclick="openTab('teams',event)">Teams</div>
+<div class="tab" onclick="openTab('schedule',event)">Schedule</div>
+<div class="tab" onclick="openTab('standings',event)">Standings</div>
+<div class="tab" onclick="openTab('scorers',event)">Top Scorers</div>
+<div class="tab" onclick="openTab('admin',event)">Admin</div>
+</div>
+
+<!-- ADMIN TAB -->
+
+<div id="admin" class="section">
+
+<h2>Admin Login</h2>
+
+<input id="email" placeholder="Admin Email">
+<input id="password" type="password" placeholder="Password">
+
+<button onclick="login()">Login</button>
+<button onclick="logout()">Logout</button>
+
+<p>Status : <span id="status">Viewer Mode</span></p>
+
+</div>
+
+<!-- TEAMS -->
+
+<div id="teams" class="section active">
+
+<h2>Add Team</h2>
+
+<input id="teamName" placeholder="Team Name">
+<input id="teamLogo" placeholder="Team Logo URL">
+
+<button onclick="addTeam()">Add Team</button>
+
+<ul id="teamList"></ul>
+
+</div>
+
+
+<!-- MATCHES -->
+
+<div id="schedule" class="section">
+
+<h2>Create Match</h2>
+
+<select id="team1"></select>
+<select id="team2"></select>
+<input id="date" placeholder="Date">
+
+<button onclick="addMatch()">Add Match</button>
+
+<table>
+
+<thead>
 <tr>
+<th>Date</th>
+<th>Team 1</th>
+<th>Score</th>
+<th>Team 2</th>
+<th>Result</th>
+<th>Yellow</th>
+<th>Delete</th>
+</tr>
+</thead>
+
+<tbody id="matchTable"></tbody>
+
+</table>
+
+</div>
+
+<!-- STANDINGS -->
+
+<div id="standings" class="section">
+
+<h2>Standings</h2>
+
+<table>
+
+<thead>
+<tr>
+<th>Rank</th>
 <th>Team</th>
 <th>P</th>
 <th>W</th>
 <th>D</th>
 <th>L</th>
+<th>GF</th>
+<th>GA</th>
+<th>GD</th>
 <th>Pts</th>
+<th>Yellow</th>
+<th>Suspended</th>
 </tr>
+</thead>
+
+<tbody id="standingsTable"></tbody>
+
 </table>
+
+</div>
+
+
+<!-- SCORERS -->
+
+<div id="scorers" class="section">
 
 <h2>Top Scorers</h2>
 
-<table id="scorers">
+<input id="playerName" placeholder="Player">
+<select id="playerTeam"></select>
+<input id="playerGoals" placeholder="Goals">
+
+<button onclick="addScorer()">Add Player</button>
+
+<table>
+
+<thead>
 <tr>
+<th>Rank</th>
 <th>Player</th>
+<th>Team</th>
 <th>Goals</th>
+<th>Delete</th>
 </tr>
+</thead>
+
+<tbody id="scorerTable"></tbody>
+
 </table>
 
-<h2>Yellow Cards</h2>
+</div>
 
-<table id="cards">
-<tr>
-<th>Player</th>
-<th>Cards</th>
-<th>Status</th>
-</tr>
-</table>
 
 <script type="module">
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 
-import {
+import { 
 getFirestore,
 collection,
-getDocs
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+addDoc,
+getDocs,
+deleteDoc,
+doc,
+updateDoc
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+import {
+getAuth,
+signInWithEmailAndPassword,
+signOut,
+onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
 
 const firebaseConfig = {
 
 apiKey: "AIzaSyAmlSol_3Wmfs53A98sEdEm-uSaByGzo28",
 authDomain: "tournament-sys.firebaseapp.com",
 projectId: "tournament-sys",
+storageBucket: "tournament-sys.firebasestorage.app",
+messagingSenderId: "519201807872",
+appId: "1:519201807872:web:9054f639cbd8190d9ec2e5"
 
 };
 
 const app = initializeApp(firebaseConfig);
 
 const db = getFirestore(app);
+const auth = getAuth(app);
 
-loadTeams();
-loadPlayers();
+let isAdmin=false;
 
-async function loadTeams(){
+let teams=[];
+let matches=[];
+let scorers=[];
 
-const snapshot = await getDocs(collection(db,"teams"));
+async function loadData(){
 
-const table = document.getElementById("standings");
+teams=[];
+matches=[];
+scorers=[];
 
-snapshot.forEach(doc=>{
+const t=await getDocs(collection(db,"teams"));
+t.forEach(d=>teams.push({...d.data(),id:d.id}));
 
-const t = doc.data();
+const m=await getDocs(collection(db,"matches"));
+m.forEach(d=>matches.push({...d.data(),id:d.id}));
 
-const row = table.insertRow();
+const s=await getDocs(collection(db,"scorers"));
+s.forEach(d=>scorers.push({...d.data(),id:d.id}));
 
-row.innerHTML=`
+render();
 
-<td>
-<img class="team-logo" src="${t.logo}">
+}
+
+window.login=async function(){
+
+let email=document.getElementById("email").value;
+let pass=document.getElementById("password").value;
+
+await signInWithEmailAndPassword(auth,email,pass);
+
+}
+
+window.logout=function(){
+
+signOut(auth);
+
+}
+
+onAuthStateChanged(auth,user=>{
+
+if(user){
+
+isAdmin=true;
+document.getElementById("status").innerText="Admin Mode";
+
+}else{
+
+isAdmin=false;
+document.getElementById("status").innerText="Viewer Mode";
+
+}
+
+});
+
+
+window.openTab=function(id,e){
+
+document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"))
+document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"))
+
+document.getElementById(id).classList.add("active")
+e.target.classList.add("active")
+
+}
+
+
+window.addTeam=async function(){
+
+if(!isAdmin)return alert("Admin only");
+
+let name=document.getElementById("teamName").value;
+let logo=document.getElementById("teamLogo").value;
+
+await addDoc(collection(db,"teams"),{name,logo})
+
+loadData();
+
+}
+
+
+window.deleteTeam=async function(id){
+
+if(!isAdmin)return;
+
+await deleteDoc(doc(db,"teams",id))
+
+loadData();
+
+}
+
+
+window.addMatch=async function(){
+
+if(!isAdmin)return;
+
+let t1=document.getElementById("team1").value
+let t2=document.getElementById("team2").value
+let date=document.getElementById("date").value
+
+await addDoc(collection(db,"matches"),{
+
+team1:t1,
+team2:t2,
+date:date,
+s1:null,
+s2:null,
+y1:0,
+y2:0
+
+})
+
+loadData();
+
+}
+
+
+window.deleteMatch=async function(id){
+
+if(!isAdmin)return;
+
+await deleteDoc(doc(db,"matches",id))
+
+loadData();
+
+}
+
+
+window.enterResult=async function(id){
+
+if(!isAdmin)return;
+
+let s1=parseInt(prompt("Score team1"))
+let s2=parseInt(prompt("Score team2"))
+
+await updateDoc(doc(db,"matches",id),{
+
+s1:s1,
+s2:s2
+
+})
+
+loadData();
+
+}
+
+
+window.addYellow=async function(id){
+
+if(!isAdmin)return;
+
+let y1=parseInt(prompt("Yellow Team1"))
+let y2=parseInt(prompt("Yellow Team2"))
+
+await updateDoc(doc(db,"matches",id),{
+
+y1:y1,
+y2:y2
+
+})
+
+loadData();
+
+}
+
+
+function calculateStandings(){
+
+let table={};
+
+teams.forEach(t=>{
+table[t.name]={p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0,y:0}
+})
+
+matches.forEach(m=>{
+
+if(m.s1===null)return;
+
+let t1=table[m.team1]
+let t2=table[m.team2]
+
+t1.p++
+t2.p++
+
+t1.gf+=m.s1
+t1.ga+=m.s2
+
+t2.gf+=m.s2
+t2.ga+=m.s1
+
+t1.y+=m.y1||0
+t2.y+=m.y2||0
+
+if(m.s1>m.s2){t1.w++;t2.l++;t1.pts+=3}
+else if(m.s2>m.s1){t2.w++;t1.l++;t2.pts+=3}
+else{t1.d++;t2.d++;t1.pts++;t2.pts++}
+
+})
+
+return table
+
+}
+
+
+function render(){
+
+let teamList=document.getElementById("teamList")
+teamList.innerHTML=""
+
+teams.forEach(t=>{
+
+teamList.innerHTML+=`
+
+<li class="teamRow">
+<img src="${t.logo||''}">
 ${t.name}
-</td>
+<button class="deleteBtn" onclick="deleteTeam('${t.id}')">Delete</button>
+</li>
 
-<td>${t.played||0}</td>
-<td>${t.win||0}</td>
-<td>${t.draw||0}</td>
-<td>${t.loss||0}</td>
-<td>${t.points||0}</td>
+`
 
-`;
+})
 
-});
+let select1=document.getElementById("team1")
+let select2=document.getElementById("team2")
+let playerTeam=document.getElementById("playerTeam")
+
+select1.innerHTML=""
+select2.innerHTML=""
+playerTeam.innerHTML=""
+
+teams.forEach(t=>{
+select1.innerHTML+=`<option>${t.name}</option>`
+select2.innerHTML+=`<option>${t.name}</option>`
+playerTeam.innerHTML+=`<option>${t.name}</option>`
+})
+
+let matchTable=document.getElementById("matchTable")
+matchTable.innerHTML=""
+
+matches.forEach(m=>{
+
+let score=m.s1===null?"-":m.s1+" : "+m.s2
+
+matchTable.innerHTML+=`
+
+<tr>
+<td>${m.date}</td>
+<td>${m.team1}</td>
+<td>${score}</td>
+<td>${m.team2}</td>
+<td><button onclick="enterResult('${m.id}')">Enter</button></td>
+<td><button onclick="addYellow('${m.id}')">Card</button></td>
+<td><button class="deleteBtn" onclick="deleteMatch('${m.id}')">Delete</button></td>
+</tr>
+
+`
+
+})
 
 }
 
-async function loadPlayers(){
-
-const snapshot = await getDocs(collection(db,"players"));
-
-const scorers = document.getElementById("scorers");
-
-const cards = document.getElementById("cards");
-
-snapshot.forEach(doc=>{
-
-const p = doc.data();
-
-let srow = scorers.insertRow();
-
-srow.innerHTML = `
-<td>${p.name}</td>
-<td>${p.goals||0}</td>
-`;
-
-let suspended = (p.cards||0)>=3 ? "Suspended" : "OK";
-
-let crow = cards.insertRow();
-
-crow.innerHTML = `
-<td>${p.name}</td>
-<td>${p.cards||0}</td>
-<td>${suspended}</td>
-`;
-
-});
-
-}
+loadData()
 
 </script>
 
