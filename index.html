@@ -324,32 +324,6 @@ onSnapshot(collection(db, "scorers"), (snapshot) => {
   renderScorers();
 });
   
-async function loadData(){
-
-  // Load teams
-  teams = [];
-  const t = await getDocs(collection(db,"teams"));
-  t.forEach(d => teams.push({...d.data(),id:d.id}));
-
-  // Load matches
-  matches = [];
-  const m = await getDocs(collection(db,"matches"));
-  m.forEach(d => matches.push({...d.data(),id:d.id}));
-
-  // Load scorers
-  scorers = [];
-  const s = await getDocs(collection(db,"scorers"));
-  s.forEach(d => scorers.push({...d.data(),id:d.id}));
-
-  // Render all
-  renderTeams();
-  renderMatches();
-  renderStandings();
-  renderScorers();
-    
-  // <-- ADD THIS LINE -->
-  openTab('standings', { target: document.querySelector(".tab:nth-child(3)") });
-}
 
 window.login = async function(){
   let email = document.getElementById("email").value;
@@ -553,9 +527,6 @@ function renderScorers(){
 </tr>`;
   });
 }
-
-// Load all data on page start
-loadData();
 
 </script>
 </body>
