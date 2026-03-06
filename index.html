@@ -436,9 +436,26 @@ function renderTeams(){
 function renderMatches(){
   let matchTable=document.getElementById("matchTable");
   matchTable.innerHTML="";
-  matches.forEach(m=>{
-    let score=m.s1===null?"-":m.s1+" : "+m.s2;
-    matchTable.innerHTML+=`
+  
+  // Sort matches by date so Weekday grouping works
+matches.sort((a, b) => new Date(a.date) - new Date(b.date));
+  
+  let weekDay = 1;
+
+matches.forEach((m, index) => {
+  let score = m.s1 === null ? "-" : m.s1 + " : " + m.s2;
+
+  // Add a row for the weekday header at the start of each new day
+  if (index === 0 || m.date !== matches[index - 1].date) {
+    matchTable.innerHTML += `
+      <tr style="background:#1e293b;font-weight:bold;">
+        <td colspan="6">Weekday ${weekDay}</td>
+      </tr>`;
+    weekDay++;
+  }
+
+  // Add the match row
+  matchTable.innerHTML += `
     <tr>
       <td>${m.date}</td>
       <td>${m.team1}</td>
@@ -446,9 +463,8 @@ function renderMatches(){
       <td>${m.team2}</td>
       <td><button onclick="enterResult('${m.id}')">Enter</button></td>
       <td><button onclick="addYellow('${m.id}')">Card</button></td>
-      <td><button class="deleteBtn" onclick="deleteMatch('${m.id}')">Delete</button></td>
     </tr>`;
-  });
+});
 }
 
 function calculateStandings(){
