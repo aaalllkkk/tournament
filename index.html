@@ -2,11 +2,9 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>PILDUN DUNIA 😋</title>
+<title>PILDUN DUNIA😋</title>
 
 <style>
-
-/* SAME DESIGN AS YOUR ORIGINAL */
 
 body{
 font-family:Segoe UI;
@@ -64,6 +62,10 @@ padding:8px;
 text-align:center;
 }
 
+.rank1{color:gold;font-weight:bold;}
+.rank2{color:silver;}
+.rank3{color:#cd7f32;}
+
 .teamLogo{
 width:30px;
 height:30px;
@@ -77,43 +79,21 @@ margin-right:6px;
 
 <body>
 
-<h1> PILDUN DUNIA 😋 </h1>
+<h1>PILDUN DUNIA😋</h1>
 
 <div class="tabs">
-<div class="tab active" onclick="openTab('teams',event)">Teams</div>
-<div class="tab" onclick="openTab('schedule',event)">Schedule</div>
-<div class="tab" onclick="openTab('standings',event)">Standings</div>
+<div class="tab active" onclick="openTab('standings',event)">Standings</div>
+<div class="tab" onclick="openTab('schedule',event)">Matches</div>
+<div class="tab" onclick="openTab('scorers',event)">Top Scorer</div>
+<div class="tab" onclick="openTab('cards',event)">Yellow Cards</div>
 </div>
 
-<div id="teams" class="section active">
 
-<ul id="teamList"></ul>
+<div id="standings" class="section active">
 
-</div>
-
-<div id="schedule" class="section">
+<h2>Standings</h2>
 
 <table>
-
-<thead>
-<tr>
-<th>Date</th>
-<th>Team 1</th>
-<th>Score</th>
-<th>Team 2</th>
-</tr>
-</thead>
-
-<tbody id="matchTable"></tbody>
-
-</table>
-
-</div>
-
-<div id="standings" class="section">
-
-<table>
-
 <thead>
 <tr>
 <th>Rank</th>
@@ -136,12 +116,76 @@ margin-right:6px;
 </div>
 
 
+<div id="schedule" class="section">
+
+<h2>Matches</h2>
+
+<table>
+
+<thead>
+<tr>
+<th>Date</th>
+<th>Team 1</th>
+<th>Score</th>
+<th>Team 2</th>
+</tr>
+</thead>
+
+<tbody id="matchTable"></tbody>
+
+</table>
+
+</div>
+
+
+<div id="scorers" class="section">
+
+<h2>Top Scorers</h2>
+
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Player</th>
+<th>Team</th>
+<th>Goals</th>
+</tr>
+</thead>
+
+<tbody id="scorerTable"></tbody>
+
+</table>
+
+</div>
+
+
+<div id="cards" class="section">
+
+<h2>Yellow Cards</h2>
+
+<table>
+<thead>
+<tr>
+<th>Player</th>
+<th>Team</th>
+<th>Cards</th>
+<th>Suspended</th>
+</tr>
+</thead>
+
+<tbody id="cardTable"></tbody>
+
+</table>
+
+</div>
+
+
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-const firebaseConfig = {
+const firebaseConfig={
 apiKey:"AIzaSyAmlSol_3Wmfs53A98sEdEm-uSaByGzo28",
 authDomain:"tournament-sys.firebaseapp.com",
 projectId:"tournament-sys"
@@ -149,9 +193,6 @@ projectId:"tournament-sys"
 
 const app=initializeApp(firebaseConfig)
 const db=getFirestore(app)
-
-let teams=[]
-let matches=[]
 
 function openTab(id,e){
 
@@ -163,40 +204,72 @@ e.target.classList.add("active")
 
 }
 
-async function loadTeams(){
-
-teams=[]
-
-const querySnapshot=await getDocs(collection(db,"teams"))
-
-querySnapshot.forEach(doc=>{
-teams.push(doc.data())
-})
-
-renderTeams()
-
-}
-
-function renderTeams(){
-
-let teamList=document.getElementById("teamList")
-teamList.innerHTML=""
-
-teams.forEach(t=>{
-
-let logo=t.logo?`<img class="teamLogo" src="${t.logo}">`:""
-
-teamList.innerHTML+=`
-<li>${logo}${t.name}</li>
-`
-
-})
-
-}
-
 window.openTab=openTab
 
-loadTeams()
+async function load(){
+
+const teams=[]
+const matches=[]
+const scorers=[]
+const cards=[]
+
+const t=await getDocs(collection(db,"teams"))
+t.forEach(d=>teams.push(d.data()))
+
+const m=await getDocs(collection(db,"matches"))
+m.forEach(d=>matches.push(d.data()))
+
+const s=await getDocs(collection(db,"scorers"))
+s.forEach(d=>scorers.push(d.data()))
+
+const c=await getDocs(collection(db,"cards"))
+c.forEach(d=>cards.push(d.data()))
+
+const matchTable=document.getElementById("matchTable")
+
+matches.forEach(m=>{
+matchTable.innerHTML+=`
+<tr>
+<td>${m.date}</td>
+<td>${m.team1}</td>
+<td>${m.s1} : ${m.s2}</td>
+<td>${m.team2}</td>
+</tr>`
+})
+
+scorers.sort((a,b)=>b.goals-a.goals)
+
+const sTable=document.getElementById("scorerTable")
+
+scorers.forEach((p,i)=>{
+
+sTable.innerHTML+=`
+<tr>
+<td>${i+1}</td>
+<td>${p.name}</td>
+<td>${p.team}</td>
+<td>${p.goals}</td>
+</tr>`
+})
+
+const cTable=document.getElementById("cardTable")
+
+cards.forEach(p=>{
+
+let suspend=p.cards>=3?"YES":""
+
+cTable.innerHTML+=`
+<tr>
+<td>${p.name}</td>
+<td>${p.team}</td>
+<td>${p.cards}</td>
+<td>${suspend}</td>
+</tr>`
+})
+
+}
+
+load()
 
 </script>
 
