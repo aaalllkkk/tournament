@@ -383,13 +383,11 @@ window.addTeam = async function(){
   let name=document.getElementById("teamName").value;
   let logo=document.getElementById("teamLogo").value;
   await addDoc(collection(db,"teams"),{name,logo});
-  loadData();
 }
 
 window.deleteTeam = async function(id){
   if(!isAdmin) return;
   await deleteDoc(doc(db,"teams",id));
-  loadData();
 }
 
 window.addMatch = async function(){
@@ -400,13 +398,11 @@ window.addMatch = async function(){
   await addDoc(collection(db,"matches"),{
     team1:t1, team2:t2, date:date, s1:null, s2:null, y1:0, y2:0
   });
-  loadData();
 }
 
 window.deleteMatch = async function(id){
   if(!isAdmin) return;
   await deleteDoc(doc(db,"matches",id));
-  loadData();
 }
 
 window.enterResult = async function(id){
@@ -414,7 +410,6 @@ window.enterResult = async function(id){
   let s1=parseInt(prompt("Score team1"));
   let s2=parseInt(prompt("Score team2"));
   await updateDoc(doc(db,"matches",id),{s1,s2});
-  loadData();
 }
 
 window.addYellow = async function(id){
@@ -422,7 +417,6 @@ window.addYellow = async function(id){
   let y1=parseInt(prompt("Yellow Team1"));
   let y2=parseInt(prompt("Yellow Team2"));
   await updateDoc(doc(db,"matches",id),{y1,y2});
-  loadData();
 }
 
 window.addScorer = async function(){
@@ -433,13 +427,11 @@ window.addScorer = async function(){
   let image = document.getElementById("playerImage").value;  // <-- new line
 
   await addDoc(collection(db,"scorers"), {player, team, goals, image}); // include image
-  loadData();
 }
 
 window.deleteScorer = async function(id){
   if(!isAdmin) return;
   await deleteDoc(doc(db,"scorers",id));
-  loadData();
 }
 
 // ---- RENDER FUNCTIONS ----
