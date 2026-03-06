@@ -2,9 +2,11 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Tournament Manager</title>
+<title>PILDUN DUNIA 😋</title>
 
 <style>
+
+/* SAME DESIGN AS YOUR ORIGINAL */
 
 body{
 font-family:Segoe UI;
@@ -17,11 +19,6 @@ padding:20px;
 h1{
 text-align:center;
 margin-bottom:10px;
-}
-
-.resetBox{
-text-align:center;
-margin-bottom:20px;
 }
 
 .tabs{
@@ -55,30 +52,6 @@ border-radius:10px;
 display:block;
 }
 
-input,select{
-padding:8px;
-margin:5px;
-border-radius:6px;
-border:none;
-}
-
-button{
-padding:8px 12px;
-border:none;
-border-radius:6px;
-background:#38bdf8;
-cursor:pointer;
-}
-
-button:hover{
-opacity:0.9;
-}
-
-.resetBtn{
-background:#ef4444;
-color:white;
-}
-
 table{
 width:100%;
 border-collapse:collapse;
@@ -91,13 +64,12 @@ padding:8px;
 text-align:center;
 }
 
-.rank1{color:gold;font-weight:bold;}
-.rank2{color:silver;}
-.rank3{color:#cd7f32;}
-
-.loginBox{
-text-align:center;
-margin-bottom:20px;
+.teamLogo{
+width:30px;
+height:30px;
+object-fit:cover;
+border-radius:4px;
+margin-right:6px;
 }
 
 </style>
@@ -105,48 +77,21 @@ margin-bottom:20px;
 
 <body>
 
-<h1>🏆 Tournament Manager</h1>
-
-<div class="loginBox">
-
-<input id="email" placeholder="Admin Email">
-<input id="password" type="password" placeholder="Password">
-
-<button onclick="login()">Login</button>
-<button onclick="logout()">Logout</button>
-
-<span id="status">Viewer Mode</span>
-
-</div>
+<h1> PILDUN DUNIA 😋 </h1>
 
 <div class="tabs">
 <div class="tab active" onclick="openTab('teams',event)">Teams</div>
 <div class="tab" onclick="openTab('schedule',event)">Schedule</div>
 <div class="tab" onclick="openTab('standings',event)">Standings</div>
-<div class="tab" onclick="openTab('scorers',event)">Top Scorers</div>
 </div>
 
 <div id="teams" class="section active">
-
-<h2>Add Team</h2>
-
-<input id="teamName" placeholder="Team Name">
-<button onclick="addTeam()">Add Team</button>
 
 <ul id="teamList"></ul>
 
 </div>
 
-
 <div id="schedule" class="section">
-
-<h2>Create Match</h2>
-
-<select id="team1"></select>
-<select id="team2"></select>
-<input id="date" placeholder="Date">
-
-<button onclick="addMatch()">Add Match</button>
 
 <table>
 
@@ -156,9 +101,6 @@ margin-bottom:20px;
 <th>Team 1</th>
 <th>Score</th>
 <th>Team 2</th>
-<th>Result</th>
-<th>Yellow</th>
-<th>Delete</th>
 </tr>
 </thead>
 
@@ -169,8 +111,6 @@ margin-bottom:20px;
 </div>
 
 <div id="standings" class="section">
-
-<h2>Standings</h2>
 
 <table>
 
@@ -186,8 +126,6 @@ margin-bottom:20px;
 <th>GA</th>
 <th>GD</th>
 <th>Pts</th>
-<th>Yellow</th>
-<th>Suspended</th>
 </tr>
 </thead>
 
@@ -198,128 +136,24 @@ margin-bottom:20px;
 </div>
 
 
-<div id="scorers" class="section">
-
-<h2>Top Scorers</h2>
-
-<input id="playerName" placeholder="Player">
-<select id="playerTeam"></select>
-<input id="playerGoals" placeholder="Goals">
-
-<button onclick="addScorer()">Add Player</button>
-
-<table>
-
-<thead>
-<tr>
-<th>Rank</th>
-<th>Player</th>
-<th>Team</th>
-<th>Goals</th>
-<th>Delete</th>
-</tr>
-</thead>
-
-<tbody id="scorerTable"></tbody>
-
-</table>
-
-</div>
-
 <script type="module">
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-
-import { 
-getFirestore,
-collection,
-addDoc,
-getDocs,
-deleteDoc,
-doc,
-updateDoc
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-import {
-getAuth,
-signInWithEmailAndPassword,
-signOut,
-onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
-
-apiKey: "AIzaSyAmlSol_3Wmfs53A98sEdEm-uSaByGzo28",
-authDomain: "tournament-sys.firebaseapp.com",
-projectId: "tournament-sys",
-storageBucket: "tournament-sys.firebasestorage.app",
-messagingSenderId: "519201807872",
-appId: "1:519201807872:web:9054f639cbd8190d9ec2e5"
-
-};
-
-const app = initializeApp(firebaseConfig);
-
-const db = getFirestore(app);
-const auth = getAuth(app);
-
-let isAdmin=false;
-
-let teams=[];
-let matches=[];
-let scorers=[];
-
-async function loadData(){
-
-teams=[];
-matches=[];
-scorers=[];
-
-const t=await getDocs(collection(db,"teams"));
-t.forEach(d=>teams.push({...d.data(),id:d.id}));
-
-const m=await getDocs(collection(db,"matches"));
-m.forEach(d=>matches.push({...d.data(),id:d.id}));
-
-const s=await getDocs(collection(db,"scorers"));
-s.forEach(d=>scorers.push({...d.data(),id:d.id}));
-
-render();
-
+apiKey:"AIzaSyAmlSol_3Wmfs53A98sEdEm-uSaByGzo28",
+authDomain:"tournament-sys.firebaseapp.com",
+projectId:"tournament-sys"
 }
 
-window.login=async function(){
+const app=initializeApp(firebaseConfig)
+const db=getFirestore(app)
 
-let email=document.getElementById("email").value;
-let pass=document.getElementById("password").value;
+let teams=[]
+let matches=[]
 
-await signInWithEmailAndPassword(auth,email,pass);
-
-}
-
-window.logout=function(){
-
-signOut(auth);
-
-}
-
-onAuthStateChanged(auth,user=>{
-
-if(user){
-
-isAdmin=true;
-document.getElementById("status").innerText="Admin Mode";
-
-}else{
-
-isAdmin=false;
-document.getElementById("status").innerText="Viewer Mode";
-
-}
-
-});
-
-window.openTab=function(id,e){
+function openTab(id,e){
 
 document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"))
 document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"))
@@ -329,215 +163,40 @@ e.target.classList.add("active")
 
 }
 
-window.addTeam=async function(){
+async function loadTeams(){
 
-if(!isAdmin)return alert("Admin only");
+teams=[]
 
-let name=document.getElementById("teamName").value;
+const querySnapshot=await getDocs(collection(db,"teams"))
 
-await addDoc(collection(db,"teams"),{name})
+querySnapshot.forEach(doc=>{
+teams.push(doc.data())
+})
 
-loadData();
+renderTeams()
 
 }
 
-window.addMatch=async function(){
-
-if(!isAdmin)return;
-
-let t1=document.getElementById("team1").value
-let t2=document.getElementById("team2").value
-let date=document.getElementById("date").value
-
-await addDoc(collection(db,"matches"),{
-
-team1:t1,
-team2:t2,
-date:date,
-s1:null,
-s2:null,
-y1:0,
-y2:0
-
-})
-
-loadData();
-
-}
-
-window.enterResult=async function(id){
-
-if(!isAdmin)return;
-
-let s1=parseInt(prompt("Score team1"))
-let s2=parseInt(prompt("Score team2"))
-
-await updateDoc(doc(db,"matches",id),{
-
-s1:s1,
-s2:s2
-
-})
-
-loadData();
-
-}
-
-window.addYellow=async function(id){
-
-if(!isAdmin)return;
-
-let y1=parseInt(prompt("Yellow Team1"))
-let y2=parseInt(prompt("Yellow Team2"))
-
-await updateDoc(doc(db,"matches",id),{
-
-y1:y1,
-y2:y2
-
-})
-
-loadData();
-
-}
-
-function calculateStandings(){
-
-let table={};
-
-teams.forEach(t=>{
-table[t.name]={p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0,y:0}
-})
-
-matches.forEach(m=>{
-
-if(m.s1===null)return;
-
-let t1=table[m.team1]
-let t2=table[m.team2]
-
-t1.p++
-t2.p++
-
-t1.gf+=m.s1
-t1.ga+=m.s2
-
-t2.gf+=m.s2
-t2.ga+=m.s1
-
-t1.y+=m.y1||0
-t2.y+=m.y2||0
-
-if(m.s1>m.s2){t1.w++;t2.l++;t1.pts+=3}
-else if(m.s2>m.s1){t2.w++;t1.l++;t2.pts+=3}
-else{t1.d++;t2.d++;t1.pts++;t2.pts++}
-
-})
-
-return table
-
-}
-
-function render(){
+function renderTeams(){
 
 let teamList=document.getElementById("teamList")
 teamList.innerHTML=""
 
 teams.forEach(t=>{
-teamList.innerHTML+=`<li>${t.name}</li>`
-})
 
-let select1=document.getElementById("team1")
-let select2=document.getElementById("team2")
-let playerTeam=document.getElementById("playerTeam")
+let logo=t.logo?`<img class="teamLogo" src="${t.logo}">`:""
 
-select1.innerHTML=""
-select2.innerHTML=""
-playerTeam.innerHTML=""
-
-teams.forEach(t=>{
-select1.innerHTML+=`<option>${t.name}</option>`
-select2.innerHTML+=`<option>${t.name}</option>`
-playerTeam.innerHTML+=`<option>${t.name}</option>`
-})
-
-let matchTable=document.getElementById("matchTable")
-matchTable.innerHTML=""
-
-matches.forEach(m=>{
-
-let score=m.s1===null?"-":m.s1+" : "+m.s2
-
-matchTable.innerHTML+=`
-
-<tr>
-<td>${m.date}</td>
-<td>${m.team1}</td>
-<td>${score}</td>
-<td>${m.team2}</td>
-<td><button onclick="enterResult('${m.id}')">Enter</button></td>
-<td><button onclick="addYellow('${m.id}')">Card</button></td>
-</tr>
-
-`
-
-})
-
-let standings=calculateStandings()
-
-let arr=[]
-
-for(let t in standings){
-
-let d=standings[t]
-
-arr.push({
-
-team:t,
-...d,
-gd:d.gf-d.ga,
-suspend:Math.floor(d.y/3)
-
-})
-
-}
-
-arr.sort((a,b)=>b.pts-a.pts||b.gd-a.gd)
-
-let table=document.getElementById("standingsTable")
-table.innerHTML=""
-
-arr.forEach((t,i)=>{
-
-let c=""
-if(i==0)c="rank1"
-if(i==1)c="rank2"
-if(i==2)c="rank3"
-
-table.innerHTML+=`
-
-<tr class="${c}">
-<td>${i+1}</td>
-<td>${t.team}</td>
-<td>${t.p}</td>
-<td>${t.w}</td>
-<td>${t.d}</td>
-<td>${t.l}</td>
-<td>${t.gf}</td>
-<td>${t.ga}</td>
-<td>${t.gd}</td>
-<td>${t.pts}</td>
-<td>${t.y}</td>
-<td>${t.suspend}</td>
-</tr>
-
+teamList.innerHTML+=`
+<li>${logo}${t.name}</li>
 `
 
 })
 
 }
 
-loadData()
+window.openTab=openTab
+
+loadTeams()
 
 </script>
 
