@@ -308,6 +308,9 @@ async function loadData(){
   renderMatches();
   renderStandings();
   renderScorers();
+    
+  // <-- ADD THIS LINE -->
+  openTab('standings', { target: document.querySelector(".tab:nth-child(3)") });
 }
 
 window.login = async function(){
