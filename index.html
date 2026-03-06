@@ -297,6 +297,32 @@ document.addEventListener("DOMContentLoaded", () => {
     standingsTab.classList.add("active");
     document.getElementById("standings").classList.add("active");
 });
+
+  import { onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// Real-time listener for teams
+onSnapshot(collection(db, "teams"), (snapshot) => {
+  teams = [];
+  snapshot.forEach(doc => teams.push({ ...doc.data(), id: doc.id }));
+  renderTeams();
+  renderStandings();
+  renderScorers();
+});
+
+// Real-time listener for matches
+onSnapshot(collection(db, "matches"), (snapshot) => {
+  matches = [];
+  snapshot.forEach(doc => matches.push({ ...doc.data(), id: doc.id }));
+  renderMatches();
+  renderStandings();
+});
+
+// Real-time listener for scorers
+onSnapshot(collection(db, "scorers"), (snapshot) => {
+  scorers = [];
+  snapshot.forEach(doc => scorers.push({ ...doc.data(), id: doc.id }));
+  renderScorers();
+});
   
 async function loadData(){
 
@@ -523,11 +549,11 @@ function renderScorers(){
 <tr>
   <td>${i+1}</td>
   <td>
-    <img src="${s.image||''}" style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
+    <img src="${s.image||''}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;margin-right:8px;vertical-align:middle;">
     ${s.player}
   </td>
   <td>
-    <img src="${teams.find(team=>team.name===s.team)?.logo||''}" style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
+    <img src="${teams.find(team=>team.name===s.team)?.logo||''}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
     ${s.team}
   </td>
   <td>${s.goals}</td>
