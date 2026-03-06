@@ -1,189 +1,223 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Tournament Admin</title>
+<title>Admin Panel</title>
 
 <style>
 
-/* SAME STYLE AS ORIGINAL */
-
 body{
-font-family:Segoe UI;
-background:#0f172a;
+font-family:Arial;
+background:#111;
 color:white;
-margin:0;
-padding:20px;
-}
-
-.loginBox{
 text-align:center;
-margin-bottom:20px;
 }
 
-input,select{
-padding:8px;
+input{
 margin:5px;
-border-radius:6px;
-border:none;
+padding:6px;
 }
 
 button{
-padding:8px 12px;
-border:none;
-border-radius:6px;
-background:#38bdf8;
-cursor:pointer;
-}
-
-.section{
-background:#1e293b;
-padding:20px;
-border-radius:10px;
-margin-bottom:20px;
+padding:6px 10px;
+margin:5px;
 }
 
 </style>
+
 </head>
 
 <body>
 
-<h1>🏆 Tournament Admin</h1>
+<h1>Admin Login</h1>
 
-<div class="loginBox">
+<div id="loginBox">
 
-<input id="email" placeholder="Admin Email">
-<input id="password" type="password" placeholder="Password">
+<input id="email" placeholder="email">
+<input id="password" type="password" placeholder="password">
 
 <button onclick="login()">Login</button>
 
 </div>
 
-
-<div class="section">
+<div id="adminPanel" style="display:none">
 
 <h2>Add Team</h2>
 
 <input id="teamName" placeholder="Team Name">
-<input type="file" id="teamLogo">
+<input id="teamLogo" placeholder="Logo URL">
 
 <button onclick="addTeam()">Add Team</button>
 
-<ul id="teamList"></ul>
+<h2>Delete Team</h2>
 
-</div>
+<input id="deleteTeamId" placeholder="Team ID">
 
+<button onclick="deleteTeam()">Delete</button>
 
-<div class="section">
+<h2>Add Player</h2>
 
-<h2>Add Match</h2>
+<input id="playerName" placeholder="Player Name">
 
-<select id="team1"></select>
-<select id="team2"></select>
-
-<input id="date" placeholder="Date">
-<input id="s1" placeholder="Score">
-<input id="s2" placeholder="Score">
-
-<button onclick="addMatch()">Save Match</button>
-
-</div>
-
-
-<div class="section">
+<button onclick="addPlayer()">Add Player</button>
 
 <h2>Add Goal</h2>
 
-<input id="playerName" placeholder="Player">
-<input id="playerTeam" placeholder="Team">
+<input id="goalPlayer" placeholder="Player Name">
 
 <button onclick="addGoal()">Add Goal</button>
 
-</div>
-
-
-<div class="section">
-
 <h2>Add Yellow Card</h2>
 
-<input id="cardName" placeholder="Player">
-<input id="cardTeam" placeholder="Team">
+<input id="cardPlayer" placeholder="Player Name">
 
 <button onclick="addCard()">Add Card</button>
 
 </div>
 
-
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-const firebaseConfig={
-apiKey:"AIzaSyAmlSol_3Wmfs53A98sEdEm-uSaByGzo28",
-authDomain:"tournament-sys.firebaseapp.com",
-projectId:"tournament-sys"
-}
+import {
+getFirestore,
+collection,
+addDoc,
+deleteDoc,
+doc,
+query,
+where,
+getDocs,
+updateDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-const app=initializeApp(firebaseConfig)
-const db=getFirestore(app)
-const auth=getAuth(app)
+import {
+getAuth,
+signInWithEmailAndPassword,
+onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-window.login=async function(){
+const firebaseConfig = {
 
-const email=document.getElementById("email").value
-const password=document.getElementById("password").value
+apiKey: "AIzaSyAmlSol_3Wmfs53A98sEdEm-uSaByGzo28",
+authDomain: "tournament-sys.firebaseapp.com",
+projectId: "tournament-sys",
 
-await signInWithEmailAndPassword(auth,email,password)
+};
 
-alert("Login Success")
+const app = initializeApp(firebaseConfig);
 
-}
+const db = getFirestore(app);
 
-window.addTeam=async function(){
+const auth = getAuth(app);
 
-let name=document.getElementById("teamName").value
+window.login = async function(){
 
-await addDoc(collection(db,"teams"),{name:name})
+const email = document.getElementById("email").value;
+const pass = document.getElementById("password").value;
 
-}
-
-window.addMatch=async function(){
-
-await addDoc(collection(db,"matches"),{
-
-team1:team1.value,
-team2:team2.value,
-date:date.value,
-s1:s1.value,
-s2:s2.value
-
-})
+await signInWithEmailAndPassword(auth,email,pass);
 
 }
 
-window.addGoal=async function(){
+onAuthStateChanged(auth,user=>{
 
-await addDoc(collection(db,"scorers"),{
+if(user){
 
-name:playerName.value,
-team:playerTeam.value,
-goals:1
-
-})
+document.getElementById("loginBox").style.display="none";
+document.getElementById("adminPanel").style.display="block";
 
 }
 
-window.addCard=async function(){
+});
 
-await addDoc(collection(db,"cards"),{
+window.addTeam = async function(){
 
-name:cardName.value,
-team:cardTeam.value,
-cards:1
+const name = document.getElementById("teamName").value;
+const logo = document.getElementById("teamLogo").value;
 
-})
+await addDoc(collection(db,"teams"),{
+
+name:name,
+logo:logo,
+played:0,
+win:0,
+draw:0,
+loss:0,
+points:0
+
+});
+
+alert("Team added");
+
+}
+
+window.deleteTeam = async function(){
+
+const id = document.getElementById("deleteTeamId").value;
+
+await deleteDoc(doc(db,"teams",id));
+
+alert("Deleted");
+
+}
+
+window.addPlayer = async function(){
+
+const name = document.getElementById("playerName").value;
+
+await addDoc(collection(db,"players"),{
+
+name:name,
+goals:0,
+cards:0
+
+});
+
+alert("Player added");
+
+}
+
+window.addGoal = async function(){
+
+const name = document.getElementById("goalPlayer").value;
+
+const q = query(collection(db,"players"),where("name","==",name));
+
+const snap = await getDocs(q);
+
+snap.forEach(async d=>{
+
+const p=d.data();
+
+await updateDoc(doc(db,"players",d.id),{
+
+goals:(p.goals||0)+1
+
+});
+
+});
+
+}
+
+window.addCard = async function(){
+
+const name = document.getElementById("cardPlayer").value;
+
+const q = query(collection(db,"players"),where("name","==",name));
+
+const snap = await getDocs(q);
+
+snap.forEach(async d=>{
+
+const p=d.data();
+
+await updateDoc(doc(db,"players",d.id),{
+
+cards:(p.cards||0)+1
+
+});
+
+});
 
 }
 
