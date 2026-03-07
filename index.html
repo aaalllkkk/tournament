@@ -286,11 +286,23 @@ background:#94a3b8;
 
 <div>
 
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+
 <div class="card">
 
 <h2>Top Scorers</h2>
 
 <div id="dashboardScorers"></div>
+
+</div>
+
+<div class="card">
+
+<h2>Next Match</h2>
+
+<div id="nextMatch"></div>
+
+</div>
 
 </div>
 
@@ -519,6 +531,7 @@ onSnapshot(collection(db, "matches"), (snapshot) => {
   renderStandings();
   renderHighlights();
   renderDashboardStandings();
+  renderNextMatch();
 });
 
 // Real-time listener for scorers
@@ -942,6 +955,50 @@ ${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete<
 
 </tr>`;
   });
+}
+  function renderNextMatch(){
+
+let box=document.getElementById("nextMatch");
+if(!box) return;
+
+let upcoming = matches
+.filter(m=>m.s1===null)
+.sort((a,b)=>new Date(a.date)-new Date(b.date))[0];
+
+if(!upcoming){
+box.innerHTML="No upcoming match";
+return;
+}
+
+let team1=teams.find(t=>t.name===upcoming.team1);
+let team2=teams.find(t=>t.name===upcoming.team2);
+
+box.innerHTML=`
+
+<div style="text-align:center">
+
+<div style="display:flex;justify-content:space-between;align-items:center">
+
+<div>
+<img src="${team1?.logo||''}" width="32"><br>
+${upcoming.team1}
+</div>
+
+<strong>VS</strong>
+
+<div>
+<img src="${team2?.logo||''}" width="32"><br>
+${upcoming.team2}
+</div>
+
+</div>
+
+<div style="margin-top:8px">${upcoming.date}</div>
+
+</div>
+
+`;
+
 }
   
 function renderNews(){
