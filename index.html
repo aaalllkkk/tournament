@@ -139,13 +139,13 @@ border-radius:4px;
 
 <div id="teams" class="section active">
 
+<div id="adminTeamControls">
 <h2>Add Team</h2>
 
 <input id="teamName" placeholder="Team Name">
 <input id="teamLogo" placeholder="Team Logo URL">
-
 <button onclick="addTeam()">Add Team</button>
-
+</div>
 <ul id="teamList"></ul>
 
 </div>
@@ -288,6 +288,10 @@ let matches=[];
 let scorers=[];
 
   // ---------- Toggle ----------
+  function toggleAdminUI(){
+  let controls=document.getElementById("adminTeamControls");
+  if(controls) controls.style.display = isAdmin ? "block" : "none";
+}
   function toggleFolder(n) {
   const table = document.getElementById(`weekday-${n}`);
   if (table.style.display === "none") table.style.display = "table";
@@ -349,6 +353,8 @@ onAuthStateChanged(auth,user=>{
     isAdmin=false;
     document.getElementById("status").innerText="Viewer Mode";
   }
+
+  toggleAdminUI();
 });
 
 window.openTab = function(id,e){
@@ -415,6 +421,16 @@ window.deleteScorer = async function(id){
   await deleteDoc(doc(db,"scorers",id));
 }
 
+window.editGoals = async function(id,currentGoals){
+
+  if(!isAdmin) return alert("Admin only");
+  let newGoals = parseInt(prompt("Enter new goal total:", currentGoals));
+  if(isNaN(newGoals)) return;
+  await updateDoc(doc(db,"scorers",id),{
+    goals:newGoals
+  });
+
+}
   // ---------- Place here ----------
 async function deleteMatch(id) {
   if(!isAdmin) return alert("Admin only");
@@ -434,7 +450,7 @@ function renderTeams(){
       <li class="teamRow">
       <img src="${t.logo||''}">
       ${t.name}
-      <button class="deleteBtn" onclick="deleteTeam('${t.id}')">Delete</button>
+      ${isAdmin ? `<button class="deleteBtn" onclick="deleteTeam('${t.id}')">Delete</button>` : ""}
       </li>`;
   });
 
@@ -497,9 +513,9 @@ matches.forEach(m => {
       <td>${m.team1}</td>
       <td>${score}</td>
       <td>${m.team2}</td>
-      <td><button onclick="enterResult('${m.id}')">Enter</button></td>
-      <td><button onclick="addYellow('${m.id}')">Card</button></td>
-      <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>
+      <td>${isAdmin ? `<button onclick="enterResult('${m.id}')">Enter</button>` : ""}</td>
+      <td>${isAdmin ? `<button onclick="addYellow('${m.id}')">Card</button>` : ""}</td>
+      <td>${isAdmin ? `<button onclick="deleteMatch('${m.id}')">Delete</button>` : ""}</td>
     </tr>`;
 });
 
@@ -585,8 +601,14 @@ function renderScorers(){
     <img src="${teams.find(team=>team.name===s.team)?.logo||''}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
     ${s.team}
   </td>
-  <td>${s.goals}</td>
-  <td><button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete</button></td>
+  
+<td>${s.goals}</td>
+
+<td>
+${isAdmin ? `<button onclick="editGoals('${s.id}', ${s.goals})">Edit</button>` : ""}
+${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete</button>` : ""}
+</td>
+
 </tr>`;
   });
 }
