@@ -155,6 +155,8 @@ border-radius:4px;
 
 <div id="schedule" class="section">
 
+<div id="matchControls">
+
 <h2>Create Match</h2>
 
 <select id="team1"></select>
@@ -163,6 +165,7 @@ border-radius:4px;
 <input id="date" placeholder="Date">
 <button onclick="addMatch()">Add Match</button>
 
+</div>
 <table>
 
 <thead>
@@ -221,12 +224,16 @@ border-radius:4px;
 
 <h2>Top Scorers</h2>
 
+<div id="scorerControls">
+
 <input id="playerName" placeholder="Player">
 <input id="playerImage" placeholder="Player Image URL">
 <select id="playerTeam"></select>
 <input id="playerGoals" placeholder="Goals">
 
 <button onclick="addScorer()">Add Player</button>
+
+</div>
 
 <table>
 
@@ -290,6 +297,11 @@ let scorers=[];
   function toggleAdminUI(){
   let controls=document.getElementById("adminTeamControls");
   if(controls) controls.style.display = isAdmin ? "block" : "none";
+  let matchControls = document.getElementById("matchControls");
+let scorerControls = document.getElementById("scorerControls");
+
+if(matchControls) matchControls.style.display = isAdmin ? "block" : "none";
+if(scorerControls) scorerControls.style.display = isAdmin ? "block" : "none";
 }
   function toggleFolder(n) {
   const table = document.getElementById(`weekday-${n}`);
