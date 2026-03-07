@@ -37,9 +37,14 @@ cursor:pointer;
 border-radius:6px;
 }
 
+.tab:hover{
+background:#1e3a5f;
+}
+  
 .tab.active{
-background:#38bdf8;
-color:black;
+background:#f4c542;
+color:#0b1e3d;
+font-weight:600;
 }
 
 .section{
@@ -225,6 +230,40 @@ border-radius:10px;
 
 #newsList::-webkit-scrollbar-thumb:hover{
 background:#94a3b8;
+}
+  
+.scoreCard{
+display:flex;
+align-items:center;
+justify-content:space-between;
+background:#1e3a5f;
+padding:10px 14px;
+border-radius:10px;
+margin:8px 0;
+}
+
+.teamBlock{
+display:flex;
+align-items:center;
+gap:8px;
+}
+
+.teamBlock img{
+width:26px;
+height:26px;
+border-radius:4px;
+object-fit:cover;
+}
+
+.scoreNumber{
+font-size:18px;
+font-weight:bold;
+color:#f4c542;
+}
+
+.vsText{
+font-weight:bold;
+color:#94a3b8;
 }
 
 body::before{
@@ -998,28 +1037,28 @@ return;
 let team1=teams.find(t=>t.name===upcoming.team1);
 let team2=teams.find(t=>t.name===upcoming.team2);
 
-box.innerHTML=`
+box.innerHTML = `
 
-<div style="text-align:center">
+<div class="scoreCard">
 
-<div style="display:flex;justify-content:space-between;align-items:center">
-
-<div>
-<img src="${team1?.logo||''}" width="32"><br>
+<div class="teamBlock">
+<img src="${team1?.logo||''}">
 ${upcoming.team1}
 </div>
 
-<strong>VS</strong>
+<div class="vsText">
+VS
+</div>
 
-<div>
-<img src="${team2?.logo||''}" width="32"><br>
+<div class="teamBlock">
+<img src="${team2?.logo||''}">
 ${upcoming.team2}
 </div>
 
 </div>
 
-<div style="margin-top:8px">${upcoming.date}</div>
-
+<div style="text-align:center;margin-top:6px;color:#94a3b8">
+${upcoming.date}
 </div>
 
 `;
@@ -1076,20 +1115,23 @@ let team2=teams.find(t=>t.name===m.team2);
 
 container.innerHTML+=`
 
-<div class="highlightMatch">
+<div class="scoreCard">
 
-<span>
-<img src="${team1?.logo||''}" width="24"> ${m.team1}
-</span>
-
-<strong>${m.s1} - ${m.s2}</strong>
-
-<span>
-<img src="${team2?.logo||''}" width="24"> ${m.team2}
-</span>
-
+<div class="teamBlock">
+<img src="${team1?.logo||''}">
+${m.team1}
 </div>
 
+<div class="scoreNumber">
+${m.s1} - ${m.s2}
+</div>
+
+<div class="teamBlock">
+<img src="${team2?.logo||''}">
+${m.team2}
+</div>
+
+</div>
 `;
 
 });
