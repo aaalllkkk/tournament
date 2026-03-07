@@ -787,7 +787,12 @@ function renderTeams(){
 function renderMatches() {
   const container = document.getElementById("schedule");
 
-  // Only render weekday tables for matches
+  // Clear container first to avoid duplicate tables
+  // Keep only the admin controls div, don't overwrite it
+  const controls = document.getElementById("matchControls");
+  container.innerHTML = "";
+  if (controls) container.appendChild(controls);
+
   matches.sort((a, b) => a.weekday - b.weekday || new Date(a.date) - new Date(b.date));
 
   let lastWeekday = 0;
@@ -800,7 +805,7 @@ function renderMatches() {
           <table id="weekday-${m.weekday}" class="weekday-table">
             <tr>
               <th>Date</th><th>Team 1</th><th>Score</th><th>Team 2</th>
-               ${isAdmin ? `<th>Result</th><th>Yellow</th><th>Delete</th>` : ""}
+              ${isAdmin ? `<th>Result</th><th>Yellow</th><th>Delete</th>` : ""}
             </tr>
           </table>
         </div>`;
@@ -823,38 +828,17 @@ function renderMatches() {
                      <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>` : ""}
       </tr>`;
   });
+
+  // Fill team selects
+  const select1 = document.getElementById("team1");
+  const select2 = document.getElementById("team2");
+  select1.innerHTML = "";
+  select2.innerHTML = "";
+  teams.forEach(t => {
+    select1.innerHTML += `<option>${t.name}</option>`;
+    select2.innerHTML += `<option>${t.name}</option>`;
+  });
 }
-
-  const table = document.getElementById(`weekday-${m.weekday}`);
-  const score = m.s1 === null ? "-" : `${m.s1} : ${m.s2}`;
-  const team1 = teams.find(t => t.name === m.team1);
-const team2 = teams.find(t => t.name === m.team2);
-
-table.innerHTML += `
-<tr>
-
-<td>${m.date}</td>
-
-<td>
-<img src="${team1?.logo || ''}" 
-style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
-${m.team1}
-</td>
-
-<td>${score}</td>
-
-<td>
-<img src="${team2?.logo || ''}" 
-style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
-${m.team2}
-</td>
-
-<td>${isAdmin ? `<button onclick="enterResult('${m.id}')">Enter</button>` : ""}</td>
-<td>${isAdmin ? `<button onclick="addYellow('${m.id}')">Card</button>` : ""}</td>
-<td>${isAdmin ? `<button onclick="deleteMatch('${m.id}')">Delete</button>` : ""}</td>
-
-</tr>`;
-});
 
   // Fill team selects
   const select1 = document.getElementById("team1");
