@@ -231,12 +231,11 @@ border-radius:4px;
 <table>
 
 <thead>
-<tr>
+<tr id="scorerHeader">
 <th>Rank</th>
 <th>Player</th>
 <th>Team</th>
 <th>Goals</th>
-<th>Delete</th>
 </tr>
 </thead>
 
@@ -498,7 +497,7 @@ matches.forEach(m => {
         <table id="weekday-${m.weekday}" class="weekday-table">
           <tr>
             <th>Date</th><th>Team 1</th><th>Score</th><th>Team 2</th>
-            <th>Result</th><th>Yellow</th><th>Delete</th>
+             ${isAdmin ? `<th>Result</th><th>Yellow</th><th>Delete</th>` : ""}
           </tr>
         </table>
       </div>`;
@@ -602,6 +601,14 @@ table.innerHTML+=`
 }
 
 function renderScorers(){
+  let header = document.getElementById("scorerHeader");
+header.innerHTML = `
+<th>Rank</th>
+<th>Player</th>
+<th>Team</th>
+<th>Goals</th>
+${isAdmin ? "<th>Manage</th>" : ""}
+`;
   let scorerTable=document.getElementById("scorerTable");
   scorerTable.innerHTML="";
   // sort by goals descending
