@@ -839,18 +839,7 @@ function renderMatches() {
     select2.innerHTML += `<option>${t.name}</option>`;
   });
 }
-
-  // Fill team selects
-  const select1 = document.getElementById("team1");
-  const select2 = document.getElementById("team2");
-  select1.innerHTML = "";
-  select2.innerHTML = "";
-  teams.forEach(t => {
-    select1.innerHTML += `<option>${t.name}</option>`;
-    select2.innerHTML += `<option>${t.name}</option>`;
-  });
-}
-
+  
 function calculateStandings(){
   let table={};
   teams.forEach(t=>{table[t.name]={p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0,y:0}});
