@@ -195,11 +195,12 @@ padding-bottom:12px;
 border-bottom:1px solid #334155;
 }
 
-.newsImage{
-width:220px;
-height:130px;
-object-fit:cover;
-border-radius:8px;
+.newsImage {
+  width: 220px;       /* keep fixed width */
+  height: 130px;      /* keep fixed height */
+  object-fit: contain; /* show full image, no cropping */
+  background-color: #1e293b; /* fill empty space */
+  border-radius: 8px;
 }
 
 .newsContent{
