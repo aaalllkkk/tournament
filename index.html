@@ -7,19 +7,15 @@
 <style>
 
 body{
-font-family:Segoe UI;
-background:linear-gradient(180deg,#020617 0%,#000814 100%);
-color:white;
-margin:0;
-padding:20px;
-min-height:100vh;
+background:#f4f6f8;
+color:#1f2937;
+font-family:Segoe UI, Arial, sans-serif;
 }
 
 h1{
 text-align:center;
 margin-bottom:15px;
-color:#22d3ee;
-text-shadow:0 0 12px rgba(34,211,238,0.7);
+color:#1f2937;
 }
 
 .tabs{
@@ -31,20 +27,19 @@ flex-wrap:wrap;
 }
 
 .tab{
-background:#0f172a;
+background:#e5e7eb;
+color:#1f2937;
 }
 
 .tab:hover{
-background:#1e293b;
+background:#d1d5db;
 }
 
 .tab.active{
-background:#22d3ee;
-color:#021018;
+background:#2563eb;
+color:white;
 font-weight:600;
-box-shadow:0 0 10px #22d3ee88;
 }
-
 .section{
 display:none;
 background:#1e293b;
@@ -64,9 +59,11 @@ border:none;
 }
 
 button{
-background:#22d3ee;
-color:#021018;
-box-shadow:0 0 8px #22d3ee55;
+background:#2563eb;
+color:white;
+border:none;
+padding:8px 14px;
+border-radius:6px;
 }
 
 button:hover{
@@ -85,10 +82,8 @@ border-collapse:collapse;
 margin-top:15px;
 }
 
-th,td{
-border-bottom:1px solid #1e3a5f;
-padding:8px;
-text-align:center;
+th{
+background:#f3f4f6;
 }
 
 .rank1{color:gold;font-weight:bold;}
@@ -115,10 +110,10 @@ gap:20px;
 }
 
 .card{
-background:#0f172a;
-border:1px solid #1e293b;
-border-top:3px solid #22d3ee;
-box-shadow:0 0 15px rgba(34,211,238,0.08);
+background:#ffffff;
+border:1px solid #e5e7eb;
+border-radius:10px;
+padding:15px;
 }
   
 transition:all 0.2s ease;
@@ -259,10 +254,8 @@ object-fit:cover;
 }
 
 .scoreNumber{
-color:#22d3ee;
-font-size:18px;
+color:#2563eb;
 font-weight:bold;
-text-shadow:0 0 6px #22d3ee66;
 }
 
 .vsText{
