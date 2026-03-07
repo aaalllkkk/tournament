@@ -196,11 +196,11 @@ padding-bottom:12px;
 border-bottom:1px solid #334155;
 }
 
-.newsImage{
-width:220px;
-height:130px;
-object-fit:cover;
-border-radius:8px;
+.newsImage {
+  width: 100%;         /* or a max-width like 400px */
+  height: auto;        /* keeps original aspect ratio */
+  object-fit: contain;  /* ensures entire image fits */
+  border-radius: 8px;
 }
 
 .newsContent{
