@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Admin Login</title>
+<style>
+body {
+  font-family:Segoe UI;
+  background:#07142a;
+  color:white;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+  margin:0;
+}
+#loginBox {
+  background:#1e293b;
+  padding:20px;
+  border-radius:8px;
+  text-align:center;
+}
+input {
+  padding:8px;
+  margin:5px;
+  border-radius:6px;
+  border:none;
+  width:200px;
+}
+button {
+  margin:5px;
+  padding:8px 12px;
+  border:none;
+  border-radius:6px;
+  background:#f4c542;
+  color:#0b1e3d;
+  font-weight:600;
+  cursor:pointer;
+}
+</style>
+</head>
+<body>
+
+<div id="loginBox">
+  <h2>Admin Login</h2>
+  <input id="email" placeholder="Email"><br>
+  <input id="password" type="password" placeholder="Password"><br>
+  <button onclick="login()">Login</button>
+  <p id="status"></p>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+   apiKey: "AIzaSyAmlSol_3Wmfs53A98sEdEm-uSaByGzo28",
+    authDomain: "tournament-sys.firebaseapp.com",
+    projectId: "tournament-sys",
+    storageBucket: "tournament-sys.firebasestorage.app",
+    messagingSenderId: "519201807872",
+    appId: "1:519201807872:web:9054f639cbd8190d9ec2e5"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+window.login = async function() {
+  let email = document.getElementById("email").value;
+  let pass = document.getElementById("password").value;
+  try {
+    await signInWithEmailAndPassword(auth,email,pass);
+  } catch(e) {
+    document.getElementById("status").innerText = e.message;
+  }
+}
+
+onAuthStateChanged(auth,user=>{
+  if(user){
+    // Redirect to main dashboard and store session
+    window.location.href="index.html";
+  }
+});
+</script>
+</body>
+</html>
