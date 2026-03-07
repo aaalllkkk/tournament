@@ -8,7 +8,7 @@
 
 body{
 font-family:Segoe UI;
-background:linear-gradient(180deg,#0b1e3d 0%,#07142a 100%);
+background:linear-gradient(180deg,#020617 0%,#000814 100%);
 color:white;
 margin:0;
 padding:20px;
@@ -18,8 +18,8 @@ min-height:100vh;
 h1{
 text-align:center;
 margin-bottom:15px;
-color:#f4c542;
-text-shadow:0 0 10px rgba(244,197,66,0.6);
+color:#22d3ee;
+text-shadow:0 0 12px rgba(34,211,238,0.7);
 }
 
 .tabs{
@@ -31,20 +31,18 @@ flex-wrap:wrap;
 }
 
 .tab{
-background:#13294b;
-padding:10px 18px;
-cursor:pointer;
-border-radius:6px;
+background:#0f172a;
 }
 
 .tab:hover{
-background:#1e3a5f;
+background:#1e293b;
 }
-  
+
 .tab.active{
-background:#f4c542;
-color:#0b1e3d;
+background:#22d3ee;
+color:#021018;
 font-weight:600;
+box-shadow:0 0 10px #22d3ee88;
 }
 
 .section{
@@ -66,15 +64,9 @@ border:none;
 }
 
 button{
-padding:8px 14px;
-border:none;
-border-radius:6px;
-background:#f4c542;
-color:#0b1e3d;
-font-weight:600;
-cursor:pointer;
+background:#22d3ee;
 color:#021018;
-font-weight:600;
+box-shadow:0 0 8px #22d3ee55;
 }
 
 button:hover{
@@ -123,18 +115,23 @@ gap:20px;
 }
 
 .card{
-background:#13294b;
-padding:20px;
-border-radius:12px;
-margin-bottom:20px;
-box-shadow:0 6px 18px rgba(0,0,0,0.35);
-border:1px solid #334155;
-border-top:3px solid #f4c542;
+background:#0f172a;
+border:1px solid #1e293b;
+border-top:3px solid #22d3ee;
+box-shadow:0 0 15px rgba(34,211,238,0.08);
+}
+  
+transition:all 0.2s ease;
+}
+
+.card:hover{
+transform:translateY(-2px);
+box-shadow:0 0 20px rgba(34,211,238,0.18);
 }
 
 .card h2{
-color:#f4c542;
-margin-top:0;
+color:#22d3ee;
+text-shadow:0 0 6px #22d3ee55;
 }
   
 .dashboardRow{
@@ -160,8 +157,8 @@ align-items:center;
 }
 
 .leader{
-background:#f4c542;
-color:#0b1e3d;
+background:#22d3ee;
+color:#021018;
 font-weight:bold;
 }
 
@@ -262,9 +259,10 @@ object-fit:cover;
 }
 
 .scoreNumber{
+color:#22d3ee;
 font-size:18px;
 font-weight:bold;
-color:#f4c542;
+text-shadow:0 0 6px #22d3ee66;
 }
 
 .vsText{
