@@ -24,18 +24,18 @@ text-shadow:0 0 10px rgba(244,197,66,0.6);
 
 .tabs{
 display:flex;
-gap:10px;
-margin-bottom:20px;
+gap:16px;
+margin-bottom:28px;
 justify-content:center;
 flex-wrap:wrap;
 }
-
 .tab{
 background:#13294b;
 color:white;
-padding:8px 14px;
-border-radius:6px;
+padding:10px 18px;
+border-radius:8px;
 cursor:pointer;
+font-size:14px;
 }
 
 .tab:hover{
@@ -92,9 +92,9 @@ border-collapse:collapse;
 margin-top:15px;
 }
 
-th{
-background:#1e3a5f;
-color:white;
+th, td{
+padding:10px 8px;
+text-align:center;
 }
 
 .rank1{color:gold;font-weight:bold;}
@@ -146,10 +146,10 @@ text-shadow:0 0 6px #22d3ee55;
 display:flex;
 align-items:center;
 justify-content:space-between;
-background:#1e3a5f;;
-padding:8px 12px;
-margin:6px 0;
-border-radius:6px;
+background:#1e3a5f;
+padding:10px 14px;
+margin:10px 0;
+border-radius:8px;
 }
 
 .dashboardRow img{
@@ -250,7 +250,7 @@ justify-content:space-between;
 background:#1e3a5f;
 padding:10px 14px;
 border-radius:10px;
-margin:8px 0;
+margin:10px 0;
 }
 
 .teamBlock{
@@ -1031,48 +1031,47 @@ ${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete<
 </tr>`;
   });
 }
-  function renderNextMatch(){
+  
+ function renderNextMatch() {
 
-let box=document.getElementById("nextMatch");
-if(!box) return;
+    let box = document.getElementById("nextMatch");
+    if (!box) return;
 
-let upcoming = matches
-.filter(m=>m.s1===null)
-.sort((a,b)=>new Date(a.date)-new Date(b.date))[0];
+    box.innerHTML = "";
 
-if(!upcoming){
-box.innerHTML="No upcoming match";
-return;
-}
+    // Filter for matches without scores (upcoming matches)
+    let upcoming = matches
+        .filter(m => m.s1 === null)
+        // Sort first by weekday, then by date
+        .sort((a, b) => a.weekday - b.weekday || new Date(a.date) - new Date(b.date))
+        .slice(0, 3); // show next 3 matches
 
-let team1=teams.find(t=>t.name===upcoming.team1);
-let team2=teams.find(t=>t.name===upcoming.team2);
+    if (upcoming.length === 0) {
+        box.innerHTML = "No upcoming matches";
+        return;
+    }
 
-box.innerHTML = `
+    upcoming.forEach(m => {
+        let team1 = teams.find(t => t.name === m.team1);
+        let team2 = teams.find(t => t.name === m.team2);
 
-<div class="scoreCard">
-
-<div class="teamBlock">
-<img src="${team1?.logo||''}">
-${upcoming.team1}
-</div>
-
-<div class="vsText">
-VS
-</div>
-
-<div class="teamBlock">
-<img src="${team2?.logo||''}">
-${upcoming.team2}
-</div>
-
-</div>
-
-<div style="text-align:center;margin-top:6px;color:#94a3b8">
-${upcoming.date}
-</div>
-
-`;
+        box.innerHTML += `
+        <div class="scoreCard">
+            <div class="teamBlock">
+                <img src="${team1?.logo || ''}">
+                ${m.team1}
+            </div>
+            <div class="vsText">VS</div>
+            <div class="teamBlock">
+                <img src="${team2?.logo || ''}">
+                ${m.team2}
+            </div>
+        </div>
+        <div style="text-align:center;margin-bottom:10px;color:#94a3b8">
+            Weekday ${m.weekday} — ${m.date}
+        </div>
+        `;
+    });
 
 }
   
