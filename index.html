@@ -24,8 +24,8 @@ text-shadow:0 0 10px rgba(244,197,66,0.6);
 
 .tabs{
 display:flex;
-gap:16px;
-margin-bottom:28px;
+gap:10px;
+margin-bottom:20px;
 justify-content:center;
 flex-wrap:wrap;
 }
@@ -33,10 +33,9 @@ flex-wrap:wrap;
 .tab{
 background:#13294b;
 color:white;
-padding:10px 18px;
-border-radius:8px;
+padding:8px 14px;
+border-radius:6px;
 cursor:pointer;
-font-size:14px;
 }
 
 .tab:hover{
@@ -93,9 +92,9 @@ border-collapse:collapse;
 margin-top:15px;
 }
 
-th, td{
-padding:10px 8px;
-text-align:center;
+th{
+background:#1e3a5f;
+color:white;
 }
 
 .rank1{color:gold;font-weight:bold;}
@@ -147,10 +146,10 @@ text-shadow:0 0 6px #22d3ee55;
 display:flex;
 align-items:center;
 justify-content:space-between;
-background:#1e3a5f;
-padding:10px 14px;
-margin:10px 0;
-border-radius:8px;
+background:#1e3a5f;;
+padding:8px 12px;
+margin:6px 0;
+border-radius:6px;
 }
 
 .dashboardRow img{
@@ -196,12 +195,11 @@ padding-bottom:12px;
 border-bottom:1px solid #334155;
 }
 
-.newsImage {
-  width: 220px;       /* keep fixed width */
-  height: 130px;      /* keep fixed height */
-  object-fit: contain; /* show full image, no cropping */
-  background-color: #1e293b; /* fill empty space */
-  border-radius: 8px;
+.newsImage{
+width:220px;
+height:130px;
+object-fit:cover;
+border-radius:8px;
 }
 
 .newsContent{
@@ -252,7 +250,7 @@ justify-content:space-between;
 background:#1e3a5f;
 padding:10px 14px;
 border-radius:10px;
-margin:10px 0;
+margin:8px 0;
 }
 
 .teamBlock{
@@ -304,14 +302,29 @@ z-index:-1;
 <div class="tab" onclick="openTab('schedule',event)">Schedule</div>
 <div class="tab" onclick="openTab('standings',event)">Standings</div>
 <div class="tab" onclick="openTab('scorers',event)">Top Scorers</div>
+<div class="tab" onclick="openTab('admin',event)">Admin</div>
+</div>
+
+<!-- ADMIN TAB -->
+
+<div id="admin" class="section">
+
+<h2>Admin Login</h2>
+
+<input id="email" placeholder="Admin Email">
+<input id="password" type="password" placeholder="Password">
+
+<button onclick="login()">Login</button>
+<button onclick="logout()">Logout</button>
+
+<p>Status : <span id="status">Viewer Mode</span></p>
+
 </div>
 
   <!-- DASHBOARD -->
 
 <div id="dashboard" class="section active">
- 
-  <p>Status: <span id="status">Viewer Mode</span></p>
-  
+
 <div class="mainLayout">
 
 <div>
@@ -511,59 +524,72 @@ z-index:-1;
 
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { 
-  getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-// Firebase config
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+
+import { 
+getFirestore,
+collection,
+addDoc,
+getDocs,
+deleteDoc,
+doc,
+updateDoc
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+import {
+getAuth,
+signInWithEmailAndPassword,
+signOut,
+onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+
 const firebaseConfig = {
-  apiKey: "AIzaSyAmlSol_3Wmfs53A98sEdEm-uSaByGzo28",
-  authDomain: "tournament-sys.firebaseapp.com",
-  projectId: "tournament-sys",
-  storageBucket: "tournament-sys.firebasestorage.app",
-  messagingSenderId: "519201807872",
-  appId: "1:519201807872:web:9054f639cbd8190d9ec2e5"
+apiKey: "AIzaSyAmlSol_3Wmfs53A98sEdEm-uSaByGzo28",
+authDomain: "tournament-sys.firebaseapp.com",
+projectId: "tournament-sys",
+storageBucket: "tournament-sys.firebasestorage.app",
+messagingSenderId: "519201807872",
+appId: "1:519201807872:web:9054f639cbd8190d9ec2e5"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// ------------------ GLOBAL STATE ------------------
-let isAdmin = false; 
-let teams = [];
-let matches = [];
-let scorers = [];
-let news = [];
+let isAdmin=false;
+let teams=[];
+let matches=[];
+let scorers=[];
+let news=[];
 
-// ------------------ ADMIN CHECK ------------------
-onAuthStateChanged(auth, user => {
-  if(user){
-    isAdmin = true;
-    document.getElementById("status").innerText = "Admin Mode";
-  } else {
-    isAdmin = false;
-    document.getElementById("status").innerText = "Viewer Mode";
-  }
-  toggleAdminUI();
-});
+  // ---------- Toggle ----------
+ function toggleAdminUI(){
 
-// ------------------ LOGOUT ------------------
-window.logout = function(){
-  signOut(auth);
+let controls=document.getElementById("adminTeamControls");
+if(controls) controls.style.display = isAdmin ? "block" : "none";
+
+let matchControls = document.getElementById("matchControls");
+if(matchControls) matchControls.style.display = isAdmin ? "block" : "none";
+
+let scorerControls = document.getElementById("scorerControls");
+if(scorerControls) scorerControls.style.display = isAdmin ? "block" : "none";
+
+let newsControls = document.getElementById("newsControls");
+if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
+
+}
+  function toggleFolder(n) {
+  const table = document.getElementById(`weekday-${n}`);
+  if (table.style.display === "none") table.style.display = "table";
+  else table.style.display = "none";
 }
 
-// ------------------ TOGGLE ADMIN UI ------------------
-function toggleAdminUI(){
-  document.querySelectorAll("#adminTeamControls, #matchControls, #scorerControls, #newsControls")
-    .forEach(el => el.style.display = isAdmin ? "block" : "none");
-}
+   import { onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// ------------------ FIRESTORE REAL-TIME LISTENERS ------------------
-// Teams
-onSnapshot(collection(db, "teams"), snapshot => {
+// Real-time listener for teams
+onSnapshot(collection(db, "teams"), (snapshot) => {
   teams = [];
   snapshot.forEach(doc => teams.push({ ...doc.data(), id: doc.id }));
   renderTeams();
@@ -572,8 +598,8 @@ onSnapshot(collection(db, "teams"), snapshot => {
   renderDashboardStandings();
 });
 
-// Matches
-onSnapshot(collection(db, "matches"), snapshot => {
+// Real-time listener for matches
+onSnapshot(collection(db, "matches"), (snapshot) => {
   matches = [];
   snapshot.forEach(doc => matches.push({ ...doc.data(), id: doc.id }));
   renderMatches();
@@ -583,35 +609,58 @@ onSnapshot(collection(db, "matches"), snapshot => {
   renderNextMatch();
 });
 
-// Scorers
-onSnapshot(collection(db, "scorers"), snapshot => {
+// Real-time listener for scorers
+onSnapshot(collection(db, "scorers"), (snapshot) => {
   scorers = [];
   snapshot.forEach(doc => scorers.push({ ...doc.data(), id: doc.id }));
   renderScorers();
   renderDashboardScorers();
 });
 
-// News
-onSnapshot(collection(db,"news"), snapshot => {
-  news = [];
-  snapshot.forEach(doc => news.push({ ...doc.data(), id: doc.id }));
-  renderNews();
-});
+  // Real-time listener for news
+  onSnapshot(collection(db,"news"),(snapshot)=>{
 
-// ------------------ UI FUNCTIONS ------------------
-window.openTab = function(id, e){
-  document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
-  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-  document.getElementById(id).classList.add("active");
-  e.target.classList.add("active");
+news=[];
+snapshot.forEach(doc=>news.push({...doc.data(),id:doc.id}));
+
+renderNews();
+
+});
+  
+window.login = async function(){
+  let email = document.getElementById("email").value;
+  let pass = document.getElementById("password").value;
+  await signInWithEmailAndPassword(auth,email,pass);
 }
 
-// ------------------ ADMIN ACTIONS ------------------
+window.logout = function(){
+  signOut(auth);
+}
+
+onAuthStateChanged(auth,user=>{
+  if(user){
+    isAdmin=true;
+    document.getElementById("status").innerText="Admin Mode";
+  }else{
+    isAdmin=false;
+    document.getElementById("status").innerText="Viewer Mode";
+  }
+
+  toggleAdminUI();
+});
+
+window.openTab = function(id,e){
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"))
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"))
+  document.getElementById(id).classList.add("active")
+  e.target.classList.add("active")
+}
+
 window.addTeam = async function(){
   if(!isAdmin) return alert("Admin only");
-  let name = document.getElementById("teamName").value;
-  let logo = document.getElementById("teamLogo").value;
-  await addDoc(collection(db,"teams"), {name, logo});
+  let name=document.getElementById("teamName").value;
+  let logo=document.getElementById("teamLogo").value;
+  await addDoc(collection(db,"teams"),{name,logo});
 }
 
 window.deleteTeam = async function(id){
@@ -621,12 +670,12 @@ window.deleteTeam = async function(id){
 
 window.addMatch = async function(){
   if(!isAdmin) return;
-  let t1 = document.getElementById("team1").value;
-  let t2 = document.getElementById("team2").value;
-  let date = document.getElementById("date").value;
+  let t1=document.getElementById("team1").value;
+  let t2=document.getElementById("team2").value;
+  let date=document.getElementById("date").value;
   let weekday = parseInt(document.getElementById("matchWeekday").value);
-  await addDoc(collection(db,"matches"), {
-    team1: t1, team2: t2, date: date, weekday: weekday, s1: null, s2: null, y1: 0, y2: 0
+  await addDoc(collection(db,"matches"),{
+    team1:t1, team2:t2, date:date, weekday: weekday, s1:null, s2:null, y1:0, y2:0
   });
 }
 
@@ -637,16 +686,16 @@ window.deleteMatch = async function(id){
 
 window.enterResult = async function(id){
   if(!isAdmin) return;
-  let s1 = parseInt(prompt("Score team1"));
-  let s2 = parseInt(prompt("Score team2"));
-  await updateDoc(doc(db,"matches",id), {s1, s2});
+  let s1=parseInt(prompt("Score team1"));
+  let s2=parseInt(prompt("Score team2"));
+  await updateDoc(doc(db,"matches",id),{s1,s2});
 }
 
 window.addYellow = async function(id){
   if(!isAdmin) return;
-  let y1 = parseInt(prompt("Yellow Team1"));
-  let y2 = parseInt(prompt("Yellow Team2"));
-  await updateDoc(doc(db,"matches",id), {y1, y2});
+  let y1=parseInt(prompt("Yellow Team1"));
+  let y2=parseInt(prompt("Yellow Team2"));
+  await updateDoc(doc(db,"matches",id),{y1,y2});
 }
 
 window.addScorer = async function(){
@@ -654,37 +703,453 @@ window.addScorer = async function(){
   let player = document.getElementById("playerName").value;
   let team = document.getElementById("playerTeam").value;
   let goals = parseInt(document.getElementById("playerGoals").value);
-  let image = document.getElementById("playerImage").value;
-  await addDoc(collection(db,"scorers"), {player, team, goals, image});
+  let image = document.getElementById("playerImage").value;  // <-- new line
+
+  await addDoc(collection(db,"scorers"), {player, team, goals, image}); // include image
 }
 
 window.addNews = async function(){
-  if(!isAdmin) return;
-  let title = document.getElementById("newsTitle").value;
-  let content = document.getElementById("newsContent").value;
-  let image = document.getElementById("newsImage").value;
-  await addDoc(collection(db,"news"), {
-    title, content, image, time: new Date().toLocaleString()
-  });
-}
 
+if(!isAdmin) return;
+
+let title=document.getElementById("newsTitle").value;
+let content=document.getElementById("newsContent").value;
+let image=document.getElementById("newsImage").value;
+
+await addDoc(collection(db,"news"),{
+
+title,
+content,
+image,
+time:new Date().toLocaleString()
+
+});
+
+}
+  
 window.deleteScorer = async function(id){
   if(!isAdmin) return;
   await deleteDoc(doc(db,"scorers",id));
 }
 
-window.editGoals = async function(id, currentGoals){
+window.editGoals = async function(id,currentGoals){
+
   if(!isAdmin) return alert("Admin only");
   let newGoals = parseInt(prompt("Enter new goal total:", currentGoals));
   if(isNaN(newGoals)) return;
-  await updateDoc(doc(db,"scorers",id), {goals: newGoals});
+  await updateDoc(doc(db,"scorers",id),{
+    goals:newGoals
+  });
+
+}
+  // ---------- Place here ----------
+async function deleteMatch(id) {
+  if(!isAdmin) return alert("Admin only");
+  await deleteDoc(doc(db, "matches", id));
+  // No need to call loadData() if using onSnapshot()
+}
+// ----------------------------------
+
+  
+// ---- RENDER FUNCTIONS ----
+
+function renderTeams(){
+  let teamList=document.getElementById("teamList");
+  teamList.innerHTML="";
+  teams.forEach(t=>{
+    teamList.innerHTML+=`
+      <li class="teamRow">
+      <img src="${t.logo||''}">
+      ${t.name}
+      ${isAdmin ? `<button class="deleteBtn" onclick="deleteTeam('${t.id}')">Delete</button>` : ""}
+      </li>`;
+  });
+
+  let select1=document.getElementById("team1");
+  let select2=document.getElementById("team2");
+  let playerTeam=document.getElementById("playerTeam");
+  select1.innerHTML=""; select2.innerHTML=""; playerTeam.innerHTML="";
+  teams.forEach(t=>{
+    select1.innerHTML+=`<option>${t.name}</option>`;
+    select2.innerHTML+=`<option>${t.name}</option>`;
+    playerTeam.innerHTML+=`<option>${t.name}</option>`;
+  });
 }
 
-// ------------------ HELPER FUNCTION ------------------
-function toggleFolder(n) {
-  const table = document.getElementById(`weekday-${n}`);
-  if (!table) return;
-  table.style.display = table.style.display === "none" ? "table" : "none";
+function renderMatches() {
+  const container = document.getElementById("schedule");
+
+  // keep your current Create Match input elements
+  container.innerHTML = `
+    <h2>Create Match</h2>
+    <select id="team1"></select>
+    <select id="team2"></select>
+    <select id="matchWeekday"></select>
+    <input id="date" placeholder="Date">
+    <button onclick="addMatch()">Add Match</button>
+  `;
+// ---------- Add Weekday options ----------
+const weekdaySelect = document.getElementById("matchWeekday");
+for (let i = 1; i <= 21; i++) {
+  const option = document.createElement("option");
+  option.value = i;
+  option.textContent = `Weekday ${i}`;
+  weekdaySelect.appendChild(option);
+}
+  // Sort matches by date
+matches.sort((a, b) => a.weekday - b.weekday || new Date(a.date) - new Date(b.date));
+
+let lastWeekday = 0;
+
+matches.forEach(m => {
+  if (m.weekday !== lastWeekday) {
+    container.innerHTML += `
+      <div class="weekday-folder">
+        <h3 onclick="toggleFolder(${m.weekday})">Weekday ${m.weekday} ▼</h3>
+        <table id="weekday-${m.weekday}" class="weekday-table">
+          <tr>
+            <th>Date</th><th>Team 1</th><th>Score</th><th>Team 2</th>
+             ${isAdmin ? `<th>Result</th><th>Yellow</th><th>Delete</th>` : ""}
+          </tr>
+        </table>
+      </div>`;
+    lastWeekday = m.weekday;
+  }
+
+  const table = document.getElementById(`weekday-${m.weekday}`);
+  const score = m.s1 === null ? "-" : `${m.s1} : ${m.s2}`;
+  const team1 = teams.find(t => t.name === m.team1);
+const team2 = teams.find(t => t.name === m.team2);
+
+table.innerHTML += `
+<tr>
+
+<td>${m.date}</td>
+
+<td>
+<img src="${team1?.logo || ''}" 
+style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
+${m.team1}
+</td>
+
+<td>${score}</td>
+
+<td>
+<img src="${team2?.logo || ''}" 
+style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
+${m.team2}
+</td>
+
+<td>${isAdmin ? `<button onclick="enterResult('${m.id}')">Enter</button>` : ""}</td>
+<td>${isAdmin ? `<button onclick="addYellow('${m.id}')">Card</button>` : ""}</td>
+<td>${isAdmin ? `<button onclick="deleteMatch('${m.id}')">Delete</button>` : ""}</td>
+
+</tr>`;
+});
+
+  // Fill team selects
+  const select1 = document.getElementById("team1");
+  const select2 = document.getElementById("team2");
+  select1.innerHTML = "";
+  select2.innerHTML = "";
+  teams.forEach(t => {
+    select1.innerHTML += `<option>${t.name}</option>`;
+    select2.innerHTML += `<option>${t.name}</option>`;
+  });
+}
+
+function calculateStandings(){
+  let table={};
+  teams.forEach(t=>{table[t.name]={p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0,y:0}});
+  matches.forEach(m=>{
+    if(m.s1===null) return;
+    let t1=table[m.team1]; let t2=table[m.team2];
+    t1.p++; t2.p++;
+    t1.gf+=m.s1; t1.ga+=m.s2;
+    t2.gf+=m.s2; t2.ga+=m.s1;
+    t1.y+=m.y1||0; t2.y+=m.y2||0;
+    if(m.s1>m.s2){t1.w++;t2.l++;t1.pts+=3}
+    else if(m.s2>m.s1){t2.w++;t1.l++;t2.pts+=3}
+    else{t1.d++;t2.d++;t1.pts++;t2.pts++}
+  });
+  return table;
+}
+
+function renderStandings(){
+  let standings=calculateStandings();
+  let arr=[];
+  for(let t in standings){
+    let d=standings[t];
+    arr.push({team:t,...d,gd:d.gf-d.ga,suspend:Math.floor(d.y/3)});
+  }
+  arr.sort((a,b)=>b.pts-a.pts||b.gd-a.gd);
+  let table=document.getElementById("standingsTable");
+  table.innerHTML="";
+  arr.forEach((t,i)=>{
+    let c=""; if(i==0)c="rank1"; if(i==1)c="rank2"; if(i==2)c="rank3";
+   
+    // Find the team object to get the logo
+let teamObj = teams.find(team => team.name === t.team);
+
+table.innerHTML+=`
+<tr class="${c}">
+  <td>${i+1}</td>
+  <td>
+    <img src="${teamObj?.logo||''}" style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
+    ${t.team}
+  </td>
+  <td>${t.p}</td>
+  <td>${t.w}</td>
+  <td>${t.d}</td>
+  <td>${t.l}</td>
+  <td>${t.gf}</td>
+  <td>${t.ga}</td>
+  <td>${t.gd}</td>
+  <td>${t.pts}</td>
+  <td>${t.y}</td>
+  <td>${t.suspend}</td>
+</tr>`;
+  });
+}
+  
+function renderDashboardStandings(){
+
+let standings = calculateStandings();
+
+let arr=[];
+
+for(let t in standings){
+let d=standings[t];
+arr.push({team:t,...d,gd:d.gf-d.ga});
+}
+
+arr.sort((a,b)=>b.pts-a.pts||b.gd-a.gd);
+
+let table=document.getElementById("dashboardStandings");
+
+if(!table) return;
+
+table.innerHTML="";
+
+arr.slice(0,5).forEach((t,i)=>{
+
+let teamObj = teams.find(team => team.name === t.team);
+
+let leaderClass = i===0 ? "leader" : "";
+
+table.innerHTML+=`
+
+<tr class="${leaderClass}">
+
+<td>${i+1}</td>
+
+<td style="text-align:left">
+
+<img src="${teamObj?.logo||''}" 
+style="width:20px;height:20px;border-radius:4px;margin-right:6px;vertical-align:middle;">
+
+${t.team}
+
+</td>
+
+<td>${t.pts}</td>
+
+</tr>
+
+`;
+
+});
+
+}
+  
+function renderDashboardScorers(){
+
+let box=document.getElementById("dashboardScorers");
+if(!box) return;
+
+box.innerHTML="";
+
+let top=[...scorers].sort((a,b)=>b.goals-a.goals).slice(0,5);
+
+top.forEach(s=>{
+
+box.innerHTML+=`
+
+<div style="display:flex;align-items:center;margin-bottom:8px;gap:8px;">
+
+<img src="${s.image||''}" 
+style="width:36px;height:36px;border-radius:6px;object-fit:cover;">
+
+<div>
+
+<strong>${s.player}</strong><br>
+${s.team} — ⚽ ${s.goals}
+
+</div>
+
+</div>
+
+`;
+
+});
+
+}
+  
+function renderScorers(){
+  let header = document.getElementById("scorerHeader");
+header.innerHTML = `
+<th>Rank</th>
+<th>Player</th>
+<th>Team</th>
+<th>Goals</th>
+${isAdmin ? "<th>Manage</th>" : ""}
+`;
+  let scorerTable=document.getElementById("scorerTable");
+  scorerTable.innerHTML="";
+  // sort by goals descending
+  let sorted=scorers.sort((a,b)=>b.goals-a.goals);
+  sorted.forEach((s,i)=>{
+   scorerTable.innerHTML+=`
+<tr>
+  <td>${i+1}</td>
+  <td>
+    <img src="${s.image||''}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;margin-right:8px;vertical-align:middle;">
+    ${s.player}
+  </td>
+  <td>
+    <img src="${teams.find(team=>team.name===s.team)?.logo||''}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
+    ${s.team}
+  </td>
+  
+<td>${s.goals}</td>
+
+<td>
+${isAdmin ? `<button onclick="editGoals('${s.id}', ${s.goals})">Edit</button>` : ""}
+${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete</button>` : ""}
+</td>
+
+</tr>`;
+  });
+}
+  function renderNextMatch(){
+
+let box=document.getElementById("nextMatch");
+if(!box) return;
+
+let upcoming = matches
+.filter(m=>m.s1===null)
+.sort((a,b)=>new Date(a.date)-new Date(b.date))[0];
+
+if(!upcoming){
+box.innerHTML="No upcoming match";
+return;
+}
+
+let team1=teams.find(t=>t.name===upcoming.team1);
+let team2=teams.find(t=>t.name===upcoming.team2);
+
+box.innerHTML = `
+
+<div class="scoreCard">
+
+<div class="teamBlock">
+<img src="${team1?.logo||''}">
+${upcoming.team1}
+</div>
+
+<div class="vsText">
+VS
+</div>
+
+<div class="teamBlock">
+<img src="${team2?.logo||''}">
+${upcoming.team2}
+</div>
+
+</div>
+
+<div style="text-align:center;margin-top:6px;color:#94a3b8">
+${upcoming.date}
+</div>
+
+`;
+
+}
+  
+function renderNews(){
+
+let list=document.getElementById("newsList");
+if(!list) return;
+
+list.innerHTML="";
+
+news
+.sort((a,b)=>new Date(b.time)-new Date(a.time))
+.slice(0,6)
+.forEach(n=>{
+
+list.innerHTML+=`
+
+<div class="newsItem">
+
+${n.image ? `<img src="${n.image}" class="newsImage">` : ""}
+
+<div class="newsContent">
+
+<div class="newsTitle">${n.title}</div>
+
+<div>${n.content}</div>
+
+<div class="newsTime">${n.time}</div>
+
+</div>
+
+</div>
+
+`;
+
+});
+
+}
+  
+function renderHighlights(){
+
+let container=document.getElementById("highlightList");
+
+if(!container) return;
+
+container.innerHTML="";
+
+let finished = matches.filter(m=>m.s1!==null);
+
+finished.slice(-5).reverse().forEach(m=>{
+
+let team1=teams.find(t=>t.name===m.team1);
+let team2=teams.find(t=>t.name===m.team2);
+
+container.innerHTML+=`
+
+<div class="scoreCard">
+
+<div class="teamBlock">
+<img src="${team1?.logo||''}">
+${m.team1}
+</div>
+
+<div class="scoreNumber">
+${m.s1} - ${m.s2}
+</div>
+
+<div class="teamBlock">
+<img src="${team2?.logo||''}">
+${m.team2}
+</div>
+
+</div>
+`;
+
+});
+
 }
 </script>
 </body>
