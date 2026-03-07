@@ -53,21 +53,23 @@ button {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
+// Your Firebase config
 const firebaseConfig = {
    apiKey: "AIzaSyAmlSol_3Wmfs53A98sEdEm-uSaByGzo28",
-    authDomain: "tournament-sys.firebaseapp.com",
-    projectId: "tournament-sys",
-    storageBucket: "tournament-sys.firebasestorage.app",
-    messagingSenderId: "519201807872",
-    appId: "1:519201807872:web:9054f639cbd8190d9ec2e5"
+   authDomain: "tournament-sys.firebaseapp.com",
+   projectId: "tournament-sys",
+   storageBucket: "tournament-sys.firebasestorage.app",
+   messagingSenderId: "519201807872",
+   appId: "1:519201807872:web:9054f639cbd8190d9ec2e5"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
+// Login function
 window.login = async function() {
-  let email = document.getElementById("email").value;
-  let pass = document.getElementById("password").value;
+  const email = document.getElementById("email").value;
+  const pass = document.getElementById("password").value;
   try {
     await signInWithEmailAndPassword(auth,email,pass);
   } catch(e) {
@@ -75,10 +77,11 @@ window.login = async function() {
   }
 }
 
+// Redirect if already logged in
 onAuthStateChanged(auth,user=>{
   if(user){
-    // Redirect to main dashboard and store session
-    window.location.href="index.html";
+    // Adjust this to match your GitHub Pages repo path
+    window.location.href = "./index.html"; 
   }
 });
 </script>
