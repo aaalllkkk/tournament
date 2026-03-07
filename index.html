@@ -281,6 +281,7 @@ background:#94a3b8;
 
 <input id="newsTitle" placeholder="News title">
 <input id="newsContent" placeholder="News text">
+<input id="newsImage" placeholder="News image URL">
 
 <button onclick="addNews()">Post</button>
 
@@ -456,14 +457,20 @@ let scorers=[];
 let news=[];
 
   // ---------- Toggle ----------
-  function toggleAdminUI(){
-  let controls=document.getElementById("adminTeamControls");
-  if(controls) controls.style.display = isAdmin ? "block" : "none";
-  let matchControls = document.getElementById("matchControls");
-let scorerControls = document.getElementById("scorerControls");
+ function toggleAdminUI(){
 
+let controls=document.getElementById("adminTeamControls");
+if(controls) controls.style.display = isAdmin ? "block" : "none";
+
+let matchControls = document.getElementById("matchControls");
 if(matchControls) matchControls.style.display = isAdmin ? "block" : "none";
+
+let scorerControls = document.getElementById("scorerControls");
 if(scorerControls) scorerControls.style.display = isAdmin ? "block" : "none";
+
+let newsControls = document.getElementById("newsControls");
+if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
+
 }
   function toggleFolder(n) {
   const table = document.getElementById(`weekday-${n}`);
@@ -598,11 +605,13 @@ if(!isAdmin) return;
 
 let title=document.getElementById("newsTitle").value;
 let content=document.getElementById("newsContent").value;
+let image=document.getElementById("newsImage").value;
 
 await addDoc(collection(db,"news"),{
 
 title,
 content,
+image,
 time:new Date().toLocaleString()
 
 });
@@ -845,19 +854,29 @@ ${t.team}
 }
   
 function renderDashboardScorers(){
+
 let box=document.getElementById("dashboardScorers");
 if(!box) return;
 
 box.innerHTML="";
-let top=scorers.sort((a,b)=>b.goals-a.goals).slice(0,5);
+
+let top=[...scorers].sort((a,b)=>b.goals-a.goals).slice(0,5);
 
 top.forEach(s=>{
 
 box.innerHTML+=`
 
+<div style="display:flex;align-items:center;margin-bottom:8px;gap:8px;">
+
+<img src="${s.image||''}" 
+style="width:36px;height:36px;border-radius:6px;object-fit:cover;">
+
 <div>
 
-⚽ ${s.player} (${s.team}) — ${s.goals}
+<strong>${s.player}</strong><br>
+${s.team} — ⚽ ${s.goals}
+
+</div>
 
 </div>
 
@@ -907,7 +926,6 @@ ${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete<
 function renderNews(){
 
 let list=document.getElementById("newsList");
-
 if(!list) return;
 
 list.innerHTML="";
@@ -917,6 +935,9 @@ news.slice().reverse().slice(0,6).forEach(n=>{
 list.innerHTML+=`
 
 <div class="newsItem">
+
+${n.image ? `<img src="${n.image}" 
+style="width:100%;border-radius:6px;margin-bottom:8px;">` : ""}
 
 <div class="newsTitle">${n.title}</div>
 
@@ -931,7 +952,7 @@ list.innerHTML+=`
 });
 
 }
-
+  
 function renderHighlights(){
 
 let container=document.getElementById("highlightList");
