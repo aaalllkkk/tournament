@@ -787,8 +787,7 @@ function renderTeams(){
 function renderMatches() {
   const container = document.getElementById("schedule");
 
-  // Clear container first to avoid duplicate tables
-  // Keep only the admin controls div, don't overwrite it
+  // Keep the admin controls div
   const controls = document.getElementById("matchControls");
   container.innerHTML = "";
   if (controls) container.appendChild(controls);
