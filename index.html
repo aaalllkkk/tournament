@@ -309,7 +309,9 @@ z-index:-1;
   <!-- DASHBOARD -->
 
 <div id="dashboard" class="section active">
-
+ 
+  <p>Status: <span id="status">Viewer Mode</span></p>
+  
 <div class="mainLayout">
 
 <div>
@@ -530,6 +532,11 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
+let isAdmin = false; 
+let teams=[];
+let matches=[];
+let scorers=[];
+let news=[];
 
 
 // ------------------ ADMIN CHECK ------------------
@@ -547,11 +554,6 @@ onAuthStateChanged(auth, user => {
 window.logout = function(){
   signOut(auth);
 }
-let isAdmin = false; 
-let teams=[];
-let matches=[];
-let scorers=[];
-let news=[];
 
   // ---------- Toggle ----------
  function toggleAdminUI(){
@@ -572,7 +574,6 @@ let newsControls = document.getElementById("newsControls");
 if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
 
 }
-  <p>Status: <span id="status">Viewer Mode</span></p>
     
   function toggleFolder(n) {
   const table = document.getElementById(`weekday-${n}`);
