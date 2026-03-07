@@ -507,16 +507,33 @@ matches.forEach(m => {
 
   const table = document.getElementById(`weekday-${m.weekday}`);
   const score = m.s1 === null ? "-" : `${m.s1} : ${m.s2}`;
-  table.innerHTML += `
-    <tr>
-      <td>${m.date}</td>
-      <td>${m.team1}</td>
-      <td>${score}</td>
-      <td>${m.team2}</td>
-      <td>${isAdmin ? `<button onclick="enterResult('${m.id}')">Enter</button>` : ""}</td>
-      <td>${isAdmin ? `<button onclick="addYellow('${m.id}')">Card</button>` : ""}</td>
-      <td>${isAdmin ? `<button onclick="deleteMatch('${m.id}')">Delete</button>` : ""}</td>
-    </tr>`;
+  const team1 = teams.find(t => t.name === m.team1);
+const team2 = teams.find(t => t.name === m.team2);
+
+table.innerHTML += `
+<tr>
+
+<td>${m.date}</td>
+
+<td>
+<img src="${team1?.logo || ''}" 
+style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
+${m.team1}
+</td>
+
+<td>${score}</td>
+
+<td>
+<img src="${team2?.logo || ''}" 
+style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
+${m.team2}
+</td>
+
+<td>${isAdmin ? `<button onclick="enterResult('${m.id}')">Enter</button>` : ""}</td>
+<td>${isAdmin ? `<button onclick="addYellow('${m.id}')">Card</button>` : ""}</td>
+<td>${isAdmin ? `<button onclick="deleteMatch('${m.id}')">Delete</button>` : ""}</td>
+
+</tr>`;
 });
 
   // Fill team selects
