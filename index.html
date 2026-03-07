@@ -1078,7 +1078,10 @@ if(!list) return;
 
 list.innerHTML="";
 
-news.slice().reverse().slice(0,6).forEach(n=>{
+news
+.sort((a,b)=>new Date(b.time)-new Date(a.time))
+.slice(0,6)
+.forEach(n=>{
 
 list.innerHTML+=`
 
