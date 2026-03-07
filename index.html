@@ -530,7 +530,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-let isAdmin = false;
+
 
 // ------------------ ADMIN CHECK ------------------
 onAuthStateChanged(auth, user => {
@@ -547,7 +547,7 @@ onAuthStateChanged(auth, user => {
 window.logout = function(){
   signOut(auth);
 }
-  
+let isAdmin = false; 
 let teams=[];
 let matches=[];
 let scorers=[];
@@ -621,28 +621,6 @@ renderNews();
 
 });
   
-window.login = async function(){
-  let email = document.getElementById("email").value;
-  let pass = document.getElementById("password").value;
-  await signInWithEmailAndPassword(auth,email,pass);
-}
-
-window.logout = function(){
-  signOut(auth);
-}
-
-onAuthStateChanged(auth,user=>{
-  if(user){
-    isAdmin=true;
-    document.getElementById("status").innerText="Admin Mode";
-  }else{
-    isAdmin=false;
-    document.getElementById("status").innerText="Viewer Mode";
-  }
-document.getElementById("status").innerText = isAdmin ? "Admin Mode" : "Viewer Mode";
-  toggleAdminUI();
-});
-
 window.openTab = function(id,e){
   document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"))
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"))
