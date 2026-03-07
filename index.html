@@ -787,42 +787,43 @@ function renderTeams(){
 function renderMatches() {
   const container = document.getElementById("schedule");
 
-  // keep your current Create Match input elements
-  container.innerHTML = `
-    <h2>Create Match</h2>
-    <select id="team1"></select>
-    <select id="team2"></select>
-    <select id="matchWeekday"></select>
-    <input id="date" placeholder="Date">
-    <button onclick="addMatch()">Add Match</button>
-  `;
-// ---------- Add Weekday options ----------
-const weekdaySelect = document.getElementById("matchWeekday");
-for (let i = 1; i <= 21; i++) {
-  const option = document.createElement("option");
-  option.value = i;
-  option.textContent = `Weekday ${i}`;
-  weekdaySelect.appendChild(option);
+  // Only render weekday tables for matches
+  matches.sort((a, b) => a.weekday - b.weekday || new Date(a.date) - new Date(b.date));
+
+  let lastWeekday = 0;
+
+  matches.forEach(m => {
+    if (m.weekday !== lastWeekday) {
+      container.innerHTML += `
+        <div class="weekday-folder">
+          <h3 onclick="toggleFolder(${m.weekday})">Weekday ${m.weekday} ▼</h3>
+          <table id="weekday-${m.weekday}" class="weekday-table">
+            <tr>
+              <th>Date</th><th>Team 1</th><th>Score</th><th>Team 2</th>
+               ${isAdmin ? `<th>Result</th><th>Yellow</th><th>Delete</th>` : ""}
+            </tr>
+          </table>
+        </div>`;
+      lastWeekday = m.weekday;
+    }
+
+    const table = document.getElementById(`weekday-${m.weekday}`);
+    const score = m.s1 === null ? "-" : `${m.s1} : ${m.s2}`;
+    const team1 = teams.find(t => t.name === m.team1);
+    const team2 = teams.find(t => t.name === m.team2);
+
+    table.innerHTML += `
+      <tr>
+        <td>${m.date}</td>
+        <td><img src="${team1?.logo || ''}" style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">${m.team1}</td>
+        <td>${score}</td>
+        <td><img src="${team2?.logo || ''}" style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">${m.team2}</td>
+        ${isAdmin ? `<td><button onclick="enterResult('${m.id}')">Enter</button></td>
+                     <td><button onclick="addYellow('${m.id}')">Card</button></td>
+                     <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>` : ""}
+      </tr>`;
+  });
 }
-  // Sort matches by date
-matches.sort((a, b) => a.weekday - b.weekday || new Date(a.date) - new Date(b.date));
-
-let lastWeekday = 0;
-
-matches.forEach(m => {
-  if (m.weekday !== lastWeekday) {
-    container.innerHTML += `
-      <div class="weekday-folder">
-        <h3 onclick="toggleFolder(${m.weekday})">Weekday ${m.weekday} ▼</h3>
-        <table id="weekday-${m.weekday}" class="weekday-table">
-          <tr>
-            <th>Date</th><th>Team 1</th><th>Score</th><th>Team 2</th>
-             ${isAdmin ? `<th>Result</th><th>Yellow</th><th>Delete</th>` : ""}
-          </tr>
-        </table>
-      </div>`;
-    lastWeekday = m.weekday;
-  }
 
   const table = document.getElementById(`weekday-${m.weekday}`);
   const score = m.s1 === null ? "-" : `${m.s1} : ${m.s2}`;
