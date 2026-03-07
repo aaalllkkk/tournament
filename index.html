@@ -1032,55 +1032,47 @@ ${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete<
 </tr>`;
   });
 }
-  function renderNextMatch(){
+  
+function renderNextMatch() {
 
-let box=document.getElementById("nextMatch");
-if(!box) return;
+    let box = document.getElementById("nextMatch");
+    if (!box) return;
 
-box.innerHTML="";
+    box.innerHTML = "";
 
-let upcoming = matches
-.filter(m=>m.s1===null)
-.sort((a,b)=>new Date(a.date)-new Date(b.date))
-.slice(0,3);   // show next 3 matches
+    // Filter for matches without scores (upcoming matches)
+    let upcoming = matches
+        .filter(m => m.s1 === null)
+        // Sort first by weekday, then by date
+        .sort((a, b) => a.weekday - b.weekday || new Date(a.date) - new Date(b.date))
+        .slice(0, 3); // show next 3 matches
 
-if(upcoming.length===0){
-box.innerHTML="No upcoming matches";
-return;
-}
+    if (upcoming.length === 0) {
+        box.innerHTML = "No upcoming matches";
+        return;
+    }
 
-upcoming.forEach(m=>{
+    upcoming.forEach(m => {
+        let team1 = teams.find(t => t.name === m.team1);
+        let team2 = teams.find(t => t.name === m.team2);
 
-let team1=teams.find(t=>t.name===m.team1);
-let team2=teams.find(t=>t.name===m.team2);
-
-box.innerHTML+=`
-
-<div class="scoreCard">
-
-<div class="teamBlock">
-<img src="${team1?.logo||''}">
-${m.team1}
-</div>
-
-<div class="vsText">
-VS
-</div>
-
-<div class="teamBlock">
-<img src="${team2?.logo||''}">
-${m.team2}
-</div>
-
-</div>
-
-<div style="text-align:center;margin-bottom:10px;color:#94a3b8">
-${m.date}
-</div>
-
-`;
-
-});
+        box.innerHTML += `
+        <div class="scoreCard">
+            <div class="teamBlock">
+                <img src="${team1?.logo || ''}">
+                ${m.team1}
+            </div>
+            <div class="vsText">VS</div>
+            <div class="teamBlock">
+                <img src="${team2?.logo || ''}">
+                ${m.team2}
+            </div>
+        </div>
+        <div style="text-align:center;margin-bottom:10px;color:#94a3b8">
+            Weekday ${m.weekday} — ${m.date}
+        </div>
+        `;
+    });
 
 }
   
