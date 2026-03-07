@@ -524,7 +524,7 @@ updateDoc
 
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-const auth = getAuth();
+const auth = getAuth(app);
 
 let isAdmin = false;
 
@@ -549,7 +549,6 @@ appId: "1:519201807872:web:9054f639cbd8190d9ec2e5"
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const auth = getAuth(app);
 
 let isAdmin=false;
 let teams=[];
