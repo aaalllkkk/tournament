@@ -304,23 +304,6 @@ z-index:-1;
 <div class="tab" onclick="openTab('schedule',event)">Schedule</div>
 <div class="tab" onclick="openTab('standings',event)">Standings</div>
 <div class="tab" onclick="openTab('scorers',event)">Top Scorers</div>
-<div class="tab" onclick="openTab('admin',event)">Admin</div>
-</div>
-
-<!-- ADMIN TAB -->
-
-<div id="admin" class="section">
-
-<h2>Admin Login</h2>
-
-<input id="email" placeholder="Admin Email">
-<input id="password" type="password" placeholder="Password">
-
-<button onclick="login()">Login</button>
-<button onclick="logout()">Logout</button>
-
-<p>Status : <span id="status">Viewer Mode</span></p>
-
 </div>
 
   <!-- DASHBOARD -->
@@ -539,12 +522,20 @@ doc,
 updateDoc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-import {
-getAuth,
-signInWithEmailAndPassword,
-signOut,
-onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const auth = getAuth();
+
+let isAdmin = false;
+
+onAuthStateChanged(auth, user => {
+  if (user) {
+    isAdmin = true;  // admin is logged in
+  } else {
+    isAdmin = false; // viewer mode
+  }
+  toggleAdminUI();
+});
 
 
 const firebaseConfig = {
@@ -569,6 +560,9 @@ let news=[];
   // ---------- Toggle ----------
  function toggleAdminUI(){
 
+document.querySelectorAll("#adminTeamControls, #matchControls, #scorerControls, #newsControls")
+.forEach(el => el.style.display = isAdmin ? "block" : "none");
+   
 let controls=document.getElementById("adminTeamControls");
 if(controls) controls.style.display = isAdmin ? "block" : "none";
 
@@ -582,6 +576,8 @@ let newsControls = document.getElementById("newsControls");
 if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
 
 }
+  <p>Status: <span id="status">Viewer Mode</span></p>
+    
   function toggleFolder(n) {
   const table = document.getElementById(`weekday-${n}`);
   if (table.style.display === "none") table.style.display = "table";
@@ -647,7 +643,7 @@ onAuthStateChanged(auth,user=>{
     isAdmin=false;
     document.getElementById("status").innerText="Viewer Mode";
   }
-
+document.getElementById("status").innerText = isAdmin ? "Admin Mode" : "Viewer Mode";
   toggleAdminUI();
 });
 
