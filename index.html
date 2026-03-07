@@ -103,7 +103,47 @@ height:32px;
 object-fit:cover;
 border-radius:4px;
 }
+.mainLayout{
+display:grid;
+grid-template-columns:2fr 1fr;
+gap:20px;
+}
 
+.card{
+background:#1e293b;
+padding:20px;
+border-radius:10px;
+margin-bottom:20px;
+}
+
+.highlightMatch{
+display:flex;
+justify-content:space-between;
+align-items:center;
+background:#334155;
+padding:10px;
+margin:10px 0;
+border-radius:6px;
+}
+
+.newsItem{
+margin-bottom:15px;
+padding-bottom:10px;
+border-bottom:1px solid #334155;
+}
+
+.newsTitle{
+font-weight:bold;
+}
+
+.newsTime{
+font-size:12px;
+color:#94a3b8;
+}
+#newsList{
+max-height:300px;
+overflow-y:auto;
+}
 </style>
 </head>
 
@@ -112,7 +152,8 @@ border-radius:4px;
 <h1> PILDUN DUNIA🏆 </h1>
 
 <div class="tabs">
-<div class="tab active" onclick="openTab('teams',event)">Teams</div>
+<div class="tab active" onclick="openTab('dashboard',event)">Dashboard</div>
+<div class="tab" onclick="openTab('teams',event)">Teams</div>
 <div class="tab" onclick="openTab('schedule',event)">Schedule</div>
 <div class="tab" onclick="openTab('standings',event)">Standings</div>
 <div class="tab" onclick="openTab('scorers',event)">Top Scorers</div>
@@ -135,6 +176,77 @@ border-radius:4px;
 
 </div>
 
+  <!-- DASHBOARD -->
+
+<div id="dashboard" class="section active">
+
+<div class="mainLayout">
+
+<div>
+
+<div class="card">
+
+<h2>Standings</h2>
+
+<table>
+
+<thead>
+<tr>
+<th>Rank</th>
+<th>Team</th>
+<th>Pts</th>
+</tr>
+</thead>
+
+<tbody id="dashboardStandings"></tbody>
+
+</table>
+
+</div>
+
+<div class="card">
+
+<h2>Match Highlights</h2>
+
+<div id="highlightList"></div>
+
+</div>
+
+</div>
+
+<div>
+
+<div class="card">
+
+<h2>Top Scorers</h2>
+
+<div id="dashboardScorers"></div>
+
+</div>
+
+<div class="card">
+
+<h2>Tournament News</h2>
+
+<div id="newsControls">
+
+<input id="newsTitle" placeholder="News title">
+<input id="newsContent" placeholder="News text">
+
+<button onclick="addNews()">Post</button>
+
+</div>
+
+<div id="newsList"></div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+  
 <!-- TEAMS -->
 
 <div id="teams" class="section active">
@@ -292,6 +404,7 @@ let isAdmin=false;
 let teams=[];
 let matches=[];
 let scorers=[];
+let news=[];
 
   // ---------- Toggle ----------
   function toggleAdminUI(){
@@ -337,6 +450,7 @@ onSnapshot(collection(db, "matches"), (snapshot) => {
   snapshot.forEach(doc => matches.push({ ...doc.data(), id: doc.id }));
   renderMatches();
   renderStandings();
+  renderHighlights();
 });
 
 // Real-time listener for scorers
@@ -344,6 +458,17 @@ onSnapshot(collection(db, "scorers"), (snapshot) => {
   scorers = [];
   snapshot.forEach(doc => scorers.push({ ...doc.data(), id: doc.id }));
   renderScorers();
+  renderDashboardScorers();
+});
+
+  // Real-time listener for news
+  onSnapshot(collection(db,"news"),(snapshot)=>{
+
+news=[];
+snapshot.forEach(doc=>news.push({...doc.data(),id:doc.id}));
+
+renderNews();
+
 });
   
 window.login = async function(){
@@ -427,6 +552,23 @@ window.addScorer = async function(){
   await addDoc(collection(db,"scorers"), {player, team, goals, image}); // include image
 }
 
+window.addNews = async function(){
+
+if(!isAdmin) return;
+
+let title=document.getElementById("newsTitle").value;
+let content=document.getElementById("newsContent").value;
+
+await addDoc(collection(db,"news"),{
+
+title,
+content,
+time:new Date().toLocaleString()
+
+});
+
+}
+  
 window.deleteScorer = async function(id){
   if(!isAdmin) return;
   await deleteDoc(doc(db,"scorers",id));
@@ -612,6 +754,29 @@ table.innerHTML+=`
   });
 }
 
+function renderDashboardScorers(){
+let box=document.getElementById("dashboardScorers");
+if(!box) return;
+
+box.innerHTML="";
+let top=scorers.sort((a,b)=>b.goals-a.goals).slice(0,5);
+
+top.forEach(s=>{
+
+box.innerHTML+=`
+
+<div>
+
+⚽ ${s.player} (${s.team}) — ${s.goals}
+
+</div>
+
+`;
+
+});
+
+}
+  
 function renderScorers(){
   let header = document.getElementById("scorerHeader");
 header.innerHTML = `
@@ -648,7 +813,71 @@ ${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete<
 </tr>`;
   });
 }
+  
+function renderNews(){
 
+let list=document.getElementById("newsList");
+
+if(!list) return;
+
+list.innerHTML="";
+
+news.slice().reverse().slice(0,6).forEach(n=>{
+
+list.innerHTML+=`
+
+<div class="newsItem">
+
+<div class="newsTitle">${n.title}</div>
+
+<div>${n.content}</div>
+
+<div class="newsTime">${n.time}</div>
+
+</div>
+
+`;
+
+});
+
+}
+
+function renderHighlights(){
+
+let container=document.getElementById("highlightList");
+
+if(!container) return;
+
+container.innerHTML="";
+
+let finished = matches.filter(m=>m.s1!==null);
+
+finished.slice(-5).reverse().forEach(m=>{
+
+let team1=teams.find(t=>t.name===m.team1);
+let team2=teams.find(t=>t.name===m.team2);
+
+container.innerHTML+=`
+
+<div class="highlightMatch">
+
+<span>
+<img src="${team1?.logo||''}" width="24"> ${m.team1}
+</span>
+
+<strong>${m.s1} - ${m.s2}</strong>
+
+<span>
+<img src="${team2?.logo||''}" width="24"> ${m.team2}
+</span>
+
+</div>
+
+`;
+
+});
+
+}
 </script>
 </body>
 </html>
