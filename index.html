@@ -772,7 +772,50 @@ table.innerHTML+=`
 </tr>`;
   });
 }
+  
+function renderDashboardStandings(){
+let standings = calculateStandings();
+let arr=[];
 
+for(let t in standings){
+let d=standings[t];
+arr.push({team:t,...d,gd:d.gf-d.ga});
+}
+
+arr.sort((a,b)=>b.pts-a.pts||b.gd-a.gd);
+
+let table=document.getElementById("dashboardStandings");
+
+if(!table) return;
+
+table.innerHTML="";
+
+arr.slice(0,5).forEach((t,i)=>{
+
+let teamObj = teams.find(team => team.name === t.team);
+
+table.innerHTML+=`
+
+<tr>
+
+<td>${i+1}</td>
+
+<td>
+<img src="${teamObj?.logo||''}" 
+style="width:20px;height:20px;border-radius:4px;margin-right:6px;vertical-align:middle;">
+${t.team}
+</td>
+
+<td>${t.pts}</td>
+
+</tr>
+
+`;
+
+});
+
+}
+  
 function renderDashboardScorers(){
 let box=document.getElementById("dashboardScorers");
 if(!box) return;
