@@ -511,46 +511,43 @@ z-index:-1;
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-
 import { 
-getFirestore,
-collection,
-addDoc,
-getDocs,
-deleteDoc,
-doc,
-updateDoc
+  getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-const auth = getAuth(app);
-
-let isAdmin = false;
-
-onAuthStateChanged(auth, user => {
-  if (user) {
-    isAdmin = true;  // admin is logged in
-  } else {
-    isAdmin = false; // viewer mode
-  }
-  toggleAdminUI();
-});
-
-
+// Firebase config
 const firebaseConfig = {
-apiKey: "AIzaSyAmlSol_3Wmfs53A98sEdEm-uSaByGzo28",
-authDomain: "tournament-sys.firebaseapp.com",
-projectId: "tournament-sys",
-storageBucket: "tournament-sys.firebasestorage.app",
-messagingSenderId: "519201807872",
-appId: "1:519201807872:web:9054f639cbd8190d9ec2e5"
+  apiKey: "AIzaSyAmlSol_3Wmfs53A98sEdEm-uSaByGzo28",
+  authDomain: "tournament-sys.firebaseapp.com",
+  projectId: "tournament-sys",
+  storageBucket: "tournament-sys.firebasestorage.app",
+  messagingSenderId: "519201807872",
+  appId: "1:519201807872:web:9054f639cbd8190d9ec2e5"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
-let isAdmin=false;
+let isAdmin = false;
+
+// ------------------ ADMIN CHECK ------------------
+onAuthStateChanged(auth, user => {
+  if(user){
+    isAdmin = true;
+    document.getElementById("status").innerText = "Admin Mode";
+  } else {
+    isAdmin = false;
+    document.getElementById("status").innerText = "Viewer Mode";
+  }
+  toggleAdminUI();
+});
+
+window.logout = function(){
+  signOut(auth);
+}
+  
 let teams=[];
 let matches=[];
 let scorers=[];
