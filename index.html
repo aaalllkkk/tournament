@@ -105,7 +105,7 @@ border-radius:4px;
 }
 .mainLayout{
 display:grid;
-grid-template-columns:2fr 1fr;
+grid-template-columns:1.2fr 1.8fr;
 gap:20px;
 }
 
@@ -152,19 +152,34 @@ display:flex;
 justify-content:space-between;
 align-items:center;
 background:#334155;
-padding:10px;
-margin:10px 0;
+padding:6px 10px;
+margin:6px 0;
 border-radius:6px;
+font-size:14px;
 }
 
 .newsItem{
+display:flex;
+gap:12px;
 margin-bottom:15px;
 padding-bottom:10px;
 border-bottom:1px solid #334155;
 }
 
+.newsImage{
+width:160px;
+height:100px;
+object-fit:cover;
+border-radius:6px;
+}
+
+.newsContent{
+flex:1;
+}
+
 .newsTitle{
 font-weight:bold;
+margin-bottom:4px;
 }
 
 .newsTime{
@@ -936,14 +951,17 @@ list.innerHTML+=`
 
 <div class="newsItem">
 
-${n.image ? `<img src="${n.image}" 
-style="width:100%;border-radius:6px;margin-bottom:8px;">` : ""}
+${n.image ? `<img src="${n.image}" class="newsImage">` : ""}
+
+<div class="newsContent">
 
 <div class="newsTitle">${n.title}</div>
 
 <div>${n.content}</div>
 
 <div class="newsTime">${n.time}</div>
+
+</div>
 
 </div>
 
