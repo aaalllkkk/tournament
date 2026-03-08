@@ -809,7 +809,7 @@ function renderMatches() {
           </table>
         </div>`;
       lastWeekday = m.weekday;
-    }
+}
 
     const table = document.getElementById(`weekday-${m.weekday}`);
     const score = m.s1 === null ? "-" : `${m.s1} : ${m.s2}`;
@@ -827,8 +827,7 @@ function renderMatches() {
                      <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>` : ""}
       </tr>`;
   });
-}
-  
+
   // Fill team selects
   const select1 = document.getElementById("team1");
   const select2 = document.getElementById("team2");
@@ -837,7 +836,8 @@ function renderMatches() {
   teams.forEach(t => {
     select1.innerHTML += `<option>${t.name}</option>`;
     select2.innerHTML += `<option>${t.name}</option>`;
-  });
+    });
+  }
 }
   
 function calculateStandings(){
