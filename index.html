@@ -809,7 +809,7 @@ function renderMatches() {
           </table>
         </div>`;
       lastWeekday = m.weekday;
-}
+    }
 
     const table = document.getElementById(`weekday-${m.weekday}`);
     const score = m.s1 === null ? "-" : `${m.s1} : ${m.s2}`;
@@ -828,14 +828,15 @@ function renderMatches() {
       </tr>`;
   });
 
-  // Fill team selects
+  // Optional: update the team selects if needed
   const select1 = document.getElementById("team1");
   const select2 = document.getElementById("team2");
-  select1.innerHTML = "";
-  select2.innerHTML = "";
-  teams.forEach(t => {
-    select1.innerHTML += `<option>${t.name}</option>`;
-    select2.innerHTML += `<option>${t.name}</option>`;
+  if (select1 && select2) {
+    select1.innerHTML = "";
+    select2.innerHTML = "";
+    teams.forEach(t => {
+      select1.innerHTML += `<option>${t.name}</option>`;
+      select2.innerHTML += `<option>${t.name}</option>`;
     });
   }
 }
