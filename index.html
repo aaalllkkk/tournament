@@ -678,6 +678,13 @@ window.deleteTeam = async function(id){
 
 window.addMatch = async function(){
   if(!isAdmin) return;
+   // ensure weekday options exist
+  let weekdaySelect = document.getElementById("matchWeekday");
+  if(weekdaySelect.options.length === 0){
+    for(let i=1;i<=21;i++){
+      weekdaySelect.innerHTML += `<option value="${i}">Weekday ${i}</option>`;
+    }
+  }
   let t1=document.getElementById("team1").value;
   let t2=document.getElementById("team2").value;
   let date=document.getElementById("date").value;
