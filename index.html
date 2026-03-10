@@ -687,7 +687,7 @@ window.addMatch = async function(){
    // ensure weekday options exist
   let weekdaySelect = document.getElementById("matchWeekday");
   if(weekdaySelect.options.length === 0){
-    for(let i=1;i<=21;i++){
+    for(let i=1;i<=22;i++){
       weekdaySelect.innerHTML += `<option value="${i}">Weekday ${i}</option>`;
     }
   }
