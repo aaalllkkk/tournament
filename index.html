@@ -675,7 +675,17 @@ window.deleteTeam = async function(id){
   if(!isAdmin) return;
   await deleteDoc(doc(db,"teams",id));
 }
+function populateWeekday(){
+  const select = document.getElementById("matchWeekday");
+  if(!select) return;
 
+  select.innerHTML = "";
+
+  for(let i=1;i<=21;i++){
+    select.innerHTML += `<option value="${i}">Weekday ${i}</option>`;
+      populateWeekday();
+  }
+}
 window.addMatch = async function(){
   if(!isAdmin) return;
    // ensure weekday options exist
@@ -1140,6 +1150,7 @@ ${m.team2}
 });
 
 }
+
 </script>
 </body>
 </html>
