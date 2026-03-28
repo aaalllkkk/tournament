@@ -26,6 +26,10 @@ td {
 text-align: center;
 }
 
+  td[colspan] {
+  text-align: center;
+}
+  
 .tabs{
 display:flex;
 gap:16px;
@@ -645,13 +649,9 @@ function findTeam(name) {
         ${safe(m.team1)}
       </td>
 
-      <td></td>
-
-      <td style="text-align:center;font-weight:bold;">
-        ${safeNumber(m.s1)} : ${safeNumber(m.s2)}
-      </td>
-
-      <td></td>
+   <td style="text-align:center;font-weight:bold;">
+  ${safeNumber(m.s1)} : ${safeNumber(m.s2)}
+</td>
 
       <td>
         <img src="${safe(team2.logo)}" style="width:24px;">
@@ -1089,7 +1089,7 @@ window.renderMatches = function () {
     );
 
     if (filtered.length === 0) {
-      container.innerHTML = `<tr><td colspan="7">No matches</td></tr>`;
+      container.innerHTML = `<tr><td colspan="4">No matches</td></tr>`;
       return;
     }
 
