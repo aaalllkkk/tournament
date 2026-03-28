@@ -21,6 +21,10 @@ margin-bottom:15px;
 color:#f4c542;
 text-shadow:0 0 10px rgba(244,197,66,0.6);
 }
+  
+td {
+text-align: center;
+}
 
 .tabs{
 display:flex;
@@ -1035,43 +1039,65 @@ window.renderMatches = function() {
       const team2 = teams.find(t => t.name === m.team2);
       const score = m.s1 === null ? "-" : `${m.s1} : ${m.s2}`;
 
-      html += `
-        <tr class="mw-${mw}">
-          <td>${m.date}</td>
-          <td><img src="${team1?.logo || ''}" style="width:24px;"> ${m.team1}</td>
-          <td style="text-align:center;">
-  <div style="display:flex;justify-content:center;align-items:center;gap:6px;">
-    ${
-      isAdmin
-      ? `
+if (isAdmin) {
+  html += `
+    <tr class="mw-${mw}">
+      <td>${m.date}</td>
+
+      <td>
+        <img src="${team1?.logo || ''}" style="width:24px;">
+        ${m.team1}
+      </td>
+
+      <td style="text-align:center;">
         <input type="number" value="${m.s1 ?? ''}" style="width:40px"
           onchange="updateScore('${m.id}', this.value, 's1')">
-        <span>:</span>
+        :
         <input type="number" value="${m.s2 ?? ''}" style="width:40px"
           onchange="updateScore('${m.id}', this.value, 's2')">
-      `
-      : `
-        <span style="min-width:40px;display:inline-block;text-align:center;">
-          ${m.s1 ?? "-"}
-        </span>
-        <span>:</span>
-        <span style="min-width:40px;display:inline-block;text-align:center;">
-          ${m.s2 ?? "-"}
-        </span>
-      `
-    }
-  </div>
-</td>
-          <td><img src="${team2?.logo || ''}" style="width:24px;"> ${m.team2}</td>
-          ${isAdmin ? `
-    <td><button onclick="enterResult('${m.id}')">Enter</button></td>
-    <td><button onclick="addYellow('${m.id}')">Card</button></td>
-    <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>
-    ` : ""}
-        </tr>
-      `;
-    });
-  });
+      </td>
+
+      <td>
+        <img src="${team2?.logo || ''}" style="width:24px;">
+        ${m.team2}
+      </td>
+
+      <td><button onclick="enterResult('${m.id}')">Enter</button></td>
+      <td><button onclick="addYellow('${m.id}')">Card</button></td>
+      <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>
+    </tr>
+  `;
+} else {
+  html += `
+    <tr class="mw-${mw}">
+      <td>${m.date}</td>
+
+      <td>
+        <img src="${team1?.logo || ''}" style="width:24px;">
+        ${m.team1}
+      </td>
+
+      <!-- spacer -->
+      <td></td>
+
+      <!-- ⭐ centered score -->
+      <td style="text-align:center;font-weight:bold;">
+        ${m.s1 ?? "-"} : ${m.s2 ?? "-"}
+      </td>
+
+      <!-- spacer -->
+      <td></td>
+
+      <td>
+        <img src="${team2?.logo || ''}" style="width:24px;">
+        ${m.team2}
+      </td>
+
+      <!-- spacer -->
+      <td></td>
+    </tr>
+  `;
+}
 
   container.innerHTML = html;
   Object.keys(collapsed).forEach(mw => {
