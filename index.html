@@ -40,14 +40,25 @@ text-align: center;
   
   /* Smooth collapse */
 .mw-row {
-  transition: opacity 0.2s ease;
-  opacity: 1;
+  transition: all 0.25s ease;
+}
+.mw-row {
+  transform-origin: top;
 }
 
-.mw-hidden {
+.mw-collapsing {
   opacity: 0;
+  transform: scaleY(0.95);
 }
-  
+
+tr.mw-row[style*="display: none"] {
+  height: 0 !important;
+  padding: 0 !important;
+}
+
+table {
+  border-spacing: 0;
+}
 .tabs{
 display:flex;
 gap:16px;
@@ -743,20 +754,20 @@ window.toggleFolder = function(mw) {
     rows.forEach(r => {
       r.style.display = "";
       requestAnimationFrame(() => {
-        r.classList.remove("mw-hidden");
+        r.classList.remove("mw-collapsing");
         r.dataset.hidden = "false";
       });
     });
 
   } else {
-    // CLOSE (smooth fade)
+    // CLOSE (smooth)
     rows.forEach(r => {
-      r.classList.add("mw-hidden");
+      r.classList.add("mw-collapsing");
 
       setTimeout(() => {
         r.style.display = "none";
         r.dataset.hidden = "true";
-      }, 200);
+      }, 250);
     });
   }
 
@@ -1374,14 +1385,17 @@ ${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete<
     let upcoming = matches
         .filter(m => m.s1 === null)
         // Sort first by Matchweek, then by date
-        .sort((a, b) => (a.Matchweek ?? a.weekday) - (b.Matchweek ?? b.weekday) || new Date(a.date) - new Date(b.date))
+        .sort((a, b) =>
+  (getMW(a) - getMW(b)) ||
+  new Date(a.date) - new Date(b.date)
+)
         .slice(0, 3); // show next 3 matches
 
     if (upcoming.length === 0) {
         box.innerHTML = "No upcoming matches";
         return;
     }
-
+  let finished = matches.filter(m => m.s1 !== null && m.s2 !== null);
     upcoming.forEach(m => {
         let team1 = teams.find(t => t.name === m.team1);
         let team2 = teams.find(t => t.name === m.team2);
