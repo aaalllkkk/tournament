@@ -429,6 +429,12 @@ z-index:-1;
 <!-- MATCHES -->
 
 <div id="schedule" class="section">
+  <div style="margin-bottom:10px;">
+  <label>Filter by Team:</label>
+  <select id="filterTeam" onchange="renderMatches()">
+    <option value="">All Teams</option>
+  </select>
+</div>
 
 <div id="matchControls">
 
@@ -792,8 +798,15 @@ function renderTeams(){
   let select1=document.getElementById("team1");
   let select2=document.getElementById("team2");
   let playerTeam=document.getElementById("playerTeam");
+  let filterTeam = document.getElementById("filterTeam");
+  
+if(filterTeam) filterTeam.innerHTML = '<option value="">All Teams</option>';
+  
   select1.innerHTML=""; select2.innerHTML=""; playerTeam.innerHTML="";
   teams.forEach(t=>{
+    if(filterTeam){
+  filterTeam.innerHTML += `<option>${t.name}</option>`;
+}
     select1.innerHTML+=`<option>${t.name}</option>`;
     select2.innerHTML+=`<option>${t.name}</option>`;
     playerTeam.innerHTML+=`<option>${t.name}</option>`;
@@ -801,6 +814,7 @@ function renderTeams(){
 }
 
 function renderMatches() {
+  const selectedTeam = document.getElementById("filterTeam")?.value;
   const container = document.getElementById("schedule");
 
   // Keep the admin controls div
@@ -808,11 +822,21 @@ function renderMatches() {
   container.innerHTML = "";
   if (controls) container.appendChild(controls);
 
-  matches.sort((a, b) => a.Matchweek - b.Matchweek || new Date(a.date) - new Date(b.date));
+let filteredMatches = matches;
+
+if(selectedTeam){
+  filteredMatches = matches.filter(m => 
+    m.team1 === selectedTeam || m.team2 === selectedTeam
+  );
+}
+
+filteredMatches.sort((a, b) => 
+  a.Matchweek - b.Matchweek || new Date(a.date) - new Date(b.date)
+);
 
   let lastMatchweek = 0;
 
-  matches.forEach(m => {
+  filteredMatches.forEach(m => {
     if (m.Matchweek !== lastMatchweek) {
       container.innerHTML += `
         <div class="Matchweek-folder">
