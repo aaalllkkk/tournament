@@ -31,23 +31,29 @@ text-align: center;
 }
 
   /* Sticky Matchweek Header */
-.sticky-mw {
+//.sticky-mw {
   position: sticky;
   top: 0;
   background: #0b1e3d;
   z-index: 5;
-}
+}//
   
   /* Smooth collapse */
 .mw-row {
-  transition: all 0.3s ease;
+  transition: all 0.25s ease;
 }
 
 .mw-hidden {
   opacity: 0;
-  transform: translateY(-5px);
+  transform: translateY(-6px);
+  pointer-events: none;
+}
+
+/* smooth height collapse trick */
+.mw-hidden td {
+  padding: 0 !important;
   height: 0;
-  overflow: hidden;
+  border: none;
 }
   
 .tabs{
@@ -276,10 +282,10 @@ background:#94a3b8;
   display: none; /* hide by default */
 }
   
-#schedule {
+// #schedule { //
   max-height: 600px;
   overflow-y: auto;
-}
+//}//
   
 .scoreCard{
 display:flex;
@@ -719,7 +725,7 @@ if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
   
  function renderMWHeader(mw) {
   return `
-    <tr class="sticky-mw" onclick="toggleFolder(${mw})">
+    <tr onclick="toggleFolder(${mw})">
       <td colspan="4" style="
         border-top:1px solid #334155;
         border-bottom:1px solid #334155;
@@ -740,12 +746,11 @@ window.toggleFolder = function(mw) {
 
   const isHidden = rows[0].classList.contains("mw-hidden");
 
-  rows.forEach(r => {
-    if (isHidden) {
-      r.classList.remove("mw-hidden");
-    } else {
-      r.classList.add("mw-hidden");
-    }
+  rows.forEach((r, i) => {
+    // stagger animation (very nice effect)
+    setTimeout(() => {
+      r.classList.toggle("mw-hidden", !isHidden);
+    }, i * 20);
   });
 
   collapsed[mw] = !isHidden;
