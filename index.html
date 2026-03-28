@@ -1099,13 +1099,15 @@ if (isAdmin) {
   `;
 }
 
-  container.innerHTML = html;
+  
   Object.keys(collapsed).forEach(mw => {
   if (collapsed[mw]) {
     document.querySelectorAll(`.mw-${mw}`).forEach(r => r.style.display = "none");
   }
 });
 
+      container.innerHTML = html;
+      
   // Optional: update the team selects if needed
   const select1 = document.getElementById("team1");
   const select2 = document.getElementById("team2");
