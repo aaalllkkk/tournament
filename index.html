@@ -814,13 +814,17 @@ if(filterTeam) filterTeam.innerHTML = '<option value="">All Teams</option>';
 }
 
 function renderMatches() {
-  const selectedTeam = document.getElementById("filterTeam")?.value;
-  const container = document.getElementById("schedule");
+ const container = document.getElementById("schedule");
+const controls = document.getElementById("matchControls");
+const filter = document.getElementById("filterTeam")?.parentElement;
 
-  // Keep the admin controls div
-  const controls = document.getElementById("matchControls");
-  container.innerHTML = "";
-  if (controls) container.appendChild(controls);
+container.innerHTML = "";
+
+// re-add filter FIRST
+if(filter) container.appendChild(filter);
+
+// then controls
+if (controls) container.appendChild(controls);
 
 let filteredMatches = matches;
 
@@ -831,17 +835,20 @@ if(selectedTeam){
 }
 
 filteredMatches.sort((a, b) => 
-  a.Matchweek - b.Matchweek || new Date(a.date) - new Date(b.date)
+  (a.Matchweek ?? a.weekday) - (b.Matchweek ?? b.weekday) 
+  || new Date(a.date) - new Date(b.date)
 );
 
   let lastMatchweek = 0;
 
   filteredMatches.forEach(m => {
-    if (m.Matchweek !== lastMatchweek) {
+    let mw = m.Matchweek ?? m.weekday;
+
+if (mw !== lastMatchweek) {
       container.innerHTML += `
         <div class="Matchweek-folder">
-          <h3 onclick="toggleFolder(${m.Matchweek})">Matchweek ${m.Matchweek} ▼</h3>
-          <table id="Matchweek-${m.Matchweek}" class="Matchweek-table">
+          <h3 onclick="toggleFolder(${mw})">Matchweek ${mw} ▼</h3>
+          <table id="Matchweek-${mw}" class="Matchweek-table">
             <tr>
               <th>Date</th><th>Team 1</th><th>Score</th><th>Team 2</th>
               ${isAdmin ? `<th>Result</th><th>Yellow</th><th>Delete</th>` : ""}
@@ -851,7 +858,7 @@ filteredMatches.sort((a, b) =>
       lastMatchweek = m.Matchweek;
     }
 
-    const table = document.getElementById(`Matchweek-${m.Matchweek}`);
+    const table = document.getElementById(`Matchweek-${mw}`);
     const score = m.s1 === null ? "-" : `${m.s1} : ${m.s2}`;
     const team1 = teams.find(t => t.name === m.team1);
     const team2 = teams.find(t => t.name === m.team2);
@@ -1066,7 +1073,7 @@ ${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete<
     let upcoming = matches
         .filter(m => m.s1 === null)
         // Sort first by Matchweek, then by date
-        .sort((a, b) => a.Matchweek - b.Matchweek || new Date(a.date) - new Date(b.date))
+        .sort((a, b) => (a.Matchweek ?? a.weekday) - (b.Matchweek ?? b.weekday) || new Date(a.date) - new Date(b.date))
         .slice(0, 3); // show next 3 matches
 
     if (upcoming.length === 0) {
