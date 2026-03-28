@@ -295,7 +295,6 @@ background:#94a3b8;
   
 .scoreCard{
   display:grid;
-  grid-template-columns: 1fr auto 1fr;
   align-items:center;
   gap:10px;
   background:#1e3a5f;
@@ -309,16 +308,6 @@ background:#94a3b8;
   align-items:center;
   gap:8px;
   white-space:nowrap;
-}
-
-.teamBlock.left{
-  justify-content:flex-start;
-}
-
-.teamBlock.right{
-  justify-content:flex-end;
-  flex-direction:row-reverse;
-  text-align:right;
 }
  
 .teamBlock img{
@@ -1414,16 +1403,14 @@ ${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete<
         <div class="matchWrap">
         
           <div class="scoreCard">
-            <div class="teamBlock left">
-            <div class="teamBlock right">
+            <div class="teamBlock">
               <img src="${team1?.logo || ''}">
               ${m.team1}
             </div>
         
             <div class="scoreNumber">VS</div>
         
-            <div class="teamBlock left">
-            <div class="teamBlock right">
+            <div class="teamBlock">
               <img src="${team2?.logo || ''}">
               ${m.team2}
             </div>
@@ -1494,8 +1481,7 @@ container.innerHTML+=`
 
 <div class="scoreCard">
 
-<div class="teamBlock left">
-<div class="teamBlock right">
+<div class="teamBlock">
 <img src="${team1?.logo||''}">
 ${m.team1}
 </div>
@@ -1504,8 +1490,7 @@ ${m.team1}
 ${m.s1} - ${m.s2}
 </div>
 
-<div class="teamBlock left">
-<div class="teamBlock right">
+<div class="teamBlock">
 <img src="${team2?.logo||''}">
 ${m.team2}
 </div>
