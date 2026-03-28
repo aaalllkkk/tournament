@@ -595,11 +595,12 @@ let newsControls = document.getElementById("newsControls");
 if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
 
 }
-  window.toggleFolder = function(n) {
-  const table = document.getElementById(`Matchweek-${n}`);
-  if (table.style.display === "none") table.style.display = "table";
-  else table.style.display = "none";
-}
+  window.toggleFolder = function(mw) {
+  const rows = document.querySelectorAll(`.mw-${mw}`);
+  rows.forEach(r => {
+    r.style.display = (r.style.display === "none") ? "" : "none";
+  });
+};
 
    import { onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
