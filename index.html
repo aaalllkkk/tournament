@@ -30,14 +30,6 @@ text-align: center;
   text-align: center;
 }
 
-  /* Sticky Matchweek Header */
-//.sticky-mw {
-  position: sticky;
-  top: 0;
-  background: #0b1e3d;
-  z-index: 5;
-}//
-  
   /* Smooth collapse */
 .mw-row {
   transition: all 0.25s ease;
@@ -138,6 +130,17 @@ text-align:center;
 .rank2{color:silver;}
 .rank3{color:#cd7f32;}
 
+.matchWrap{
+  margin-bottom:12px;
+}
+
+.matchMeta{
+  text-align:center;
+  font-size:12px;
+  color:#94a3b8;
+  margin-top:4px;
+}
+  
 .teamRow{
 display:flex;
 align-items:center;
@@ -285,10 +288,10 @@ background:#94a3b8;
   display: none; /* hide by default */
 }
   
-// #schedule { //
+/* #schedule {
   max-height: 600px;
   overflow-y: auto;
-//}//
+} */
   
 .scoreCard{
   display:grid;
@@ -1181,14 +1184,6 @@ window.renderMatches = function () {
     container.innerHTML = html;
     // restore collapsed state safely AFTER render
 setTimeout(() => {
-  Object.keys(collapsed).forEach(mw => {
-    if (collapsed[mw]) {
-      document.querySelectorAll(`.mw-${mw}`).forEach(r => {
-        r.style.display = "none";
-        r.dataset.hidden = "true";
-      });
-    }
-  });
 }, 0);
 
     // collapse restore
@@ -1406,25 +1401,27 @@ ${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete<
         let team1 = teams.find(t => t.name === m.team1);
         let team2 = teams.find(t => t.name === m.team2);
 
-         box.innerHTML += `
-        <div class="scoreCard">
+        box.innerHTML += `
+        <div class="matchWrap">
         
-          <div class="teamBlock">
-            <img src="${team1?.logo || ''}">
-            ${m.team1}
+          <div class="scoreCard">
+            <div class="teamBlock">
+              <img src="${team1?.logo || ''}">
+              ${m.team1}
+            </div>
+        
+            <div class="scoreNumber">VS</div>
+        
+            <div class="teamBlock">
+              <img src="${team2?.logo || ''}">
+              ${m.team2}
+            </div>
           </div>
         
-          <div class="scoreNumber">VS</div>
-        
-          <div class="teamBlock">
-            <img src="${team2?.logo || ''}">
-            ${m.team2}
+          <div class="matchMeta">
+            Matchweek ${m.Matchweek ?? "-"} — ${m.date}
           </div>
         
-        </div>
-        
-        <div style="text-align:center;margin-bottom:10px;color:#94a3b8">
-          Matchweek ${m.Matchweek ?? "-"} — ${m.date}
         </div>
         `;
     });
@@ -1475,7 +1472,7 @@ if(!container) return;
 
 container.innerHTML="";
 
-let finished = matches.filter(m=>m.s1!==null);
+let finished = matches.filter(m => m.s1 !== null && m.s2 !== null);
 
 finished.slice(-5).reverse().forEach(m=>{
 
