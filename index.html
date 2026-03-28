@@ -29,6 +29,26 @@ text-align: center;
   td[colspan] {
   text-align: center;
 }
+
+  /* Sticky Matchweek Header */
+.sticky-mw {
+  position: sticky;
+  top: 0;
+  background: #0b1e3d;
+  z-index: 5;
+}
+  
+  /* Smooth collapse */
+.mw-row {
+  transition: all 0.3s ease;
+}
+
+.mw-hidden {
+  opacity: 0;
+  transform: translateY(-5px);
+  height: 0;
+  overflow: hidden;
+}
   
 .tabs{
 display:flex;
@@ -254,6 +274,11 @@ background:#94a3b8;
 #scorerControls,
 #newsControls {
   display: none; /* hide by default */
+}
+  
+#schedule {
+  max-height: 600px;
+  overflow-y: auto;
 }
   
 .scoreCard{
@@ -608,7 +633,7 @@ function findTeam(name) {
   const team2 = findTeam(m.team2);
 
   return `
-    <tr class="mw-${mw}">
+    <tr class="mw-${mw} mw-row">
       <td>${safe(m.date)}</td>
 
       <td>
@@ -641,7 +666,7 @@ function findTeam(name) {
   const team2 = findTeam(m.team2);
 
   return `
-    <tr class="mw-${mw}">
+    <tr class="mw-${mw} mw-row">
       <td>${safe(m.date)}</td>
 
       <td>
@@ -692,10 +717,10 @@ if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
 
 }
   
-  function renderMWHeader(mw) {
+ function renderMWHeader(mw) {
   return `
-    <tr onclick="toggleFolder(${mw})">
-      <td colspan="7" style="
+    <tr class="sticky-mw" onclick="toggleFolder(${mw})">
+      <td colspan="4" style="
         border-top:1px solid #334155;
         border-bottom:1px solid #334155;
         cursor:pointer;
@@ -711,9 +736,17 @@ if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
   
 window.toggleFolder = function(mw) {
   const rows = document.querySelectorAll(`.mw-${mw}`);
-  const isHidden = rows[0]?.style.display === "none";
+  if (!rows.length) return;
 
-  rows.forEach(r => r.style.display = isHidden ? "" : "none");
+  const isHidden = rows[0].classList.contains("mw-hidden");
+
+  rows.forEach(r => {
+    if (isHidden) {
+      r.classList.remove("mw-hidden");
+    } else {
+      r.classList.add("mw-hidden");
+    }
+  });
 
   collapsed[mw] = !isHidden;
   localStorage.setItem("collapsedMW", JSON.stringify(collapsed));
@@ -1119,13 +1152,13 @@ window.renderMatches = function () {
     container.innerHTML = html;
 
     // collapse restore
-    Object.keys(collapsed).forEach(mw => {
-      if (collapsed[mw]) {
-        document.querySelectorAll(`.mw-${mw}`).forEach(r => {
-          r.style.display = "none";
-        });
-      }
+   Object.keys(collapsed).forEach(mw => {
+  if (collapsed[mw]) {
+    document.querySelectorAll(`.mw-${mw}`).forEach(r => {
+      r.classList.add("mw-hidden");
     });
+  }
+});
 
   } catch (err) {
     console.error("renderMatches ERROR:", err);
