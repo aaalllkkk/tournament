@@ -436,7 +436,7 @@ z-index:-1;
 
 <select id="team1"></select>
 <select id="team2"></select>
-<select id="matchWeekday"></select>
+<select id="matchMatchweek"></select>
 <input id="date" placeholder="Date">
 <button onclick="addMatch()">Add Match</button>
 
@@ -586,7 +586,7 @@ if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
 
 }
   function toggleFolder(n) {
-  const table = document.getElementById(`weekday-${n}`);
+  const table = document.getElementById(`Matchweek-${n}`);
   if (table.style.display === "none") table.style.display = "table";
   else table.style.display = "none";
 }
@@ -663,67 +663,74 @@ window.openTab = function(id,e){
 
 window.addTeam = async function(){
   if(!isAdmin) return alert("Admin only");
-  let name=document.getElementById("teamName").value;
-  let logo=document.getElementById("teamLogo").value;
+
+  let name=document.getElementById("teamName").value.trim();
+  let logo=document.getElementById("teamLogo").value.trim();
+
+  if(!name) return alert("Team name required");
+
   await addDoc(collection(db,"teams"),{name,logo});
 }
 
 window.deleteTeam = async function(id){
-  if(!isAdmin) return;
+  if(!isAdmin) return alert("Admin only");
   await deleteDoc(doc(db,"teams",id));
 }
-function populateWeekday(){
-  const select = document.getElementById("matchWeekday");
+function populateMatchweek(){
+  const select = document.getElementById("matchMatchweek");
   if(!select) return;
 
   select.innerHTML = "";
 
   for(let i=1;i<=22;i++){
-    select.innerHTML += `<option value="${i}">Weekday ${i}</option>`;
+    select.innerHTML += `<option value="${i}">Matchweek ${i}</option>`;
   }
 }
 window.addMatch = async function(){
-  if(!isAdmin) return;
-   // ensure weekday options exist
-  let weekdaySelect = document.getElementById("matchWeekday");
-  if(weekdaySelect.options.length === 0){
+  if(!isAdmin) return alert("Admin only");
+   // ensure Matchweek options exist
+  let MatchweekSelect = document.getElementById("matchMatchweek");
+  if(MatchweekSelect.options.length === 0){
     for(let i=1;i<=22;i++){
-      weekdaySelect.innerHTML += `<option value="${i}">Weekday ${i}</option>`;
+      MatchweekSelect.innerHTML += `<option value="${i}">Matchweek ${i}</option>`;
     }
   }
   let t1=document.getElementById("team1").value;
   let t2=document.getElementById("team2").value;
+  if(t1 === t2) return alert("Teams cannot be the same");
   let date=document.getElementById("date").value;
-  let weekday = parseInt(document.getElementById("matchWeekday").value);
+  if(!date) return alert("Date required");
+  let Matchweek = parseInt(document.getElementById("matchMatchweek").value);
   await addDoc(collection(db,"matches"),{
-    team1:t1, team2:t2, date:date, weekday: weekday, s1:null, s2:null, y1:0, y2:0
+    team1:t1, team2:t2, date:date, Matchweek: Matchweek, s1:null, s2:null, y1:0, y2:0
   });
 }
 
 window.deleteMatch = async function(id){
-  if(!isAdmin) return;
+  if(!isAdmin) return alert("Admin only");
   await deleteDoc(doc(db,"matches",id));
 }
 
 window.enterResult = async function(id){
-  if(!isAdmin) return;
+  if(!isAdmin) return alert("Admin only");
   let s1=parseInt(prompt("Score team1"));
   let s2=parseInt(prompt("Score team2"));
   await updateDoc(doc(db,"matches",id),{s1,s2});
 }
 
 window.addYellow = async function(id){
-  if(!isAdmin) return;
+  if(!isAdmin) return alert("Admin only");
   let y1=parseInt(prompt("Yellow Team1"));
   let y2=parseInt(prompt("Yellow Team2"));
   await updateDoc(doc(db,"matches",id),{y1,y2});
 }
 
 window.addScorer = async function(){
-  if(!isAdmin) return;
+  if(!isAdmin) return alert("Admin only");
   let player = document.getElementById("playerName").value;
   let team = document.getElementById("playerTeam").value;
   let goals = parseInt(document.getElementById("playerGoals").value);
+  if(isNaN(goals) || goals < 0) return alert("Invalid goals");
   let image = document.getElementById("playerImage").value;  // <-- new line
 
   await addDoc(collection(db,"scorers"), {player, team, goals, image}); // include image
@@ -731,10 +738,12 @@ window.addScorer = async function(){
 
 window.addNews = async function(){
 
-if(!isAdmin) return;
+if(!isAdmin) return alert("Admin only");
 
-let title=document.getElementById("newsTitle").value;
-let content=document.getElementById("newsContent").value;
+let title=document.getElementById("newsTitle").value.trim();
+let content=document.getElementById("newsContent").value.trim();
+
+if(!title || !content) return alert("Title and content required");
 let image=document.getElementById("newsImage").value;
 
 await addDoc(collection(db,"news"),{
@@ -749,7 +758,7 @@ time:new Date().toLocaleString()
 }
   
 window.deleteScorer = async function(id){
-  if(!isAdmin) return;
+  if(!isAdmin) return alert("Admin only");
   await deleteDoc(doc(db,"scorers",id));
 }
 
@@ -762,12 +771,6 @@ window.editGoals = async function(id,currentGoals){
     goals:newGoals
   });
 
-}
-  // ---------- Place here ----------
-async function deleteMatch(id) {
-  if(!isAdmin) return alert("Admin only");
-  await deleteDoc(doc(db, "matches", id));
-  // No need to call loadData() if using onSnapshot()
 }
 // ----------------------------------
 
@@ -805,26 +808,26 @@ function renderMatches() {
   container.innerHTML = "";
   if (controls) container.appendChild(controls);
 
-  matches.sort((a, b) => a.weekday - b.weekday || new Date(a.date) - new Date(b.date));
+  matches.sort((a, b) => a.Matchweek - b.Matchweek || new Date(a.date) - new Date(b.date));
 
-  let lastWeekday = 0;
+  let lastMatchweek = 0;
 
   matches.forEach(m => {
-    if (m.weekday !== lastWeekday) {
+    if (m.Matchweek !== lastMatchweek) {
       container.innerHTML += `
-        <div class="weekday-folder">
-          <h3 onclick="toggleFolder(${m.weekday})">Weekday ${m.weekday} ▼</h3>
-          <table id="weekday-${m.weekday}" class="weekday-table">
+        <div class="Matchweek-folder">
+          <h3 onclick="toggleFolder(${m.Matchweek})">Matchweek ${m.Matchweek} ▼</h3>
+          <table id="Matchweek-${m.Matchweek}" class="Matchweek-table">
             <tr>
               <th>Date</th><th>Team 1</th><th>Score</th><th>Team 2</th>
               ${isAdmin ? `<th>Result</th><th>Yellow</th><th>Delete</th>` : ""}
             </tr>
           </table>
         </div>`;
-      lastWeekday = m.weekday;
+      lastMatchweek = m.Matchweek;
     }
 
-    const table = document.getElementById(`weekday-${m.weekday}`);
+    const table = document.getElementById(`Matchweek-${m.Matchweek}`);
     const score = m.s1 === null ? "-" : `${m.s1} : ${m.s2}`;
     const team1 = teams.find(t => t.name === m.team1);
     const team2 = teams.find(t => t.name === m.team2);
@@ -1038,8 +1041,8 @@ ${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete<
     // Filter for matches without scores (upcoming matches)
     let upcoming = matches
         .filter(m => m.s1 === null)
-        // Sort first by weekday, then by date
-        .sort((a, b) => a.weekday - b.weekday || new Date(a.date) - new Date(b.date))
+        // Sort first by Matchweek, then by date
+        .sort((a, b) => a.Matchweek - b.Matchweek || new Date(a.date) - new Date(b.date))
         .slice(0, 3); // show next 3 matches
 
     if (upcoming.length === 0) {
@@ -1064,7 +1067,7 @@ ${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete<
             </div>
         </div>
         <div style="text-align:center;margin-bottom:10px;color:#94a3b8">
-            Weekday ${m.weekday} — ${m.date}
+            Matchweek ${m.Matchweek} — ${m.date}
         </div>
         `;
     });
@@ -1146,7 +1149,7 @@ ${m.team2}
 });
 
 }
-  populateWeekday();
+  populateMatchweek();
 </script>
 </body>
 </html>
