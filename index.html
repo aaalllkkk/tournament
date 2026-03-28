@@ -464,15 +464,7 @@ Reset All Matches
 <table>
 
 <thead>
-<tr>
-<th>Date</th>
-<th>Team 1</th>
-<th>Score</th>
-<th>Team 2</th>
-<th>Result</th>
-<th>Yellow</th>
-<th>Delete</th>
-</tr>
+<tr id="matchHeader"></tr>
 </thead>
 
 <tbody id="matchContainer"></tbody>
@@ -691,6 +683,7 @@ onAuthStateChanged(auth,user=>{
   }
 
   toggleAdminUI();
+  renderMatchHeader();
 });
 
 window.openTab = function(id,e){
@@ -724,6 +717,20 @@ function populateMatchweek(){
   for(let i=1;i<=22;i++){
     select.innerHTML += `<option value="${i}">Matchweek ${i}</option>`;
   }
+}
+  
+  function renderMatchHeader(){
+  const header = document.getElementById("matchHeader");
+
+  if(!header) return;
+
+  header.innerHTML = `
+    <th>Date</th>
+    <th>Team 1</th>
+    <th>Score</th>
+    <th>Team 2</th>
+    ${isAdmin ? "<th>Result</th><th>Yellow</th><th>Delete</th>" : ""}
+  `;
 }
   
   window.updateScore = async function(id, value, side){
@@ -1007,13 +1014,21 @@ window.renderMatches = function() {
     if (collapsed[mw]) {
   setTimeout(() => toggleFolder(mw), 0);
 }
-    html += `
-      <tr>
-        <td colspan="7" style="background:#1e3a5f;cursor:pointer;padding:12px;" onclick="toggleFolder(${mw})">
-          <strong>Matchweek ${mw} ${collapsed[mw] ? "▶" : "▼"}</strong>
-        </td>
-      </tr>
-    `;
+  html += `
+  <tr onclick="toggleFolder(${mw})">
+    <td colspan="7" style="
+      background: transparent;
+      border-bottom: 1px solid #334155;
+      border-top: 1px solid #334155;
+      cursor: pointer;
+      padding: 10px;
+      text-align: center;
+      color: #94a3b8;
+    ">
+      <strong>Matchweek ${mw} ▼</strong>
+    </td>
+  </tr>
+`;
 
     grouped[mw].forEach(m => {
       const team1 = teams.find(t => t.name === m.team1);
@@ -1037,10 +1052,10 @@ window.renderMatches = function() {
 </td>
           <td><img src="${team2?.logo || ''}" style="width:24px;"> ${m.team2}</td>
           ${isAdmin ? `
-            <td><button onclick="enterResult('${m.id}')">Enter</button></td>
-            <td><button onclick="addYellow('${m.id}')">Card</button></td>
-            <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>
-          ` : `<td></td><td></td><td></td>`}
+    <td><button onclick="enterResult('${m.id}')">Enter</button></td>
+    <td><button onclick="addYellow('${m.id}')">Card</button></td>
+    <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>
+    ` : ""}
         </tr>
       `;
     });
