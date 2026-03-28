@@ -840,77 +840,78 @@ if(lastWeek) document.getElementById("matchMatchweek").value = lastWeek;
 }
   
 window.renderMatches = function() {
-const team1 = document.getElementById("filterTeam1")?.value;
-const team2 = document.getElementById("filterTeam2")?.value;
-const container = document.getElementById("matchContainer");
-container.innerHTML = ""; // ✅ CLEAR FIRST
+  const team1 = document.getElementById("filterTeam1")?.value;
+  const team2 = document.getElementById("filterTeam2")?.value;
+  const container = document.getElementById("matchContainer");
 
-// keep filter + controls, only remove match folders
+  if (!container) return;
 
-let filteredMatches = matches;
+  let filteredMatches = matches.filter(m => {
+    const t1 = m.team1?.toLowerCase();
+    const t2 = m.team2?.toLowerCase();
+    const f1 = team1?.toLowerCase();
+    const f2 = team2?.toLowerCase();
 
-filteredMatches = matches.filter(m => {
-  const t1 = m.team1?.toLowerCase();
-  const t2 = m.team2?.toLowerCase();
+    if (!f1 && !f2) return true;
+    if (f1 && !f2) return t1 === f1 || t2 === f1;
+    if (!f1 && f2) return t1 === f2 || t2 === f2;
 
-  const f1 = team1?.toLowerCase();
-  const f2 = team2?.toLowerCase();
+    return (t1 === f1 && t2 === f2) || (t1 === f2 && t2 === f1);
+  });
 
-  // no filter → show all
-  if (!f1 && !f2) return true;
+  filteredMatches.sort((a, b) =>
+    (a.Matchweek ?? 0) - (b.Matchweek ?? 0) ||
+    new Date(a.date) - new Date(b.date)
+  );
 
-  // one filter
-  if (f1 && !f2) return t1 === f1 || t2 === f1;
-  if (!f1 && f2) return t1 === f2 || t2 === f2;
+  if (filteredMatches.length === 0) {
+    container.innerHTML = `<tr><td colspan="7">No matches found</td></tr>`;
+    return;
+  }
 
-  // two filters (match both teams regardless of order)
-  return (t1 === f1 && t2 === f2) || (t1 === f2 && t2 === f1);
-});
-
-filteredMatches.sort((a, b) => 
-  (a.Matchweek ?? a.weekday) - (b.Matchweek ?? b.weekday) 
-  || new Date(a.date) - new Date(b.date)
-);
-
-if(filteredMatches.length === 0){
-  container.innerHTML += `<p style="text-align:center;margin-top:20px;">No matches found</p>`;
-  return;
-}
-  let lastMatchweek = 0;
+  // ✅ GROUP BY MATCHWEEK FIRST
+  let grouped = {};
 
   filteredMatches.forEach(m => {
-    let mw = m.Matchweek ?? m.weekday;
-
-if (mw !== lastMatchweek) {
-      container.innerHTML += `
-        <div class="Matchweek-folder">
-          <h3 onclick="toggleFolder(${mw})">Matchweek ${mw} ▼</h3>
-          <table id="Matchweek-${mw}" class="Matchweek-table">
-            <tr>
-              <th>Date</th><th>Team 1</th><th>Score</th><th>Team 2</th>
-              ${isAdmin ? `<th>Result</th><th>Yellow</th><th>Delete</th>` : ""}
-            </tr>
-          </table>
-        </div>`;
-      lastMatchweek = mw;
-    }
-
-    const table = document.getElementById(`Matchweek-${mw}`);
-    const score = m.s1 === null ? "-" : `${m.s1} : ${m.s2}`;
-    const team1 = teams.find(t => t.name === m.team1);
-    const team2 = teams.find(t => t.name === m.team2);
-
-    table.innerHTML += `
-      <tr>
-        <td>${m.date}</td>
-        <td><img src="${team1?.logo || ''}" style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">${m.team1}</td>
-        <td>${score}</td>
-        <td><img src="${team2?.logo || ''}" style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">${m.team2}</td>
-        ${isAdmin ? `<td><button onclick="enterResult('${m.id}')">Enter</button></td>
-                     <td><button onclick="addYellow('${m.id}')">Card</button></td>
-                     <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>` : ""}
-      </tr>`;
+    let mw = m.Matchweek ?? 0;
+    if (!grouped[mw]) grouped[mw] = [];
+    grouped[mw].push(m);
   });
+
+  // ✅ BUILD HTML ONCE
+  let html = "";
+
+  Object.keys(grouped).forEach(mw => {
+    html += `
+      <tr>
+        <td colspan="7" style="background:#1e3a5f;cursor:pointer;" onclick="toggleFolder(${mw})">
+          <strong>Matchweek ${mw} ▼</strong>
+        </td>
+      </tr>
+    `;
+
+    grouped[mw].forEach(m => {
+      const team1 = teams.find(t => t.name === m.team1);
+      const team2 = teams.find(t => t.name === m.team2);
+      const score = m.s1 === null ? "-" : `${m.s1} : ${m.s2}`;
+
+      html += `
+        <tr class="mw-${mw}">
+          <td>${m.date}</td>
+          <td><img src="${team1?.logo || ''}" style="width:24px;"> ${m.team1}</td>
+          <td>${score}</td>
+          <td><img src="${team2?.logo || ''}" style="width:24px;"> ${m.team2}</td>
+          ${isAdmin ? `
+            <td><button onclick="enterResult('${m.id}')">Enter</button></td>
+            <td><button onclick="addYellow('${m.id}')">Card</button></td>
+            <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>
+          ` : `<td></td><td></td><td></td>`}
+        </tr>
+      `;
+    });
+  });
+
+  container.innerHTML = html;
 
   // Optional: update the team selects if needed
   const select1 = document.getElementById("team1");
