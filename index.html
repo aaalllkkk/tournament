@@ -40,20 +40,14 @@ text-align: center;
   
   /* Smooth collapse */
 .mw-row {
-  transition: all 0.25s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  opacity: 1;
+  transform: translateY(0);
 }
 
-.mw-hidden {
+.mw-closing {
   opacity: 0;
   transform: translateY(-6px);
-  pointer-events: none;
-}
-
-/* smooth height collapse trick */
-.mw-hidden td {
-  padding: 0 !important;
-  height: 0;
-  border: none;
 }
   
 .tabs{
@@ -744,19 +738,32 @@ window.toggleFolder = function(mw) {
   const rows = document.querySelectorAll(`.mw-${mw}`);
   if (!rows.length) return;
 
-  const isHidden = rows[0].classList.contains("mw-hidden");
+  const isHidden = rows[0].style.display === "none";
 
-  rows.forEach((r, i) => {
-    // stagger animation (very nice effect)
-    setTimeout(() => {
-      r.classList.toggle("mw-hidden", !isHidden);
-    }, i * 20);
-  });
+  if (isHidden) {
+    // OPEN
+    rows.forEach(r => {
+      r.style.display = "";
+      requestAnimationFrame(() => {
+        r.classList.remove("mw-closing");
+      });
+    });
+
+  } else {
+    // CLOSE (animate first, then remove)
+    rows.forEach(r => {
+      r.classList.add("mw-closing");
+
+      setTimeout(() => {
+        r.style.display = "none";
+      }, 200); // match CSS duration
+    });
+  }
 
   collapsed[mw] = !isHidden;
   localStorage.setItem("collapsedMW", JSON.stringify(collapsed));
 };
-
+  
    import { onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // Real-time listener for teams
@@ -1160,7 +1167,7 @@ window.renderMatches = function () {
    Object.keys(collapsed).forEach(mw => {
   if (collapsed[mw]) {
     document.querySelectorAll(`.mw-${mw}`).forEach(r => {
-      r.classList.add("mw-hidden");
+      r.style.display = "none";
     });
   }
 });
