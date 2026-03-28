@@ -1039,16 +1039,28 @@ window.renderMatches = function() {
         <tr class="mw-${mw}">
           <td>${m.date}</td>
           <td><img src="${team1?.logo || ''}" style="width:24px;"> ${m.team1}</td>
-          <td>
-  ${isAdmin ? `
-    <input type="number" value="${m.s1 ?? ''}" 
-      style="width:40px" 
-      onchange="updateScore('${m.id}', this.value, 's1')">
-    :
-    <input type="number" value="${m.s2 ?? ''}" 
-      style="width:40px" 
-      onchange="updateScore('${m.id}', this.value, 's2')">
-  ` : score}
+          <td style="text-align:center;">
+  <div style="display:flex;justify-content:center;align-items:center;gap:6px;">
+    ${
+      isAdmin
+      ? `
+        <input type="number" value="${m.s1 ?? ''}" style="width:40px"
+          onchange="updateScore('${m.id}', this.value, 's1')">
+        <span>:</span>
+        <input type="number" value="${m.s2 ?? ''}" style="width:40px"
+          onchange="updateScore('${m.id}', this.value, 's2')">
+      `
+      : `
+        <span style="min-width:40px;display:inline-block;text-align:center;">
+          ${m.s1 ?? "-"}
+        </span>
+        <span>:</span>
+        <span style="min-width:40px;display:inline-block;text-align:center;">
+          ${m.s2 ?? "-"}
+        </span>
+      `
+    }
+  </div>
 </td>
           <td><img src="${team2?.logo || ''}" style="width:24px;"> ${m.team2}</td>
           ${isAdmin ? `
@@ -1291,7 +1303,7 @@ ${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete<
             </div>
         </div>
         <div style="text-align:center;margin-bottom:10px;color:#94a3b8">
-            Matchweek ${m.Matchweek} — ${m.date}
+            Matchweek ${m.Matchweek ?? m.weekday ?? "-"} — ${m.date}
         </div>
         `;
     });
