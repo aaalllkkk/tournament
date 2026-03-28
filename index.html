@@ -430,10 +430,15 @@ z-index:-1;
 
 <div id="schedule" class="section">
   <div style="margin-bottom:10px;">
-  <label>Filter by Team:</label>
-  <select id="filterTeam" onchange="renderMatches()">
-    <option value="">All Teams</option>
-  </select>
+  <label>Filter:</label>
+
+<select id="filterTeam1" onchange="renderMatches()">
+  <option value="">Team 1</option>
+</select>
+
+<select id="filterTeam2" onchange="renderMatches()">
+  <option value="">Team 2</option>
+</select>
 </div>
 
 <div id="matchControls">
@@ -708,6 +713,9 @@ window.addMatch = async function(){
   let date=document.getElementById("date").value;
   if(!date) return alert("Date required");
   let Matchweek = parseInt(document.getElementById("matchMatchweek").value);
+  localStorage.setItem("lastTeam1", t1);
+  localStorage.setItem("lastTeam2", t2);
+  localStorage.setItem("lastMatchweek", Matchweek);
   await addDoc(collection(db,"matches"),{
     team1:t1, team2:t2, date:date, Matchweek: Matchweek, s1:null, s2:null, y1:0, y2:0
   });
@@ -800,28 +808,43 @@ function renderTeams(){
   let select1=document.getElementById("team1");
   let select2=document.getElementById("team2");
   let playerTeam=document.getElementById("playerTeam");
-  let filterTeam = document.getElementById("filterTeam");
+  let filterTeam1 = document.getElementById("filterTeam1");
+  let filterTeam2 = document.getElementById("filterTeam2");
 
   // reset dropdowns
   select1.innerHTML="";
   select2.innerHTML="";
   playerTeam.innerHTML="";
 
-  let currentValue = filterTeam.value;
-  filterTeam.innerHTML = '<option value="">All Teams</option>';
+  let current1 = filterTeam1.value;
+  let current2 = filterTeam2.value;
+
+filterTeam1.innerHTML = '<option value="">Team 1</option>';
+filterTeam2.innerHTML = '<option value="">Team 2</option>';
 
   teams.forEach(t=>{
-    filterTeam.innerHTML += `<option value="${t.name}">${t.name}</option>`;
+    filterTeam1.innerHTML += `<option value="${t.name}">${t.name}</option>`;
+    filterTeam2.innerHTML += `<option value="${t.name}">${t.name}</option>`;
+    filterTeam1.value = current1;
+    filterTeam2.value = current2;
     select1.innerHTML += `<option>${t.name}</option>`;
     select2.innerHTML += `<option>${t.name}</option>`;
     playerTeam.innerHTML += `<option>${t.name}</option>`;
   });
 
   filterTeam.value = currentValue;
+  const lastTeam1 = localStorage.getItem("lastTeam1");
+const lastTeam2 = localStorage.getItem("lastTeam2");
+const lastWeek = localStorage.getItem("lastMatchweek");
+
+if(lastTeam1) document.getElementById("team1").value = lastTeam1;
+if(lastTeam2) document.getElementById("team2").value = lastTeam2;
+if(lastWeek) document.getElementById("matchMatchweek").value = lastWeek;
 }
   
 window.renderMatches = function() {
-const selectedTeam = document.getElementById("filterTeam")?.value;
+const team1 = document.getElementById("filterTeam1")?.value;
+const team2 = document.getElementById("filterTeam2")?.value;
 const container = document.getElementById("matchContainer");
 container.innerHTML = ""; // ✅ CLEAR FIRST
 
@@ -829,12 +852,23 @@ container.innerHTML = ""; // ✅ CLEAR FIRST
 
 let filteredMatches = matches;
 
-if(selectedTeam){
-  filteredMatches = matches.filter(m => 
-    m.team1?.trim().toLowerCase() === selectedTeam.trim().toLowerCase() ||
-    m.team2?.trim().toLowerCase() === selectedTeam.trim().toLowerCase()
-  );
-}
+filteredMatches = matches.filter(m => {
+  const t1 = m.team1?.toLowerCase();
+  const t2 = m.team2?.toLowerCase();
+
+  const f1 = team1?.toLowerCase();
+  const f2 = team2?.toLowerCase();
+
+  // no filter → show all
+  if (!f1 && !f2) return true;
+
+  // one filter
+  if (f1 && !f2) return t1 === f1 || t2 === f1;
+  if (!f1 && f2) return t1 === f2 || t2 === f2;
+
+  // two filters (match both teams regardless of order)
+  return (t1 === f1 && t2 === f2) || (t1 === f2 && t2 === f1);
+});
 
 filteredMatches.sort((a, b) => 
   (a.Matchweek ?? a.weekday) - (b.Matchweek ?? b.weekday) 
