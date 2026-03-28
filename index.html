@@ -445,7 +445,8 @@ z-index:-1;
 <select id="matchMatchweek"></select>
 <input id="date" placeholder="Date">
 <button onclick="addMatch()">Add Match</button>
-
+ <!-- ✅ ONLY THIS -->
+  <div id="matchContainer"></div>
 </div>
 <table>
 
@@ -461,7 +462,7 @@ z-index:-1;
 </tr>
 </thead>
 
-<tbody id="matchTable"></tbody>
+<tbody id="matchContainer"></tbody>
 
 </table>
 
@@ -591,7 +592,7 @@ let newsControls = document.getElementById("newsControls");
 if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
 
 }
-  function toggleFolder(n) {
+  window.toggleFolder = function(n) {
   const table = document.getElementById(`Matchweek-${n}`);
   if (table.style.display === "none") table.style.display = "table";
   else table.style.display = "none";
@@ -819,12 +820,12 @@ function renderTeams(){
   filterTeam.value = currentValue;
 }
   
-function renderMatches() {
+window.renderMatches = function() {
 const selectedTeam = document.getElementById("filterTeam")?.value;
-const container = document.getElementById("schedule");
+const container = document.getElementById("matchContainer");
+container.innerHTML = ""; // ✅ CLEAR FIRST
 
 // keep filter + controls, only remove match folders
-document.querySelectorAll(".Matchweek-folder").forEach(e => e.remove());
 
 let filteredMatches = matches;
 
