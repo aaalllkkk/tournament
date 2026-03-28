@@ -719,7 +719,11 @@ function populateMatchweek(){
 window.resetMatches = async function(){
   if(!isAdmin) return alert("Admin only");
 
-  if(!confirm("Delete ALL matches?")) return;
+  const confirmGen = confirm("⚠️ Are you sure?");
+if (!confirmGen) return;
+
+const confirmFinal = confirm("This action CANNOT be undone. Continue?");
+if (!confirmFinal) return;
 
   const snapshot = await getDocs(collection(db,"matches"));
 
@@ -732,6 +736,11 @@ window.resetMatches = async function(){
   
 window.generateLeague = async function(){
   if(!isAdmin) return alert("Admin only");
+  const confirmGen = confirm("⚠️ Are you sure?");
+if (!confirmGen) return;
+
+const confirmFinal = confirm("This action CANNOT be undone. Continue?");
+if (!confirmFinal) return;
 
   if(teams.length < 2) return alert("Not enough teams");
 
