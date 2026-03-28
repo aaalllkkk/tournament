@@ -294,6 +294,7 @@ background:#94a3b8;
 display:flex;
 align-items:center;
 justify-content:space-between;
+flex-wrap:nowrap; /* IMPORTANT FIX */
 background:#1e3a5f;
 padding:10px 14px;
 border-radius:10px;
@@ -304,8 +305,14 @@ margin:10px 0;
 display:flex;
 align-items:center;
 gap:8px;
+flex-direction:row; /* IMPORTANT */
+white-space:nowrap;
 }
 
+.scoreCard > div{
+flex-shrink:0;
+}
+  
 .teamBlock img{
 width:26px;
 height:26px;
@@ -314,12 +321,17 @@ object-fit:cover;
 }
 
 .scoreNumber{
+flex:0 0 auto;
+min-width:60px;
+text-align:center;
 font-size:18px;
 font-weight:bold;
 color:#f4c542;
 }
 
 .vsText{
+flex:0 0 auto;
+text-align:center;
 font-weight:bold;
 color:#94a3b8;
 }
