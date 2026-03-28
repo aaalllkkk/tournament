@@ -1034,91 +1034,95 @@ window.renderMatches = function() {
   </tr>
 `;
 
-    grouped[mw].forEach(m => {
-      const team1 = teams.find(t => t.name === m.team1);
-      const team2 = teams.find(t => t.name === m.team2);
-      const score = m.s1 === null ? "-" : `${m.s1} : ${m.s2}`;
+grouped[mw].forEach(m => {
+  const team1 = teams.find(t => t.name === m.team1);
+  const team2 = teams.find(t => t.name === m.team2);
 
-if (isAdmin) {
-  html += `
-    <tr class="mw-${mw}">
-      <td>${m.date}</td>
+  if (isAdmin) {
+    html += `
+      <tr class="mw-${mw}">
+        <td>${m.date}</td>
 
-      <td>
-        <img src="${team1?.logo || ''}" style="width:24px;">
-        ${m.team1}
-      </td>
+        <td>
+          <img src="${team1?.logo || ''}" style="width:24px;">
+          ${m.team1}
+        </td>
 
-      <td style="text-align:center;">
-        <input type="number" value="${m.s1 ?? ''}" style="width:40px"
-          onchange="updateScore('${m.id}', this.value, 's1')">
-        :
-        <input type="number" value="${m.s2 ?? ''}" style="width:40px"
-          onchange="updateScore('${m.id}', this.value, 's2')">
-      </td>
+        <td style="text-align:center;">
+          <input type="number" value="${m.s1 ?? ''}" style="width:40px"
+            onchange="updateScore('${m.id}', this.value, 's1')">
+          :
+          <input type="number" value="${m.s2 ?? ''}" style="width:40px"
+            onchange="updateScore('${m.id}', this.value, 's2')">
+        </td>
 
-      <td>
-        <img src="${team2?.logo || ''}" style="width:24px;">
-        ${m.team2}
-      </td>
+        <td>
+          <img src="${team2?.logo || ''}" style="width:24px;">
+          ${m.team2}
+        </td>
 
-      <td><button onclick="enterResult('${m.id}')">Enter</button></td>
-      <td><button onclick="addYellow('${m.id}')">Card</button></td>
-      <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>
-    </tr>
-  `;
-} else {
-  html += `
-    <tr class="mw-${mw}">
-      <td>${m.date}</td>
+        <td><button onclick="enterResult('${m.id}')">Enter</button></td>
+        <td><button onclick="addYellow('${m.id}')">Card</button></td>
+        <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>
+      </tr>
+    `;
+  } else {
+    html += `
+      <tr class="mw-${mw}">
+        <td>${m.date}</td>
 
-      <td>
-        <img src="${team1?.logo || ''}" style="width:24px;">
-        ${m.team1}
-      </td>
+        <td>
+          <img src="${team1?.logo || ''}" style="width:24px;">
+          ${m.team1}
+        </td>
 
-      <!-- spacer -->
-      <td></td>
+        <td></td>
 
-      <!-- ⭐ centered score -->
-      <td style="text-align:center;font-weight:bold;">
-        ${m.s1 ?? "-"} : ${m.s2 ?? "-"}
-      </td>
+        <td style="text-align:center;font-weight:bold;">
+          ${m.s1 ?? "-"} : ${m.s2 ?? "-"}
+        </td>
 
-      <!-- spacer -->
-      <td></td>
+        <td></td>
 
-      <td>
-        <img src="${team2?.logo || ''}" style="width:24px;">
-        ${m.team2}
-      </td>
+        <td>
+          <img src="${team2?.logo || ''}" style="width:24px;">
+          ${m.team2}
+        </td>
 
-      <!-- spacer -->
-      <td></td>
-    </tr>
-  `;
-}
+        <td></td>
+      </tr>
+    `;
+  }
 
-  
-  Object.keys(collapsed).forEach(mw => {
-  if (collapsed[mw]) {
-    document.querySelectorAll(`.mw-${mw}`).forEach(r => r.style.display = "none");
+}); // ✅ CLOSE LOOP
+
+
+// ✅ render AFTER loops
+container.innerHTML = html;
+
+
+// ✅ collapse logic (OUTSIDE loop)
+Object.keys(collapsed).forEach(cmw => {
+  if (collapsed[cmw]) {
+    document.querySelectorAll(`.mw-${cmw}`).forEach(r => {
+      r.style.display = "none";
+    });
   }
 });
 
-      container.innerHTML = html;
-      
-  // Optional: update the team selects if needed
-  const select1 = document.getElementById("team1");
-  const select2 = document.getElementById("team2");
-  if (select1 && select2) {
-    select1.innerHTML = "";
-    select2.innerHTML = "";
-    teams.forEach(t => {
-      select1.innerHTML += `<option>${t.name}</option>`;
-      select2.innerHTML += `<option>${t.name}</option>`;
-    });
-  }
+
+// ✅ optional dropdown refresh
+const select1 = document.getElementById("team1");
+const select2 = document.getElementById("team2");
+
+if (select1 && select2) {
+  select1.innerHTML = "";
+  select2.innerHTML = "";
+
+  teams.forEach(t => {
+    select1.innerHTML += `<option>${t.name}</option>`;
+    select2.innerHTML += `<option>${t.name}</option>`;
+  });
 }
   
 function calculateStandings(){
