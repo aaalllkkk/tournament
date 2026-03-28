@@ -591,6 +591,19 @@ let news=[];
 let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
 
   // ---------- Toggle ----------
+function getMW(m){
+  // 1. Prefer new field
+  let mw = parseInt(m.Matchweek);
+  if (!isNaN(mw) && mw > 0) return mw;
+
+  // 2. Fallback to old field
+  let w = parseInt(m.weekday);
+  if (!isNaN(w) && w > 0) return w;
+
+  // 3. Safe fallback
+  return 1;
+}
+  
  function toggleAdminUI(){
 
 let controls=document.getElementById("adminTeamControls");
@@ -967,25 +980,25 @@ window.renderMatches = function() {
   });
 
   filteredMatches.sort((a, b) =>
-    (a.Matchweek ?? 0) - (b.Matchweek ?? 0) ||
+    getMW(a) - getMW(b) ||
     new Date(a.date) - new Date(b.date)
-  );
+);
 
   if (filteredMatches.length === 0) {
     container.innerHTML = `<tr><td colspan="7">No matches found</td></tr>`;
     return;
   }
 
-  // ✅ GROUP BY MATCHWEEK FIRST
+  //  GROUP BY MATCHWEEK FIRST
   let grouped = {};
 
   filteredMatches.forEach(m => {
-    let mw = m.Matchweek || 1;
+    let mw = getMW(m);
     if (!grouped[mw]) grouped[mw] = [];
     grouped[mw].push(m);
   });
 
-  // ✅ BUILD HTML ONCE
+  //  BUILD HTML ONCE
   let html = "";
 
   Object.keys(grouped)
