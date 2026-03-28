@@ -415,6 +415,16 @@ z-index:-1;
 <div id="teams" class="section">
 
 <div id="adminTeamControls">
+<hr style="margin:15px 0;">
+
+<h3>League Tools</h3>
+
+<button onclick="generateLeague()">Generate League</button>
+
+<button onclick="resetMatches()" 
+style="background:#ef4444;color:white;">
+Reset All Matches
+</button>
 <h2>Add Team</h2>
 
 <input id="teamName" placeholder="Team Name">
@@ -442,8 +452,6 @@ z-index:-1;
 </div>
 
 <div id="matchControls">
-<button onclick="generateLeague()">Generate League</button>
-<button onclick="resetMatches()" style="background:#ef4444;color:white;">Reset All Matches</button>
 
 <h2>Create Match</h2>
 
@@ -806,6 +814,10 @@ window.addMatch = async function(){
   let date=document.getElementById("date").value;
   if(!date) return alert("Date required");
   let Matchweek = parseInt(document.getElementById("matchMatchweek").value);
+
+if (isNaN(Matchweek) || Matchweek <= 0) {
+  return alert("Matchweek invalid");
+}
   localStorage.setItem("lastTeam1", t1);
   localStorage.setItem("lastTeam2", t2);
   localStorage.setItem("lastMatchweek", Matchweek);
@@ -968,7 +980,7 @@ window.renderMatches = function() {
   let grouped = {};
 
   filteredMatches.forEach(m => {
-    let mw = m.Matchweek ?? 0;
+    let mw = m.Matchweek || 1;
     if (!grouped[mw]) grouped[mw] = [];
     grouped[mw].push(m);
   });
@@ -984,8 +996,8 @@ window.renderMatches = function() {
 }
     html += `
       <tr>
-        <td colspan="7" style="background:#1e3a5f;cursor:pointer;padding:12px;">
-          <strong>Matchweek ${mw} ▼</strong>
+        <td colspan="7" style="background:#1e3a5f;cursor:pointer;padding:12px;" onclick="toggleFolder(${mw})">
+          <strong>Matchweek ${mw} ${collapsed[mw] ? "▶" : "▼"}</strong>
         </td>
       </tr>
     `;
@@ -1022,6 +1034,11 @@ window.renderMatches = function() {
   });
 
   container.innerHTML = html;
+  Object.keys(collapsed).forEach(mw => {
+  if (collapsed[mw]) {
+    document.querySelectorAll(`.mw-${mw}`).forEach(r => r.style.display = "none");
+  }
+});
 
   // Optional: update the team selects if needed
   const select1 = document.getElementById("team1");
