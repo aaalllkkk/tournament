@@ -587,6 +587,82 @@ let news=[];
 let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
 
   // ---------- Toggle ----------
+  function safe(val, fallback = "") {
+  return val ?? fallback;
+}
+
+function safeNumber(val) {
+  return (val === null || val === undefined) ? "-" : val;
+}
+
+function findTeam(name) {
+  return teams.find(t => t.name === name) || {};
+}
+  
+  function renderAdminRow(m, mw) {
+  const team1 = findTeam(m.team1);
+  const team2 = findTeam(m.team2);
+
+  return `
+    <tr class="mw-${mw}">
+      <td>${safe(m.date)}</td>
+
+      <td>
+        <img src="${safe(team1.logo)}" style="width:24px;">
+        ${safe(m.team1)}
+      </td>
+
+      <td>
+        <input type="number" value="${safe(m.s1, "")}" style="width:40px"
+          onchange="updateScore('${m.id}', this.value, 's1')">
+        :
+        <input type="number" value="${safe(m.s2, "")}" style="width:40px"
+          onchange="updateScore('${m.id}', this.value, 's2')">
+      </td>
+
+      <td>
+        <img src="${safe(team2.logo)}" style="width:24px;">
+        ${safe(m.team2)}
+      </td>
+
+      <td><button onclick="enterResult('${m.id}')">Enter</button></td>
+      <td><button onclick="addYellow('${m.id}')">Card</button></td>
+      <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>
+    </tr>
+  `;
+}
+  
+  function renderViewerRow(m, mw) {
+  const team1 = findTeam(m.team1);
+  const team2 = findTeam(m.team2);
+
+  return `
+    <tr class="mw-${mw}">
+      <td>${safe(m.date)}</td>
+
+      <td>
+        <img src="${safe(team1.logo)}" style="width:24px;">
+        ${safe(m.team1)}
+      </td>
+
+      <td></td>
+
+      <td style="text-align:center;font-weight:bold;">
+        ${safeNumber(m.s1)} : ${safeNumber(m.s2)}
+      </td>
+
+      <td></td>
+
+      <td>
+        <img src="${safe(team2.logo)}" style="width:24px;">
+        ${safe(m.team2)}
+      </td>
+
+      <td></td>
+    </tr>
+  `;
+}
+  
 function getMW(m){
   // 1. Prefer new field
   let mw = parseInt(m.Matchweek);
@@ -614,6 +690,23 @@ if(scorerControls) scorerControls.style.display = isAdmin ? "block" : "none";
 let newsControls = document.getElementById("newsControls");
 if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
 
+}
+  
+  function renderMWHeader(mw) {
+  return `
+    <tr onclick="toggleFolder(${mw})">
+      <td colspan="7" style="
+        border-top:1px solid #334155;
+        border-bottom:1px solid #334155;
+        cursor:pointer;
+        padding:10px;
+        text-align:center;
+        color:#94a3b8;
+      ">
+        <strong>Matchweek ${mw} ▼</strong>
+      </td>
+    </tr>
+  `;
 }
   
 window.toggleFolder = function(mw) {
@@ -970,161 +1063,74 @@ if(lastTeam2) document.getElementById("team2").value = lastTeam2;
 if(lastWeek) document.getElementById("matchMatchweek").value = lastWeek;
 }
   
-window.renderMatches = function() {
-  const team1 = document.getElementById("filterTeam1")?.value;
-  const team2 = document.getElementById("filterTeam2")?.value;
-  const container = document.getElementById("matchContainer");
+window.renderMatches = function () {
+  try {
+    const container = document.getElementById("matchContainer");
+    if (!container) return;
 
-  if (!container) return;
+    const team1 = document.getElementById("filterTeam1")?.value?.toLowerCase();
+    const team2 = document.getElementById("filterTeam2")?.value?.toLowerCase();
 
-  let filteredMatches = matches.filter(m => {
-    const t1 = m.team1?.toLowerCase();
-    const t2 = m.team2?.toLowerCase();
-    const f1 = team1?.toLowerCase();
-    const f2 = team2?.toLowerCase();
+    let filtered = matches.filter(m => {
+      const t1 = m.team1?.toLowerCase();
+      const t2 = m.team2?.toLowerCase();
 
-    if (!f1 && !f2) return true;
-    if (f1 && !f2) return t1 === f1 || t2 === f1;
-    if (!f1 && f2) return t1 === f2 || t2 === f2;
+      if (!team1 && !team2) return true;
+      if (team1 && !team2) return t1 === team1 || t2 === team1;
+      if (!team1 && team2) return t1 === team2 || t2 === team2;
 
-    return (t1 === f1 && t2 === f2) || (t1 === f2 && t2 === f1);
-  });
-
-  filteredMatches.sort((a, b) =>
-    getMW(a) - getMW(b) ||
-    new Date(a.date) - new Date(b.date)
-);
-
-  if (filteredMatches.length === 0) {
-    container.innerHTML = `<tr><td colspan="7">No matches found</td></tr>`;
-    return;
-  }
-
-  //  GROUP BY MATCHWEEK FIRST
-  let grouped = {};
-
-  filteredMatches.forEach(m => {
-    let mw = getMW(m);
-    if (!grouped[mw]) grouped[mw] = [];
-    grouped[mw].push(m);
-  });
-
-  //  BUILD HTML ONCE
-  let html = "";
-
-  Object.keys(grouped)
-  .sort((a,b) => a - b)
-  .forEach(mw => {
-    if (collapsed[mw]) {
-  setTimeout(() => toggleFolder(mw), 0);
-}
-  html += `
-  <tr onclick="toggleFolder(${mw})">
-    <td colspan="7" style="
-      background: transparent;
-      border-bottom: 1px solid #334155;
-      border-top: 1px solid #334155;
-      cursor: pointer;
-      padding: 10px;
-      text-align: center;
-      color: #94a3b8;
-    ">
-      <strong>Matchweek ${mw} ▼</strong>
-    </td>
-  </tr>
-`;
-
-grouped[mw].forEach(m => {
-  const team1 = teams.find(t => t.name === m.team1);
-  const team2 = teams.find(t => t.name === m.team2);
-
-  if (isAdmin) {
-    html += `
-      <tr class="mw-${mw}">
-        <td>${m.date}</td>
-
-        <td>
-          <img src="${team1?.logo || ''}" style="width:24px;">
-          ${m.team1}
-        </td>
-
-        <td style="text-align:center;">
-          <input type="number" value="${m.s1 ?? ''}" style="width:40px"
-            onchange="updateScore('${m.id}', this.value, 's1')">
-          :
-          <input type="number" value="${m.s2 ?? ''}" style="width:40px"
-            onchange="updateScore('${m.id}', this.value, 's2')">
-        </td>
-
-        <td>
-          <img src="${team2?.logo || ''}" style="width:24px;">
-          ${m.team2}
-        </td>
-
-        <td><button onclick="enterResult('${m.id}')">Enter</button></td>
-        <td><button onclick="addYellow('${m.id}')">Card</button></td>
-        <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>
-      </tr>
-    `;
-  } else {
-    html += `
-      <tr class="mw-${mw}">
-        <td>${m.date}</td>
-
-        <td>
-          <img src="${team1?.logo || ''}" style="width:24px;">
-          ${m.team1}
-        </td>
-
-        <td></td>
-
-        <td style="text-align:center;font-weight:bold;">
-          ${m.s1 ?? "-"} : ${m.s2 ?? "-"}
-        </td>
-
-        <td></td>
-
-        <td>
-          <img src="${team2?.logo || ''}" style="width:24px;">
-          ${m.team2}
-        </td>
-
-        <td></td>
-      </tr>
-    `;
-  }
-
-}); // ✅ CLOSE LOOP
-
-
-// ✅ render AFTER loops
-container.innerHTML = html;
-
-
-// ✅ collapse logic (OUTSIDE loop)
-Object.keys(collapsed).forEach(cmw => {
-  if (collapsed[cmw]) {
-    document.querySelectorAll(`.mw-${cmw}`).forEach(r => {
-      r.style.display = "none";
+      return (t1 === team1 && t2 === team2) ||
+             (t1 === team2 && t2 === team1);
     });
-  }
-});
 
+    filtered.sort((a, b) =>
+      getMW(a) - getMW(b) ||
+      new Date(a.date) - new Date(b.date)
+    );
 
-// ✅ optional dropdown refresh
-const select1 = document.getElementById("team1");
-const select2 = document.getElementById("team2");
+    if (filtered.length === 0) {
+      container.innerHTML = `<tr><td colspan="7">No matches</td></tr>`;
+      return;
+    }
 
-if (select1 && select2) {
-  select1.innerHTML = "";
-  select2.innerHTML = "";
-
-  teams.forEach(t => {
-    select1.innerHTML += `<option>${t.name}</option>`;
-    select2.innerHTML += `<option>${t.name}</option>`;
+    const grouped = {};
+    filtered.forEach(m => {
+      const mw = getMW(m);
+      if (!grouped[mw]) grouped[mw] = [];
+      grouped[mw].push(m);
     });
-  } 
-}; 
+
+    let html = "";
+
+    Object.keys(grouped)
+      .sort((a, b) => a - b)
+      .forEach(mw => {
+
+        html += renderMWHeader(mw);
+
+        grouped[mw].forEach(m => {
+          html += isAdmin
+            ? renderAdminRow(m, mw)
+            : renderViewerRow(m, mw);
+        });
+
+      });
+
+    container.innerHTML = html;
+
+    // collapse restore
+    Object.keys(collapsed).forEach(mw => {
+      if (collapsed[mw]) {
+        document.querySelectorAll(`.mw-${mw}`).forEach(r => {
+          r.style.display = "none";
+        });
+      }
+    });
+
+  } catch (err) {
+    console.error("renderMatches ERROR:", err);
+  }
+}; // renderMatches end
   
 function calculateStandings(){
   let table={};
