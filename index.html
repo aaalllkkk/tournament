@@ -799,14 +799,15 @@ function renderTeams(){
   let select2=document.getElementById("team2");
   let playerTeam=document.getElementById("playerTeam");
   let filterTeam = document.getElementById("filterTeam");
-  
-if(filterTeam) filterTeam.innerHTML = '<option value="">All Teams</option>';
-  
-  select1.innerHTML=""; select2.innerHTML=""; playerTeam.innerHTML="";
-  teams.forEach(t=>{
-    if(filterTeam){
-  filterTeam.innerHTML += `<option>${t.name}</option>`;
-}
+  let currentValue = filterTeam.value;
+
+filterTeam.innerHTML = '<option value="">All Teams</option>';
+
+teams.forEach(t=>{
+  filterTeam.innerHTML += `<option value="${t.name}">${t.name}</option>`;
+});
+
+filterTeam.value = currentValue;
     select1.innerHTML+=`<option>${t.name}</option>`;
     select2.innerHTML+=`<option>${t.name}</option>`;
     playerTeam.innerHTML+=`<option>${t.name}</option>`;
@@ -824,7 +825,8 @@ let filteredMatches = matches;
 
 if(selectedTeam){
   filteredMatches = matches.filter(m => 
-    m.team1 === selectedTeam || m.team2 === selectedTeam
+    m.team1?.trim().toLowerCase() === selectedTeam.trim().toLowerCase() ||
+    m.team2?.trim().toLowerCase() === selectedTeam.trim().toLowerCase()
   );
 }
 
@@ -833,6 +835,10 @@ filteredMatches.sort((a, b) =>
   || new Date(a.date) - new Date(b.date)
 );
 
+if(filteredMatches.length === 0){
+  container.innerHTML += `<p style="text-align:center;margin-top:20px;">No matches found</p>`;
+  return;
+}
   let lastMatchweek = 0;
 
   filteredMatches.forEach(m => {
