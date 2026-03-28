@@ -442,6 +442,8 @@ z-index:-1;
 </div>
 
 <div id="matchControls">
+<button onclick="generateLeague()">Generate League</button>
+<button onclick="resetMatches()" style="background:#ef4444;color:white;">Reset All Matches</button>
 
 <h2>Create Match</h2>
 
@@ -702,6 +704,84 @@ function populateMatchweek(){
     select.innerHTML += `<option value="${i}">Matchweek ${i}</option>`;
   }
 }
+  
+  window.updateScore = async function(id, value, side){
+  if(!isAdmin) return;
+
+  let num = parseInt(value);
+  if(isNaN(num)) return;
+
+  await updateDoc(doc(db,"matches", id), {
+    [side]: num
+  });
+}
+  
+window.resetMatches = async function(){
+  if(!isAdmin) return alert("Admin only");
+
+  if(!confirm("Delete ALL matches?")) return;
+
+  const snapshot = await getDocs(collection(db,"matches"));
+
+  for(const d of snapshot.docs){
+    await deleteDoc(doc(db,"matches", d.id));
+  }
+
+  alert("All matches deleted");
+}
+  
+window.generateLeague = async function(){
+  if(!isAdmin) return alert("Admin only");
+
+  if(teams.length < 2) return alert("Not enough teams");
+
+  if(!confirm("Generate full league? This will RESET matches")) return;
+
+  // 🔥 Clear old matches
+  const snapshot = await getDocs(collection(db,"matches"));
+  for(const d of snapshot.docs){
+    await deleteDoc(doc(db,"matches", d.id));
+  }
+
+  let teamList = [...teams.map(t => t.name)];
+
+  // If odd → add dummy (bye)
+  if(teamList.length % 2 !== 0){
+    teamList.push("BYE");
+  }
+
+  const rounds = teamList.length - 1;
+  const half = teamList.length / 2;
+
+  let arr = [...teamList];
+
+  for(let round=0; round<rounds; round++){
+
+    for(let i=0; i<half; i++){
+      let t1 = arr[i];
+      let t2 = arr[arr.length - 1 - i];
+
+      if(t1 !== "BYE" && t2 !== "BYE"){
+        await addDoc(collection(db,"matches"),{
+          team1: t1,
+          team2: t2,
+          date: "TBD",
+          Matchweek: round + 1,
+          s1: null,
+          s2: null,
+          y1: 0,
+          y2: 0
+        });
+      }
+    }
+
+    // rotate (circle method)
+    arr.splice(1, 0, arr.pop());
+  }
+
+  alert("League generated!");
+}
+
 window.addMatch = async function(){
   if(!isAdmin) return alert("Admin only");
    // ensure Matchweek options exist
@@ -910,7 +990,17 @@ window.renderMatches = function() {
         <tr class="mw-${mw}">
           <td>${m.date}</td>
           <td><img src="${team1?.logo || ''}" style="width:24px;"> ${m.team1}</td>
-          <td>${score}</td>
+          <td>
+  ${isAdmin ? `
+    <input type="number" value="${m.s1 ?? ''}" 
+      style="width:40px" 
+      onchange="updateScore('${m.id}', this.value, 's1')">
+    :
+    <input type="number" value="${m.s2 ?? ''}" 
+      style="width:40px" 
+      onchange="updateScore('${m.id}', this.value, 's2')">
+  ` : score}
+</td>
           <td><img src="${team2?.logo || ''}" style="width:24px;"> ${m.team2}</td>
           ${isAdmin ? `
             <td><button onclick="enterResult('${m.id}')">Enter</button></td>
