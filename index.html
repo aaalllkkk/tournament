@@ -786,6 +786,7 @@ window.editGoals = async function(id,currentGoals){
 function renderTeams(){
   let teamList=document.getElementById("teamList");
   teamList.innerHTML="";
+
   teams.forEach(t=>{
     teamList.innerHTML+=`
       <li class="teamRow">
@@ -799,21 +800,25 @@ function renderTeams(){
   let select2=document.getElementById("team2");
   let playerTeam=document.getElementById("playerTeam");
   let filterTeam = document.getElementById("filterTeam");
+
+  // reset dropdowns
+  select1.innerHTML="";
+  select2.innerHTML="";
+  playerTeam.innerHTML="";
+
   let currentValue = filterTeam.value;
+  filterTeam.innerHTML = '<option value="">All Teams</option>';
 
-filterTeam.innerHTML = '<option value="">All Teams</option>';
-
-teams.forEach(t=>{
-  filterTeam.innerHTML += `<option value="${t.name}">${t.name}</option>`;
-});
-
-filterTeam.value = currentValue;
-    select1.innerHTML+=`<option>${t.name}</option>`;
-    select2.innerHTML+=`<option>${t.name}</option>`;
-    playerTeam.innerHTML+=`<option>${t.name}</option>`;
+  teams.forEach(t=>{
+    filterTeam.innerHTML += `<option value="${t.name}">${t.name}</option>`;
+    select1.innerHTML += `<option>${t.name}</option>`;
+    select2.innerHTML += `<option>${t.name}</option>`;
+    playerTeam.innerHTML += `<option>${t.name}</option>`;
   });
-}
 
+  filterTeam.value = currentValue;
+}
+  
 function renderMatches() {
 const selectedTeam = document.getElementById("filterTeam")?.value;
 const container = document.getElementById("schedule");
