@@ -1152,7 +1152,7 @@ if (!confirmFinal) return;
     await addDoc(collection(db, "news"), {
       title: `${m.team1} vs ${m.team2}`,
       content: data.text,
-      image: "",
+      image: data.image || "",   // 🔥 ADD THIS
       time: Date.now()
     });
 
