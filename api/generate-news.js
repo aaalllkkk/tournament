@@ -15,12 +15,10 @@ Write a short exciting football news article.
 
 Match: ${team1} vs ${team2}
 Score: ${score}
-
-Make it feel like real sports news.
 `;
 
     const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=" +
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" +
         process.env.GEMINI_API_KEY,
       {
         method: "POST",
@@ -39,7 +37,7 @@ Make it feel like real sports news.
 
     const data = await response.json();
 
-    console.log("Gemini raw:", data); // 🔥 debug
+    console.log("Gemini raw:", data);
 
     const text =
       data?.candidates?.[0]?.content?.parts?.[0]?.text ||
