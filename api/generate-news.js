@@ -1,6 +1,6 @@
 async function generateImage(prompt) {
   const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=" +
+    "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:generateImages?key=" +
       process.env.GEMINI_API_KEY,
     {
       method: "POST",
@@ -8,16 +8,17 @@ async function generateImage(prompt) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        instances: [{ prompt }]
+        prompt: prompt,
+        numberOfImages: 1
       })
     }
   );
 
   const data = await res.json();
+  console.log("IMAGE RAW:", JSON.stringify(data, null, 2));
 
   const base64 =
-  data?.predictions?.[0]?.bytesBase64Encoded ||
-  data?.predictions?.[0]?.image?.bytesBase64Encoded;
+    data?.generatedImages?.[0]?.image?.imageBytes;
 
   return base64
     ? `data:image/png;base64,${base64}`
