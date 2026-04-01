@@ -1,5 +1,7 @@
 function generateImage(team1, team2) {
-  return `https://source.unsplash.com/1600x900/?football,stadium,${team1}`;
+  const seed = encodeURIComponent(team1 + "-" + team2);
+
+  return `https://picsum.photos/seed/${seed}/1600/900`;
 }
 
 export default async function handler(req, res) {
