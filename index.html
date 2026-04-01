@@ -1153,7 +1153,7 @@ if (!confirmFinal) return;
       title: `${m.team1} vs ${m.team2}`,
       content: data.text,
       image: "",
-      time: new Date().toLocaleString()
+      time: Date.now()
     });
 
     alert("News generated!");
@@ -1634,7 +1634,7 @@ if(!list) return;
 list.innerHTML="";
 
 news
-.sort((a,b)=>new Date(b.time)-new Date(a.time))
+.sort((a,b)=>b.time - a.time)
 .slice(0,6)
 .forEach(n=>{
 
@@ -1650,7 +1650,7 @@ ${n.image ? `<img src="${n.image}" class="newsImage">` : ""}
 
 <div>${n.content}</div>
 
-<div class="newsTime">${n.time}</div>
+<div class="newsTime">${new Date(n.time).toLocaleString()}</div>
 
 </div>
 
