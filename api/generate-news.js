@@ -72,8 +72,13 @@ intense moment, stadium lights, crowd cheering, cinematic, realistic
     const text =
       data?.candidates?.[0]?.content?.parts?.[0]?.text ||
       "No result";
+    
+    const image = await generateImage(imagePrompt);
 
-    res.status(200).json({ text });
+    res.status(200).json({
+  text,
+  image
+});
 
   } catch (err) {
     console.error(err);
