@@ -1,3 +1,28 @@
+async function generateImage(prompt) {
+  const res = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=" +
+      process.env.GEMINI_API_KEY,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        instances: [{ prompt }]
+      })
+    }
+  );
+
+  const data = await res.json();
+
+  const base64 = data?.predictions?.[0]?.bytesBase64Encoded;
+
+  return base64
+    ? `data:image/png;base64,${base64}`
+    : null;
+}
+
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -17,6 +42,10 @@ The tone should feel like a breaking news headline expanded into one paragraph. 
 
 Match: ${team1} vs ${team2}
 Score: ${score}
+`;
+    const imagePrompt = `
+A dramatic football match between ${team1} and ${team2}, 
+intense moment, stadium lights, crowd cheering, cinematic, realistic
 `;
 
     const response = await fetch(
