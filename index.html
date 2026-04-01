@@ -1626,40 +1626,32 @@ ${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete<
 
 }
   
-function renderNews(){
+function renderNews() {
+  let list = document.getElementById("newsList");
+  if (!list) return;
 
-let list=document.getElementById("newsList");
-if(!list) return;
+  list.innerHTML = "";
 
-list.innerHTML="";
+  const html = [...news]
+    .sort((a, b) => (b.time || 0) - (a.time || 0))
+    .slice(0, 6)
+    .map(n => `
+      <div class="newsItem">
+        ${n.image && n.image.startsWith("data:image")
+          ? `<img src="${n.image}" class="newsImage" loading="lazy">`
+          : ""
+        }
 
-[...news]
-.sort((a,b)=>(b.time || 0) - (a.time || 0))
-.slice(0,6)
-.forEach(n=>{
+        <div class="newsContent">
+          <div class="newsTitle">${n.title}</div>
+          <div>${n.content}</div>
+          <div class="newsTime">${new Date(n.time).toLocaleString()}</div>
+        </div>
+      </div>
+    `)
+    .join("");
 
-list.innerHTML+=`
-
-<div class="newsItem">
-
-${n.image ? `<img src="${n.image}" class="newsImage">` : ""}
-
-<div class="newsContent">
-
-<div class="newsTitle">${n.title}</div>
-
-<div>${n.content}</div>
-
-<div class="newsTime">${new Date(n.time).toLocaleString()}</div>
-
-</div>
-
-</div>
-
-`;
-
-});
-
+  list.innerHTML = html;
 }
   
 function renderHighlights(){
