@@ -1130,13 +1130,20 @@ if (!confirmFinal) return;
 
   try {
 
-    let res = await fetch("https://tournament-rouge.vercel.app/api/generate-news", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(match)
-    });
+    const res = await fetch(
+  "https://tournament-rouge.vercel.app/api/generate-news",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      team1: m.team1,
+      team2: m.team2,
+      score: `${m.s1} - ${m.s2}`
+    })
+  }
+);
 
     let data = await res.json();
 
