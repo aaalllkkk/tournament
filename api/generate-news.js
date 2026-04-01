@@ -15,7 +15,9 @@ async function generateImage(prompt) {
 
   const data = await res.json();
 
-  const base64 = data?.predictions?.[0]?.bytesBase64Encoded;
+  const base64 =
+  data?.predictions?.[0]?.bytesBase64Encoded ||
+  data?.predictions?.[0]?.image?.bytesBase64Encoded;
 
   return base64
     ? `data:image/png;base64,${base64}`
@@ -79,6 +81,7 @@ intense moment, stadium lights, crowd cheering, cinematic, realistic
   text,
   image
 });
+    console.log("IMAGE RESULT:", image);
 
   } catch (err) {
     console.error(err);
