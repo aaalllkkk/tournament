@@ -749,6 +749,13 @@ function findTeam(name) {
      ${m.live ? 'Stop Live' : 'Go Live'}
   </button>
 </td>
+
+<td>
+  <button onclick="generateNews('${m.id}')">
+    Generate News
+  </button>
+</td>
+
       <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>
       
     </tr>
@@ -1022,7 +1029,7 @@ function populateMatchweek(){
     <th>Team 1</th>
     <th>Score</th>
     <th>Team 2</th>
-    ${isAdmin ? "<th>Result</th><th>Yellow</th><th>Live</th><th>Delete</th>" : ""}
+    ${isAdmin ? "<th>Result</th><th>Yellow</th><th>Live</th><th>News</th><th>Delete</th>" : ""}
   `;
 }
   
@@ -1112,6 +1119,48 @@ if (!confirmFinal) return;
 
   alert("League generated!");
 }
+
+  window.generateNews = async function(id){
+
+  let match = matches.find(m => m.id === id);
+
+  if(!match) return alert("Match not found");
+
+  alert("Generating news...");
+
+  try {
+
+    let res = await fetch("https://tournament-rouge.vercel.app/api/generate-news", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(match)
+    });
+
+    let data = await res.json();
+
+    if(data.text){
+
+      await addDoc(collection(db,"news"),{
+        title: match.team1 + " vs " + match.team2,
+        content: data.text,
+        image: "",
+        time: new Date().toLocaleString()
+      });
+
+      alert("News created!");
+
+    } else {
+      alert("Failed to generate");
+    }
+
+  } catch (err){
+    console.error(err);
+    alert("Error");
+  }
+
+};
 
 window.addMatch = async function(){
   if(!isAdmin) return alert("Admin only");
