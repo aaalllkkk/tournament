@@ -1120,53 +1120,48 @@ if (!confirmFinal) return;
   alert("League generated!");
 }
 
-  window.generateNews = async function(id){
+ window.generateNews = async function(matchId) {
 
-  let match = matches.find(m => m.id === id);
+  // find match from array
+  let m = matches.find(x => x.id === matchId);
 
-  if(!match) return alert("Match not found");
-
-  alert("Generating news...");
+  if (!m) {
+    alert("Match not found");
+    return;
+  }
 
   try {
-
     const res = await fetch(
-  "https://tournament-rouge.vercel.app/api/generate-news",
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      team1: m.team1,
-      team2: m.team2,
-      score: `${m.s1} - ${m.s2}`
-    })
-  }
-);
+      "https://tournament-rouge.vercel.app/api/generate-news",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          team1: m.team1,
+          team2: m.team2,
+          score: `${m.s1 ?? 0} - ${m.s2 ?? 0}`
+        })
+      }
+    );
 
-    let data = await res.json();
+    const data = await res.json();
 
-    if(data.text){
+    // save to firebase news
+    await addDoc(collection(db, "news"), {
+      title: `${m.team1} vs ${m.team2}`,
+      content: data.text,
+      image: "",
+      time: new Date().toLocaleString()
+    });
 
-      await addDoc(collection(db,"news"),{
-        title: match.team1 + " vs " + match.team2,
-        content: data.text,
-        image: "",
-        time: new Date().toLocaleString()
-      });
+    alert("News generated!");
 
-      alert("News created!");
-
-    } else {
-      alert("Failed to generate");
-    }
-
-  } catch (err){
+  } catch (err) {
     console.error(err);
-    alert("Error");
+    alert("Failed to generate news");
   }
-
 };
 
 window.addMatch = async function(){
