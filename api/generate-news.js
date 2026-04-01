@@ -1,10 +1,4 @@
-function generateImage(prompt, team1, team2) {
-  const useAI = true;
-
-  if (useAI) {
-    return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?t=${Date.now()}`;
-  }
-
+function generateImage(team1, team2) {
   return `https://source.unsplash.com/1600x900/?football,stadium,${team1}`;
 }
 
