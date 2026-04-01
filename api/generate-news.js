@@ -1,6 +1,13 @@
-async function generateImage(prompt) {
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
+function generateImage(prompt, team1, team2) {
+  const useAI = true;
+
+  if (useAI) {
+    return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?t=${Date.now()}`;
+  }
+
+  return `https://source.unsplash.com/1600x900/?football,stadium,${team1}`;
 }
+console.log("IMAGE URL:", image);
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -52,7 +59,7 @@ intense moment, stadium lights, crowd cheering, cinematic, realistic
       data?.candidates?.[0]?.content?.parts?.[0]?.text ||
       "No result";
     
-    const image = await generateImage(imagePrompt);
+    const image = generateImage(imagePrompt);
 
     res.status(200).json({
   text,
