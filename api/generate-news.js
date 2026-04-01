@@ -1,51 +1,54 @@
 export default async function handler(req, res) {
-
-  // ✅ ALWAYS set CORS first
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // ✅ Handle preflight FIRST (VERY IMPORTANT)
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  import { GoogleGenAI } from "@google/genai";
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY
-});
-
-export default async function handler(req, res) {
   try {
     const { team1, team2, score } = req.body;
 
     const prompt = `
-Write a football news article.
+Write a short exciting football news article.
 
 Match: ${team1} vs ${team2}
 Score: ${score}
+
+Make it feel like real sports news.
 `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash", // ✅ correct model
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: prompt }]
-        }
-      ]
-    });
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=" +
+        process.env.GEMINI_API_KEY,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt }]
+            }
+          ]
+        })
+      }
+    );
 
-    res.status(200).json({
-      text: response.text
-    });
+    const data = await response.json();
+
+    console.log("Gemini raw:", data); // 🔥 debug
+
+    const text =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "No result";
+
+    res.status(200).json({ text });
 
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 }
