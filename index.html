@@ -1637,10 +1637,10 @@ function renderNews() {
     .slice(0, 6)
     .map(n => `
       <div class="newsItem">
-        ${n.image && n.image.startsWith("data:image")
-          ? `<img src="${n.image}" class="newsImage" loading="lazy">`
-          : ""
-        }
+                 ${n.image
+            ? `<img src="${n.image}" class="newsImage" loading="lazy">`
+            : ""
+          }
 
         <div class="newsContent">
           <div class="newsTitle">${n.title}</div>
