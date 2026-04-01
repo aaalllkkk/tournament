@@ -140,12 +140,18 @@ text-align:center;
 
 /* Premium pulsing dot */
 .liveDot{
+  display:inline-block; /* 🔥 important */
   width:10px;
   height:10px;
-  background:#22c55e; /* green (premium + clean) */
+  min-width:10px;       /* 🔥 prevents squish */
+  min-height:10px;
+  background:#22c55e;
   border-radius:50%;
+  vertical-align:middle;
   position:relative;
+
   box-shadow:0 0 6px rgba(34,197,94,0.8);
+
   animation:livePulse 1.6s ease-out infinite;
 }
 
@@ -508,44 +514,6 @@ z-index:-1;
     </div>
 
   </div>
-
-</div>
-
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-
-<div class="card">
-
-<h2>Top Scorers</h2>
-
-<div id="dashboardScorers"></div>
-
-</div>
-
-<div class="card">
-
-<h2>Next Match</h2>
-
-<div id="nextMatch"></div>
-
-</div>
-
-</div>
-
-<div class="card">
-
-<h2>Tournament News</h2>
-
-<div id="newsControls">
-
-<input id="newsTitle" placeholder="News title">
-<input id="newsContent" placeholder="News text">
-<input id="newsImage" placeholder="News image URL">
-
-<button onclick="addNews()">Post</button>
-
-</div>
-
-<div id="newsList"></div>
 
 </div>
 
@@ -955,11 +923,11 @@ onSnapshot(collection(db, "matches"), (snapshot) => {
   matches = [];
   snapshot.forEach(doc => matches.push({ ...doc.data(), id: doc.id }));
   renderMatches();
+  renderLiveMatches(); // ✅ ADD THIS
   renderStandings();
   renderHighlights();
   renderDashboardStandings();
   renderNextMatch();
-  renderLiveMatches(); // ✅ ADD THIS
 });
 
 // Real-time listener for scorers
