@@ -7,7 +7,6 @@ function generateImage(prompt, team1, team2) {
 
   return `https://source.unsplash.com/1600x900/?football,stadium,${team1}`;
 }
-console.log("IMAGE URL:", image);
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -60,6 +59,7 @@ intense moment, stadium lights, crowd cheering, cinematic, realistic
       "No result";
     
     const image = generateImage(imagePrompt);
+console.log("IMAGE URL:", image);
 
     res.status(200).json({
   text,
