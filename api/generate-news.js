@@ -1,6 +1,6 @@
 async function generateImage(prompt) {
   const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:generateImages?key=" +
+    "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=" +
       process.env.GEMINI_API_KEY,
     {
       method: "POST",
@@ -8,23 +8,22 @@ async function generateImage(prompt) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        prompt: prompt,
-        numberOfImages: 1
+        instances: [{ prompt }]
       })
     }
   );
 
   const data = await res.json();
-  console.log("IMAGE RAW:", JSON.stringify(data, null, 2));
+
+  console.log("IMAGE RAW:", data);
 
   const base64 =
-    data?.generatedImages?.[0]?.image?.imageBytes;
+    data?.predictions?.[0]?.bytesBase64Encoded;
 
   return base64
     ? `data:image/png;base64,${base64}`
     : null;
 }
-
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -82,7 +81,6 @@ intense moment, stadium lights, crowd cheering, cinematic, realistic
   text,
   image
 });
-    console.log("IMAGE RESULT:", image);
 
   } catch (err) {
     console.error(err);
