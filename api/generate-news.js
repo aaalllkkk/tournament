@@ -18,14 +18,17 @@ export default async function handler(req, res) {
     const { team1, team2, score } = req.body;
 
     const prompt = `
-Write a short exciting football match news.
+Write a short exciting football match report.
 
 Match: ${team1} vs ${team2}
-Score: ${score}
+Final Score: ${score}
+
+Make it sound like professional sports news.
+Include a headline and 2–3 sentences.
 `;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: {
@@ -38,6 +41,7 @@ Score: ${score}
     );
 
     const data = await response.json();
+    console.log(JSON.stringify(data, null, 2));
 
     const text =
       data?.candidates?.[0]?.content?.parts?.[0]?.text ||
