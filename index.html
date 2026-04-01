@@ -127,6 +127,37 @@ text-align:center;
 .rank2{color:silver;}
 .rank3{color:#cd7f32;}
 
+/* LIVE badge */
+.liveBadge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-weight:600;
+  color:white;
+}
+
+/* Premium pulsing dot */
+.liveDot{
+  width:8px;
+  height:8px;
+  background:#ef4444;
+  border-radius:50%;
+  animation:livePulse 1.5s infinite;
+}
+
+/* Smooth pulse effect */
+@keyframes livePulse{
+  0%{ box-shadow:0 0 0 0 rgba(239,68,68,0.7); }
+  70%{ box-shadow:0 0 0 8px rgba(239,68,68,0); }
+  100%{ box-shadow:0 0 0 0 rgba(239,68,68,0); }
+}
+
+/* Highlight live match card */
+.scoreCard.live{
+  border:1px solid #ef4444;
+  box-shadow:0 0 12px rgba(239,68,68,0.25);
+}
+
 .matchWrap{
   margin-bottom:12px;
 }
@@ -410,6 +441,11 @@ z-index:-1;
 </div>
 
 <div class="card">
+  
+  <div class="card">
+  <h2>Live Matches 🔴</h2>
+  <div id="liveMatches"></div>
+</div>
 
 <h2>Match Highlights</h2>
 
@@ -663,13 +699,17 @@ function findTeam(name) {
         ${safe(m.team1)}
       </td>
 
-      <td>
+         <td>
+      ${m.live ? `<span class="liveBadge">
+  <span class="liveDot"></span> LIVE
+</span>` : `
         <input type="number" value="${safe(m.s1, "")}" style="width:40px"
           onchange="updateScore('${m.id}', this.value, 's1')">
         :
         <input type="number" value="${safe(m.s2, "")}" style="width:40px"
           onchange="updateScore('${m.id}', this.value, 's2')">
-      </td>
+      `}
+    </td>
 
       <td>
         <img src="${safe(team2.logo)}" style="width:24px;">
@@ -678,7 +718,13 @@ function findTeam(name) {
 
       <td><button onclick="enterResult('${m.id}')">Enter</button></td>
       <td><button onclick="addYellow('${m.id}')">Card</button></td>
+      <td>
+  <button onclick="toggleLive('${m.id}', ${m.live ? 'false' : 'true'})">
+    ${m.live ? 'LIVE ON 🔴' : 'Go Live'}
+  </button>
+</td>
       <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>
+      
     </tr>
   `;
 }
@@ -696,8 +742,12 @@ function findTeam(name) {
         ${safe(m.team1)}
       </td>
 
-   <td style="text-align:center;font-weight:bold;">
-  ${safeNumber(m.s1)} : ${safeNumber(m.s2)}
+  <td style="text-align:center;font-weight:bold;">
+  ${
+    m.live
+    ? `<span class="liveBadge"><span class="liveDot"></span> LIVE</span>`
+    : safeNumber(m.s1) + " : " + safeNumber(m.s2)
+  }
 </td>
 
       <td>
@@ -758,6 +808,46 @@ if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
   `;
 }
   
+  function renderLiveMatches(){
+  let box = document.getElementById("liveMatches");
+  if(!box) return;
+
+  box.innerHTML = "";
+
+  let live = matches.filter(m => m.live);
+
+  if(live.length === 0){
+    box.innerHTML = "No live matches";
+    return;
+  }
+
+  live.forEach(m => {
+    let team1 = teams.find(t => t.name === m.team1);
+    let team2 = teams.find(t => t.name === m.team2);
+
+    box.innerHTML += `
+      <div class="scoreCard ${m.live ? 'live' : ''}">
+        <div class="teamBlock">
+          <img src="${team1?.logo||''}">
+          ${m.team1}
+        </div>
+
+                <div class="scoreNumber">
+          <span class="liveBadge">
+            <span class="liveDot"></span>
+            ${safeNumber(m.s1)} - ${safeNumber(m.s2)}
+          </span>
+        </div>
+
+        <div class="teamBlock">
+          <img src="${team2?.logo||''}">
+          ${m.team2}
+        </div>
+      </div>
+    `;
+  });
+}
+  
 window.toggleFolder = function(mw) {
   const rows = document.querySelectorAll(`.mw-${mw}`);
   if (!rows.length) return;
@@ -811,6 +901,7 @@ onSnapshot(collection(db, "matches"), (snapshot) => {
   renderHighlights();
   renderDashboardStandings();
   renderNextMatch();
+  renderLiveMatches(); // ✅ ADD THIS
 });
 
 // Real-time listener for scorers
@@ -859,6 +950,14 @@ window.openTab = function(id,e){
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"))
   document.getElementById(id).classList.add("active")
   e.target.classList.add("active")
+}d
+
+  window.toggleLive = async function(id, state){
+  if(!isAdmin) return;
+
+  await updateDoc(doc(db,"matches", id), {
+    live: state === 'true'
+  });
 }
 
 window.addTeam = async function(){
@@ -897,7 +996,7 @@ function populateMatchweek(){
     <th>Team 1</th>
     <th>Score</th>
     <th>Team 2</th>
-    ${isAdmin ? "<th>Result</th><th>Yellow</th><th>Delete</th>" : ""}
+    ${isAdmin ? "<th>Result</th><th>Yellow</th><th>Live</th><th>Delete</th>" : ""}
   `;
 }
   
@@ -976,6 +1075,7 @@ if (!confirmFinal) return;
           s2: null,
           y1: 0,
           y2: 0
+          live:false // ✅ ADD THIS
         });
       }
     }
@@ -1211,7 +1311,7 @@ function calculateStandings(){
   let table={};
   teams.forEach(t=>{table[t.name]={p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0,y:0}});
   matches.forEach(m=>{
-    if(m.s1===null) return;
+    if(m.s1===null && !m.live) return;
     let t1=table[m.team1]; let t2=table[m.team2];
     t1.p++; t2.p++;
     t1.gf+=m.s1; t1.ga+=m.s2;
@@ -1488,7 +1588,7 @@ let team2=teams.find(t=>t.name===m.team2);
 
 container.innerHTML+=`
 
-<div class="scoreCard">
+<div class="scoreCard ${m.live ? 'live' : ''}">
 
 <div class="teamBlock">
 <img src="${team1?.logo||''}">
