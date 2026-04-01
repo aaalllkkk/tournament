@@ -448,43 +448,68 @@ z-index:-1;
 
 <div class="mainLayout">
 
-<div>
+  <!-- LEFT COLUMN -->
+  <div>
 
-<div class="card">
+    <div class="card">
+      <h2>Standings</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Team</th>
+            <th>Pts</th>
+          </tr>
+        </thead>
+        <tbody id="dashboardStandings"></tbody>
+      </table>
+    </div>
 
-<h2>Standings</h2>
+    <div class="card">
+      <h2>Live Matches</h2>
+      <div id="liveMatches"></div>
+    </div>
 
-<table>
+    <div class="card">
+      <h2>Match Highlights</h2>
+      <div id="highlightList"></div>
+    </div>
 
-<thead>
-<tr>
-<th>Rank</th>
-<th>Team</th>
-<th>Pts</th>
-</tr>
-</thead>
+  </div>
 
-<tbody id="dashboardStandings"></tbody>
+  <!-- RIGHT COLUMN -->
+  <div>
 
-</table>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+
+      <div class="card">
+        <h2>Top Scorers</h2>
+        <div id="dashboardScorers"></div>
+      </div>
+
+      <div class="card">
+        <h2>Next Match</h2>
+        <div id="nextMatch"></div>
+      </div>
+
+    </div>
+
+    <div class="card">
+      <h2>Tournament News</h2>
+
+      <div id="newsControls">
+        <input id="newsTitle" placeholder="News title">
+        <input id="newsContent" placeholder="News text">
+        <input id="newsImage" placeholder="News image URL">
+        <button onclick="addNews()">Post</button>
+      </div>
+
+      <div id="newsList"></div>
+    </div>
+
+  </div>
 
 </div>
-
-<div class="card">
-  <h2>Live Matches</h2>
-  <div id="liveMatches"></div>
-</div>
-
-<div class="card">
-  <h2>Match Highlights</h2>
-  <div id="highlightList"></div>
-</div>
-
-</div>
-
-</div>
-
-<div>
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
 
@@ -728,16 +753,20 @@ function findTeam(name) {
         ${safe(m.team1)}
       </td>
 
-         <td>
-      ${m.live ? `<span class="liveBadge">
-  <span class="liveDot"></span> LIVE
-</span>` : `
-        <input type="number" value="${safe(m.s1, "")}" style="width:40px"
-          onchange="updateScore('${m.id}', this.value, 's1')">
-        :
-        <input type="number" value="${safe(m.s2, "")}" style="width:40px"
-          onchange="updateScore('${m.id}', this.value, 's2')">
-      `}
+             <td>
+      <input type="number" value="${safe(m.s1, "")}" style="width:40px"
+        onchange="updateScore('${m.id}', this.value, 's1')">
+    
+      :
+    
+      <input type="number" value="${safe(m.s2, "")}" style="width:40px"
+        onchange="updateScore('${m.id}', this.value, 's2')">
+    
+      ${m.live ? `
+        <div class="liveBadge" style="margin-top:4px;">
+          <span class="liveDot"></span> LIVE
+        </div>
+      ` : ""}
     </td>
 
       <td>
@@ -1355,6 +1384,12 @@ function calculateStandings(){
   return table;
 }
 
+  function isTeamLive(teamName){
+  return matches.some(m =>
+    m.live && (m.team1 === teamName || m.team2 === teamName)
+  );
+}
+  
 function renderStandings(){
   let standings=calculateStandings();
   let arr=[];
@@ -1375,9 +1410,15 @@ table.innerHTML+=`
 <tr class="${c}">
   <td>${i+1}</td>
   <td>
-    <img src="${teamObj?.logo||''}" style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
-    ${t.team}
-  </td>
+  <img src="${teamObj?.logo||''}" 
+  style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
+
+  ${t.team}
+
+  ${isTeamLive(t.team) ? `
+    <span class="liveDot" style="margin-left:6px;"></span>
+  ` : ""}
+</td>
   <td>${t.p}</td>
   <td>${t.w}</td>
   <td>${t.d}</td>
