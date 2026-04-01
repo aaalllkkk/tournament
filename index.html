@@ -1236,7 +1236,7 @@ await addDoc(collection(db,"news"),{
 title,
 content,
 image,
-time:new Date().toLocaleString()
+time: Date.now()
 
 });
 
@@ -1633,8 +1633,8 @@ if(!list) return;
 
 list.innerHTML="";
 
-news
-.sort((a,b)=>b.time - a.time)
+[...news]
+.sort((a,b)=>(b.time || 0) - (a.time || 0))
 .slice(0,6)
 .forEach(n=>{
 
