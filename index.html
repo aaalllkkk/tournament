@@ -443,6 +443,8 @@ z-index:-1;
 
 <button onclick="login()">Login</button>
 <button onclick="logout()">Logout</button>
+<button onclick="exportBackup()">📦 Backup</button>
+<input type="file" accept=".json" onchange="importBackup(event)">
 
 <p>Status : <span id="status">Viewer Mode</span></p>
 
@@ -939,6 +941,57 @@ if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
     `;
   });
 }
+  
+window.exportBackup = function () {
+
+  const data = {
+    teams: teams,
+    matches: matches,
+    scorers: scorers,
+    news: news
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json"
+  });
+
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "tournament-backup.json";
+  a.click();
+
+  URL.revokeObjectURL(url);
+};
+
+  window.importBackup = function (event) {
+
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = function (e) {
+
+    const data = JSON.parse(e.target.result);
+
+    teams = data.teams || [];
+    matches = data.matches || [];
+    scorers = data.scorers || [];
+    news = data.news || [];
+
+    // refresh screen
+    renderTeams();
+    renderMatches();
+    renderStandings();
+    renderNews();
+
+    alert("Done! Data restored.");
+  };
+
+  reader.readAsText(file);
+};
   
 window.toggleFolder = function(mw) {
   const rows = document.querySelectorAll(`.mw-${mw}`);
