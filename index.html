@@ -1883,7 +1883,6 @@ function setupConnectionEvents(node){
       drawLines();
     };
   });
-}
 
   window.updateScoreKO = function(id, side, val){
 
@@ -1975,14 +1974,14 @@ function setupConnectionEvents(node){
       if(c.type === "win") color = "#22c55e";
       if(c.type === "lose") color = "#ef4444";
 
-      path.setAttribute("stroke", color);
+     let path = document.createElementNS("http://www.w3.org/2000/svg", "path");
 
-      path.setAttribute("d", `M${x1},${y1} C${x1+60},${y1} ${x2-60},${y2} ${x2},${y2}`);
-      path.setAttribute("stroke", c.type==="win" ? "#22c55e" : "#ef4444");
-      path.setAttribute("stroke-width", "2");
-      path.setAttribute("fill","none");
+path.setAttribute("d", `M${x1},${y1} C${x1+60},${y1} ${x2-60},${y2} ${x2},${y2}`);
+path.setAttribute("stroke", color);
+path.setAttribute("stroke-width", "2");
+path.setAttribute("fill","none");
 
-      svg.appendChild(path);
+svg.appendChild(path);
     });
 
   });
