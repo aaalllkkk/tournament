@@ -1282,7 +1282,10 @@ onSnapshot(collection(db, "teams"), (snapshot) => {
   renderTeams();
   renderStandings();
   renderDashboardStandings();
-  onSnapshot(doc(db, "config", "standings"), (docSnap) => {
+});
+
+  // Real-time listener for Standings
+    onSnapshot(doc(db, "config", "standings"), (docSnap) => {
 
   if (docSnap.exists()) {
     const data = docSnap.data();
@@ -1303,7 +1306,6 @@ onSnapshot(collection(db, "teams"), (snapshot) => {
 
   });
   
-});
 
 // Real-time listener for matches
 onSnapshot(collection(db, "matches"), (snapshot) => {
@@ -1716,39 +1718,22 @@ function setupConnectionEvents(node){
   const id = node.dataset.id;
 
   node.querySelectorAll(".winPort, .losePort").forEach(port => {
-  port.onclick = () => {
-    currentLink = {
-      from: id,
-      type: port.dataset.type
+    port.onclick = () => {
+      currentLink = {
+        from: id,
+        type: port.dataset.type
+      };
     };
-  };
-});
-
-  if(!currentLink) return;
-
-  // ✅ LIMIT TO 2 INPUTS
-  let count = knockout.connections.filter(c => c.to === id).length;
-
-  if(count >= 2){
-    alert("Max 2 connections allowed");
-    return;
-  }
-    
-
-  knockout.connections.push({
-    from: currentLink.from,
-    to: id,
-    type: currentLink.type
   });
 
-  currentLink = null;
-
-  saveKnockout();
-  drawLines();
-};
-
-  node.querySelector(".inPort").onclick = ()=>{
+  node.querySelector(".inPort").onclick = () => {
     if(!currentLink) return;
+
+    let count = knockout.connections.filter(c => c.to === id).length;
+    if(count >= 2){
+      alert("Max 2 connections allowed");
+      return;
+    }
 
     knockout.connections.push({
       from: currentLink.from,
@@ -2126,16 +2111,6 @@ setTimeout(() => {
     }
   });
 }, 0);
-
-    // collapse restore
-   Object.keys(collapsed).forEach(mw => {
-  if (collapsed[mw]) {
-    document.querySelectorAll(`.mw-${mw}`).forEach(r => {
-      r.style.display = "none";
-      r.dataset.hidden = "true";
-    });
-  }
-});
 
   } 
   
