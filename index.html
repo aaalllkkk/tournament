@@ -32,10 +32,11 @@ text-align: center;
 
   /* Smooth collapse */
 .mw-row {
-  transition: all 0.25s ease;
-}
-.mw-row {
-  transform-origin: top;
+  overflow: hidden;
+  transition: 
+    opacity 0.25s ease,
+    transform 0.25s ease,
+    height 0.25s ease;
 }
 
 .mw-collapsing {
@@ -919,7 +920,7 @@ if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
    
   return `
     <tr onclick="toggleFolder(${mw})">
-      <td colspan="4" style="
+      <td colspan="${isAdmin ? 9 : 4}" style="
         border-top:1px solid #334155;
         border-bottom:1px solid #334155;
         cursor:pointer;
@@ -939,7 +940,11 @@ if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
 
   box.innerHTML = "";
 
-  let live = matches.filter(m => m.live === true);
+  let live = matches.filter(m => 
+  m.live === true &&
+  m.team1 &&
+  m.team2
+);
 
   if(live.length === 0){
     box.innerHTML = "No live matches";
@@ -996,35 +1001,64 @@ window.exportBackup = function () {
   URL.revokeObjectURL(url);
 };
 
-  window.importBackup = function (event) {
+  async function clearCollection(name){
+  const snapshot = await getDocs(collection(db, name));
+
+  for(const d of snapshot.docs){
+    await deleteDoc(doc(db, name, d.id));
+  }
+}
+
+ window.importBackup = async function (event) {
+
+  if(!isAdmin) return alert("Admin only");
 
   const file = event.target.files[0];
   if (!file) return;
 
   const reader = new FileReader();
 
-  reader.onload = function (e) {
+  reader.onload = async function (e) {
 
-    const data = JSON.parse(e.target.result);
+    try{
+      const data = JSON.parse(e.target.result);
 
-    teams = data.teams || [];
-    matches = data.matches || [];
-    scorers = data.scorers || [];
-    news = data.news || [];
+      // 🔥 STEP 1: CLEAR FIREBASE
+      await clearCollection("teams");
+      await clearCollection("matches");
+      await clearCollection("scorers");
+      await clearCollection("news");
 
-    // refresh screen
-    renderTeams();
-    renderMatches();
-    renderStandings();
-    renderNews();
+      // 🔥 STEP 2: RE-UPLOAD DATA
+      for(const t of (data.teams || [])){
+        await addDoc(collection(db,"teams"), t);
+      }
 
-    alert("Done! Data restored.");
+      for(const m of (data.matches || [])){
+        await addDoc(collection(db,"matches"), m);
+      }
+
+      for(const s of (data.scorers || [])){
+        await addDoc(collection(db,"scorers"), s);
+      }
+
+      for(const n of (data.news || [])){
+        await addDoc(collection(db,"news"), n);
+      }
+
+      alert("✅ Backup fully restored!");
+
+    }catch(err){
+      console.error(err);
+      alert("❌ Failed to import backup");
+    }
   };
 
   reader.readAsText(file);
 };
   
 window.toggleFolder = function(mw) {
+
   const rows = document.querySelectorAll(`.mw-${mw}`);
   if (!rows.length) return;
 
@@ -1034,21 +1068,30 @@ window.toggleFolder = function(mw) {
     // OPEN
     rows.forEach(r => {
       r.style.display = "";
+      r.style.height = r.scrollHeight + "px";
+
       requestAnimationFrame(() => {
+        r.style.height = "auto";
         r.classList.remove("mw-collapsing");
         r.dataset.hidden = "false";
       });
     });
 
   } else {
-    // CLOSE (smooth)
+    // CLOSE
     rows.forEach(r => {
-      r.classList.add("mw-collapsing");
+      r.style.height = r.scrollHeight + "px";
 
-      setTimeout(() => {
-        r.style.display = "none";
-        r.dataset.hidden = "true";
-      }, 250);
+      requestAnimationFrame(() => {
+        r.style.height = "0px";
+        r.classList.add("mw-collapsing");
+      });
+
+    setTimeout(() => {
+      r.style.display = "none";
+      r.style.height = "0px";   // ✅ force no leftover height
+      r.dataset.hidden = "true";
+    }, 250);
     });
   }
 
@@ -1153,25 +1196,49 @@ window.openTab = function(id,e){
   });
 }
 
-window.addTeam = function (team) {
-  if (!team) return;
+window.addTeam = async function(){
 
-  const safeTeam = normalizeTeam(team);
+  if(!isAdmin) return alert("Admin only");
 
-  // prevent duplicates after delete/re-add
-  const exists = teams.find(t => t.id === safeTeam.id);
-  if (exists) return;
+  let name = document.getElementById("teamName").value.trim();
+  let logo = document.getElementById("teamLogo").value.trim();
 
-  teams.push(safeTeam);
+  if(!name) return alert("Team name required");
 
+  // 🔥 prevent duplicate
+  const exists = teams.find(t => normalizeKey(t.name) === normalizeKey(name));
+  if(exists) return alert("Team already exists");
+
+  try{
+    await addDoc(collection(db,"teams"),{
+      name,
+      logo,
+      p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0,y:0
+    });
+
+    document.getElementById("teamName").value="";
+    document.getElementById("teamLogo").value="";
+
+  }catch(err){
+    console.error(err);
+    alert("Failed to add team");
+  }
+  renderStandings();
+}
+
+window.deleteTeam = async function (id) {
+
+  if(!isAdmin) return alert("Admin only");
+
+  try{
+    await deleteDoc(doc(db,"teams", id));
+  }catch(err){
+    console.error(err);
+    alert("Failed to delete");
+  }
   renderStandings();
 };
-
-window.deleteTeam = function (teamId) {
-  teams = teams.filter(t => t.id !== teamId);
-
-  renderStandings();
-};
+  
 function populateMatchweek(){
   const select = document.getElementById("matchMatchweek");
   if(!select) return;
@@ -1540,6 +1607,15 @@ window.renderMatches = function () {
     container.innerHTML = html;
     // restore collapsed state safely AFTER render
 setTimeout(() => {
+  Object.keys(collapsed).forEach(mw => {
+    if (collapsed[mw]) {
+      document.querySelectorAll(`.mw-${mw}`).forEach(r => {
+        r.style.display = "none";
+        r.style.height = "0px";   // ✅ IMPORTANT
+        r.dataset.hidden = "true";
+      });
+    }
+  });
 }, 0);
 
     // collapse restore
@@ -1795,7 +1871,7 @@ ${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete<
 
     // Filter for matches without scores (upcoming matches)
     let upcoming = matches
-        .filter(m => m.s1 === null)
+    .filter(m => m.s1 === null && m.team1 && m.team2)
         // Sort first by Matchweek, then by date
         .sort((a, b) =>
   (getMW(a) - getMW(b)) ||
@@ -1876,7 +1952,12 @@ if(!container) return;
 
 container.innerHTML="";
 
-let finished = matches.filter(m => m.s1 !== null && m.s2 !== null);
+let finished = matches.filter(m => 
+  m.s1 !== null &&
+  m.s2 !== null &&
+  m.team1 &&
+  m.team2
+);
 
 finished.slice(-5).reverse().forEach(m=>{
 
