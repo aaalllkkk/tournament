@@ -1,9 +1,3 @@
-function generateImage(team1, team2) {
-  const seed = encodeURIComponent(team1 + "-" + team2);
-
-  return `https://picsum.photos/seed/${seed}/1600/900`;
-}
-
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
