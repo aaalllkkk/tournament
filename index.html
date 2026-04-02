@@ -812,15 +812,22 @@ function findTeam(name) {
         ${team1.disqualified ? "<span style='color:gray;font-size:11px'> (Disqualified)</span>" : ""}
       </td>
 
-      <td>
+        <td>
         <input type="number" value="${safe(m.s1, "")}" style="width:40px"
           onchange="updateScore('${m.id}', this.value, 's1')">
+        
         :
+      
         <input type="number" value="${safe(m.s2, "")}" style="width:40px"
           onchange="updateScore('${m.id}', this.value, 's2')">
-        m.live === true
-          ? `<span class="liveBadge"><span class="liveDot"></span> LIVE</span>`
-    </td>
+      
+        ${m.live
+          ? `<span class="liveBadge" style="margin-left:8px;">
+              <span class="liveDot"></span> LIVE
+            </span>`
+          : ""
+        }
+      </td>
 
       <td>
         <img src="${team2.logo || 'default.png'}" style="width:24px;" />
@@ -1561,14 +1568,16 @@ function calculateStandings() {
       gf: 0,
       ga: 0,
       pts: 0,
-      y: t.y || 0
+      y: Number(t.y ?? 0)
     };
   });
 
   // loop firebase matches
  matches.forEach(m => {
+   
+  if (!m.team1 || !m.team2) return;
 
-  if (m.s1 === null || m.s2 === null) return;
+  if (m.s1 == null || m.s2 == null) return;
 
   const home = table[m.team1];
   const away = table[m.team2];
@@ -1584,8 +1593,8 @@ function calculateStandings() {
   away.gf += m.s2;
   away.ga += m.s1;
 
-  home.y += Number(m.y1 || 0);
-  away.y += Number(m.y2 || 0);
+  home.y += Number(m.y1 ?? 0);
+  away.y += Number(m.y2 ?? 0);
 
   if (m.s1 > m.s2) {
     home.w++; away.l++;
