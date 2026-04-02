@@ -782,7 +782,7 @@ function findTeam(name) {
       <td>${safe(m.date)}</td>
 
       <td>
-        <img src="${team1.logo}" style="width:24px;" />
+        <img src="${team1.logo || 'default.png'}" style="width:24px;" />
         ${team1.name}
         ${team1.disqualified ? "<span style='color:gray;font-size:11px'> (Disqualified)</span>" : ""}
       </td>
@@ -794,15 +794,16 @@ function findTeam(name) {
         <input type="number" value="${safe(m.s2, "")}" style="width:40px"
           onchange="updateScore('${m.id}', this.value, 's2')">
 
-        ${m.live === true ? `
-          <div class="liveBadge">
-            <span class="liveDot"></span> LIVE
-          </div>
-        ` : ""}
-      </td>
+            <td style="text-align:center;font-weight:bold;">
+      ${
+        m.live === true
+          ? `<span class="liveBadge"><span class="liveDot"></span> LIVE</span>`
+          : `${safeNumber(m.s1)} : ${safeNumber(m.s2)}`
+      }
+    </td>
 
       <td>
-        <img src="${team2.logo}" style="width:24px;" />
+        <img src="${team2.logo || 'default.png'}" style="width:24px;" />
         ${team2.name}
         ${team2.disqualified ? "<span style='color:gray;font-size:11px'> (Disqualified)</span>" : ""}
       </td>
@@ -833,7 +834,7 @@ function findTeam(name) {
       <td>${safe(m.date)}</td>
 
       <td>
-        <img src="${team1.logo}" style="width:24px;" />
+        <img src="${team1.logo || 'default.png'}" style="width:24px;" />
         ${team1.name}
         ${team1.disqualified ? "<span style='color:gray;font-size:11px'> (Disqualified)</span>" : ""}
       </td>
@@ -846,7 +847,7 @@ function findTeam(name) {
       </td>
 
       <td>
-        <img src="${team2.logo}" style="width:24px;" />
+        <img src="${team2.logo || 'default.png'}" style="width:24px;" />
         ${team2.name}
         ${team2.disqualified ? "<span style='color:gray;font-size:11px'> (Disqualified)</span>" : ""}
       </td>
