@@ -511,6 +511,65 @@ z-index:-1;
   font-weight:bold;
   color:#f4c542;
 }
+  .node {
+  width: 200px;
+  background: rgba(30,41,59,0.2);
+  border: 1px solid rgba(148,163,184,0.4);
+  border-radius: 10px;
+  padding: 10px;
+  position: absolute;
+  backdrop-filter: blur(6px);
+}
+
+.nodeBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.teamRowKO {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.teamRowKO input {
+  width: 70px;
+}
+
+.scoreKO {
+  color: #f4c542;
+  font-weight: bold;
+}
+
+.ports {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ports.left { left: -8px; }
+.ports.right { right: -8px; }
+
+.port {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.port:hover {
+  transform: scale(1.3);
+  box-shadow: 0 0 8px #38bdf8;
+}
+
+.port.active {
+  box-shadow: 0 0 12px #facc15;
+}
   
   
 </style>
@@ -1622,53 +1681,51 @@ if (!confirmFinal) return;
 }
     
     node.innerHTML = `
-  <div class="nodeHeader">${m.id}</div>
+<div class="nodeHeader">${m.id}</div>
 
-  <div class="nodeBody">
+<div class="nodeBody">
+
+  <div class="teamRowKO">
+    ${
+      isAdmin
+      ? `<input value="${m.team1}" onchange="updateTeam('${m.id}',1,this.value)">`
+      : `<span>${m.team1 || "-"}</span>`
+    }
 
     ${
       isAdmin
-      ? `
-        <input class="teamInput" value="${m.team1}"
-          onchange="updateTeam('${m.id}',1,this.value)">
-        
-        <div class="scoreRow">
-          <input type="number" value="${m.s1 ?? ""}"
-            onchange="updateScoreKO('${m.id}',1,this.value)">
-          :
-          <input type="number" value="${m.s2 ?? ""}"
-            onchange="updateScoreKO('${m.id}',2,this.value)">
-        </div>
-
-        <input class="teamInput" value="${m.team2}"
-          onchange="updateTeam('${m.id}',2,this.value)">
-      `
-      : `
-        <div class="teamText">${m.team1 || "-"}</div>
-
-        <div class="scoreText">
-          ${m.s1 ?? "-"} : ${m.s2 ?? "-"}
-        </div>
-
-        <div class="teamText">${m.team2 || "-"}</div>
-      `
+      ? `<input type="number" value="${m.s1 ?? ""}" onchange="updateScoreKO('${m.id}',1,this.value)">`
+      : `<span class="scoreKO">${m.s1 ?? "-"}</span>`
     }
-
   </div>
 
-  <!-- INPUT PORT -->
-  <div class="port inPort"></div>
+  <div class="teamRowKO">
+    ${
+      isAdmin
+      ? `<input value="${m.team2}" onchange="updateTeam('${m.id}',2,this.value)">`
+      : `<span>${m.team2 || "-"}</span>`
+    }
 
-  ${
-    isAdmin
-    ? `
-      <div class="portRow">
-        <div class="port winPort" data-type="win" title="Winner"></div>
-        <div class="port losePort" data-type="lose" title="Loser"></div>
-      </div>
-    `
-    : ""
-  }
+    ${
+      isAdmin
+      ? `<input type="number" value="${m.s2 ?? ""}" onchange="updateScoreKO('${m.id}',2,this.value)">`
+      : `<span class="scoreKO">${m.s2 ?? "-"}</span>`
+    }
+  </div>
+
+</div>
+
+<!-- LEFT (INPUTS) -->
+<div class="ports left">
+  <div class="port inPort"></div>
+  <div class="port inPort"></div>
+</div>
+
+<!-- RIGHT (OUTPUTS) -->
+<div class="ports right">
+  <div class="port winPort"></div>
+  <div class="port losePort"></div>
+</div>
 `;
 
     container.appendChild(node);
@@ -1682,20 +1739,28 @@ if (!confirmFinal) return;
 
   function makeDraggable(node, match){
 
-  let dragging = false, offsetX, offsetY;
+  let dragging = false;
+  let offsetX, offsetY;
 
   node.onmousedown = (e)=>{
     if(!isAdmin) return;
+
     dragging = true;
-    offsetX = e.offsetX;
-    offsetY = e.offsetY;
+
+    offsetX = e.clientX - match.x;
+    offsetY = e.clientY - match.y;
   };
 
   document.onmousemove = (e)=>{
     if(!dragging) return;
 
-    match.x = e.pageX - offsetX;
-    match.y = e.pageY - offsetY;
+    match.x = e.clientX - offsetX;
+    match.y = e.clientY - offsetY;
+
+    // SNAP GRID
+    const GRID = 20;
+    match.x = Math.round(match.x / GRID) * GRID;
+    match.y = Math.round(match.y / GRID) * GRID;
 
     node.style.left = match.x + "px";
     node.style.top = match.y + "px";
@@ -1710,42 +1775,46 @@ if (!confirmFinal) return;
     }
   };
 }
-
   let currentLink = null;
 
 function setupConnectionEvents(node){
 
   const id = node.dataset.id;
 
+  // OUTPUT (start connection)
   node.querySelectorAll(".winPort, .losePort").forEach(port => {
-    port.onclick = () => {
+    port.onclick = (e) => {
+      e.stopPropagation();
+
       currentLink = {
         from: id,
-        type: port.dataset.type
+        type: port.classList.contains("winPort") ? "win" : "lose"
       };
+
+      highlightPorts();
     };
   });
 
-  node.querySelector(".inPort").onclick = () => {
-    if(!currentLink) return;
+  // INPUT (complete connection)
+  node.querySelectorAll(".inPort").forEach(port => {
+    port.onclick = (e) => {
+      e.stopPropagation();
 
-    let count = knockout.connections.filter(c => c.to === id).length;
-    if(count >= 2){
-      alert("Max 2 connections allowed");
-      return;
-    }
+      if(!currentLink) return;
 
-    knockout.connections.push({
-      from: currentLink.from,
-      to: id,
-      type: currentLink.type
-    });
+      knockout.connections.push({
+        from: currentLink.from,
+        to: id,
+        type: currentLink.type
+      });
 
-    currentLink = null;
+      currentLink = null;
 
-    saveKnockout();
-    drawLines();
-  };
+      clearHighlights();
+      saveKnockout();
+      drawLines();
+    };
+  });
 }
 
   window.updateScoreKO = function(id, side, val){
@@ -2560,6 +2629,18 @@ ${m.team2}
 `;
 
 });
+
+  function highlightPorts(){
+  document.querySelectorAll(".inPort").forEach(p=>{
+    p.classList.add("active");
+  });
+}
+
+function clearHighlights(){
+  document.querySelectorAll(".port").forEach(p=>{
+    p.classList.remove("active");
+  });
+}
 
 }
 document.addEventListener("mousemove", handleDrag);
