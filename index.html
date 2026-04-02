@@ -818,10 +818,8 @@ function findTeam(name) {
         :
         <input type="number" value="${safe(m.s2, "")}" style="width:40px"
           onchange="updateScore('${m.id}', this.value, 's2')">
-      ${
         m.live === true
           ? `<span class="liveBadge"><span class="liveDot"></span> LIVE</span>`
-      }
     </td>
 
       <td>
