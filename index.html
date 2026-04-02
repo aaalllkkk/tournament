@@ -694,8 +694,13 @@ let matches=[];
 let scorers=[];
 let news=[];
 let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
+let teamMap = new Map();
 
   // ---------- Toggle ----------
+  
+  function refreshTeamMap() {
+  teamMap = new Map(teams.map(t => [t.name, t]));
+}
   
   function isValidMatch(m) {
   return (
@@ -723,6 +728,24 @@ function normalizeTeam(team) {
     y: Number(team.y ?? 0)
   };
 }
+  
+  function resolveTeam(name) {
+  const team = teamMap.get(name);
+
+  if (team) {
+    return {
+      name: team.name,
+      logo: team.logo,
+      disqualified: false
+    };
+  }
+
+  return {
+    name: name,
+    logo: "https://via.placeholder.com/32/999999/ffffff?text=X",
+    disqualified: true
+  };
+}
 
   
   function safe(val, fallback = "") {
@@ -738,83 +761,82 @@ function findTeam(name) {
 }
   
   function renderAdminRow(m, mw) {
-  const team1 = findTeam(m.team1);
-  const team2 = findTeam(m.team2);
+  const team1 = resolveTeam(m.team1);
+  const team2 = resolveTeam(m.team2);
 
   return `
     <tr class="mw-${mw} mw-row">
       <td>${safe(m.date)}</td>
 
       <td>
-        <img src="${safe(team1.logo)}" style="width:24px;">
-        ${safe(m.team1)}
+        <img src="${team1.logo}" style="width:24px;" />
+        ${team1.name}
+        ${team1.disqualified ? "<span style='color:gray;font-size:11px'> (Disqualified)</span>" : ""}
       </td>
 
-             <td>
-      <input type="number" value="${safe(m.s1, "")}" style="width:40px"
-        onchange="updateScore('${m.id}', this.value, 's1')">
-    
-      :
-    
-      <input type="number" value="${safe(m.s2, "")}" style="width:40px"
-        onchange="updateScore('${m.id}', this.value, 's2')">
-    
-      ${m.live ? `
-        <div class="liveBadge" style="margin-top:4px;">
-          <span class="liveDot"></span> LIVE
-        </div>
-      ` : ""}
-    </td>
+      <td>
+        <input type="number" value="${safe(m.s1, "")}" style="width:40px"
+          onchange="updateScore('${m.id}', this.value, 's1')">
+        :
+        <input type="number" value="${safe(m.s2, "")}" style="width:40px"
+          onchange="updateScore('${m.id}', this.value, 's2')">
+
+        ${m.live ? `
+          <div class="liveBadge">
+            <span class="liveDot"></span> LIVE
+          </div>
+        ` : ""}
+      </td>
 
       <td>
-        <img src="${safe(team2.logo)}" style="width:24px;">
-        ${safe(m.team2)}
+        <img src="${team2.logo}" style="width:24px;" />
+        ${team2.name}
+        ${team2.disqualified ? "<span style='color:gray;font-size:11px'> (Disqualified)</span>" : ""}
       </td>
 
       <td><button onclick="enterResult('${m.id}')">Enter</button></td>
       <td><button onclick="addYellow('${m.id}')">Card</button></td>
       <td>
-  <button onclick="toggleLive('${m.id}', ${m.live ? 'false' : 'true'})">
-     ${m.live ? 'Stop Live' : 'Go Live'}
-  </button>
-</td>
+        <button onclick="toggleLive('${m.id}', ${m.live ? 'false' : 'true'})">
+          ${m.live ? 'Stop Live' : 'Go Live'}
+        </button>
+      </td>
 
-<td>
-  <button onclick="generateNews('${m.id}')">
-    Generate News
-  </button>
-</td>
+      <td>
+        <button onclick="generateNews('${m.id}')">Generate News</button>
+      </td>
 
       <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>
-      
     </tr>
   `;
 }
   
   function renderViewerRow(m, mw) {
-  const team1 = findTeam(m.team1);
-  const team2 = findTeam(m.team2);
+  const team1 = resolveTeam(m.team1);
+  const team2 = resolveTeam(m.team2);
 
   return `
     <tr class="mw-${mw} mw-row">
       <td>${safe(m.date)}</td>
 
       <td>
-        <img src="${safe(team1.logo)}" style="width:24px;">
-        ${safe(m.team1)}
+        <img src="${team1.logo}" style="width:24px;" />
+        ${team1.name}
+        ${team1.disqualified ? "<span style='color:gray;font-size:11px'> (Disqualified)</span>" : ""}
       </td>
 
-  <td style="text-align:center;font-weight:bold;">
-  ${
-    m.live
-    ? `<span class="liveBadge"><span class="liveDot"></span> LIVE</span>`
-    : safeNumber(m.s1) + " : " + safeNumber(m.s2)
-  }
-</td>
+      <td style="text-align:center;font-weight:bold;">
+        ${
+          m.live
+          ? `<span class="liveBadge"><span class="liveDot"></span> LIVE</span>`
+          : safeNumber(m.s1) + " : " + safeNumber(m.s2)
+        }
+      </td>
 
       <td>
-        <img src="${safe(team2.logo)}" style="width:24px;">
-        ${safe(m.team2)}
+        <img src="${team2.logo}" style="width:24px;" />
+        ${team2.name}
+        ${team2.disqualified ? "<span style='color:gray;font-size:11px'> (Disqualified)</span>" : ""}
       </td>
 
       <td></td>
@@ -884,8 +906,8 @@ if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
   }
 
   live.forEach(m => {
-    let team1 = teams.find(t => t.name === m.team1);
-    let team2 = teams.find(t => t.name === m.team2);
+    let team1 = resolveTeam(m.team1);
+    let team2 = resolveTeam(m.team2);
 
     box.innerHTML += `
       <div class="scoreCard ${m.live ? 'live' : ''}">
@@ -950,6 +972,8 @@ onSnapshot(collection(db, "teams"), (snapshot) => {
   snapshot.forEach(doc => teams.push({ ...doc.data(), id: doc.id }));
   renderTeams();
   matches = firebaseData.matches || [];
+  teams = firebaseData.teams || [];
+  refreshTeamMap();
   renderStandings();
   renderScorers();
   renderDashboardStandings();
@@ -1354,8 +1378,8 @@ window.renderMatches = function () {
     const team2 = document.getElementById("filterTeam2")?.value?.toLowerCase();
 
     let filtered = matches.filter(m => {
-      const t1 = m.team1?.toLowerCase();
-      const t2 = m.team2?.toLowerCase();
+      const t1 = resolveTeam(m.team1);
+      const t2 = resolveTeam(m.team2);
 
       if (!team1 && !team2) return true;
       if (team1 && !team2) return t1 === team1 || t2 === team1;
@@ -1679,9 +1703,9 @@ ${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete<
    // REMOVE THIS LINE
   //let finished = matches.filter(m => m.s1 !== null && m.s2 !== null);
     upcoming.forEach(m => {
-        let team1 = teams.find(t => t.name === m.team1);
-        let team2 = teams.find(t => t.name === m.team2);
-
+        let team1 = resolveTeam(m.team1);
+        let team2 = resolveTeam(m.team2);
+      
         box.innerHTML += `
         <div class="matchWrap">
         
@@ -1749,8 +1773,8 @@ let finished = matches.filter(m => m.s1 !== null && m.s2 !== null);
 
 finished.slice(-5).reverse().forEach(m=>{
 
-let team1=teams.find(t=>t.name===m.team1);
-let team2=teams.find(t=>t.name===m.team2);
+let team1 = resolveTeam(m.team1);
+let team2 = resolveTeam(m.team2);
 
 container.innerHTML+=`
 
