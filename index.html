@@ -696,6 +696,18 @@ let news=[];
 let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
 
   // ---------- Toggle ----------
+  
+  function isValidMatch(m) {
+  return (
+    m &&
+    m.team1 &&
+    m.team2 &&
+    m.s1 !== null &&
+    m.s2 !== null &&
+    m.s1 !== undefined &&
+    m.s2 !== undefined
+  );
+}
 
 function normalizeTeam(team) {
   return {
@@ -937,7 +949,7 @@ onSnapshot(collection(db, "teams"), (snapshot) => {
   teams = [];
   snapshot.forEach(doc => teams.push({ ...doc.data(), id: doc.id }));
   renderTeams();
-  matches = firebaseData.matches;
+  matches = firebaseData.matches || [];
   renderStandings();
   renderScorers();
   renderDashboardStandings();
@@ -1428,47 +1440,50 @@ function calculateStandings() {
 
   // loop firebase matches
   matches.forEach(m => {
-    let homeName = m.team1;
-    let awayName = m.team2;
+  if (!isValidMatch(m)) return;
 
-    let home = table[homeName];
-    let away = table[awayName];
+  let homeName = m.team1;
+  let awayName = m.team2;
 
-    if (!home || !away) return;
+  let home = table[homeName];
+  let away = table[awayName];
 
-    let hs = Number(m.s1);
-    let aw = Number(m.s2);
+  if (!home || !away) return;
 
-    home.p++;
-    away.p++;
+  let hs = Number(m.s1);
+  let aw = Number(m.s2);
 
-    home.gf += hs;
-    home.ga += aw;
+  home.p++;
+  away.p++;
 
-    away.gf += aw;
-    away.ga += hs;
+  home.gf += hs;
+  home.ga += aw;
 
-    if (hs > aw) {
-      home.w++;
-      home.pts += 3;
-      away.l++;
-    } 
-    else if (aw > hs) {
-      away.w++;
-      away.pts += 3;
-      home.l++;
-    } 
-    else {
-      home.d++;
-      away.d++;
-      home.pts += 1;
-      away.pts += 1;
-    }
-  });
+  away.gf += aw;
+  away.ga += hs;
+
+  if (hs > aw) {
+    home.w++;
+    home.pts += 3;
+    away.l++;
+  } 
+  else if (aw > hs) {
+    away.w++;
+    away.pts += 3;
+    home.l++;
+  } 
+  else {
+    home.d++;
+    away.d++;
+    home.pts += 1;
+    away.pts += 1;
+  }
+});
 
   return Object.values(table);
 }
-  console.log("MATCHES FROM FIREBASE:", matches);
+  console.log("RAW MATCHES:", matches);
+console.log("VALID MATCHES ONLY:", matches.filter(isValidMatch));
   
   function isTeamLive(teamName){
   return matches.some(m =>
