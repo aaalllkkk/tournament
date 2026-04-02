@@ -794,7 +794,7 @@ function findTeam(name) {
         <input type="number" value="${safe(m.s2, "")}" style="width:40px"
           onchange="updateScore('${m.id}', this.value, 's2')">
 
-        ${m.live ? `
+        ${m.live === true ? `
           <div class="liveBadge">
             <span class="liveDot"></span> LIVE
           </div>
@@ -839,9 +839,8 @@ function findTeam(name) {
       </td>
 
       <td style="text-align:center;font-weight:bold;">
-        ${
-          m.live
-          ? `<span class="liveBadge"><span class="liveDot"></span> LIVE</span>`
+       ${m.live === true ? `
+        `<span class="liveBadge"><span class="liveDot"></span> LIVE</span>`
           : safeNumber(m.s1) + " : " + safeNumber(m.s2)
         }
       </td>
@@ -911,7 +910,7 @@ if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
 
   box.innerHTML = "";
 
-  let live = matches.filter(m => m.live);
+  let live = matches.filter(m => m.live === true);
 
   if(live.length === 0){
     box.innerHTML = "No live matches";
@@ -1033,24 +1032,35 @@ window.toggleFolder = function(mw) {
 // Real-time listener for teams
 onSnapshot(collection(db, "teams"), (snapshot) => {
   teams = [];
-  snapshot.forEach(doc => teams.push({ ...doc.data(), id: doc.id }));
-  renderTeams();
-  matches = firebaseData.matches || [];
-  teams = firebaseData.teams || [];
+  snapshot.forEach(doc => {
+    teams.push({ id: doc.id, ...doc.data() });
+  });
+
   refreshTeamMap();
+
+  renderTeams();
   renderStandings();
-  renderScorers();
   renderDashboardStandings();
 });
 
 // Real-time listener for matches
 onSnapshot(collection(db, "matches"), (snapshot) => {
   matches = [];
-  snapshot.forEach(doc => matches.push({ ...doc.data(), id: doc.id }));
+
+  snapshot.forEach(doc => {
+    const data = doc.data();
+
+    matches.push({
+      id: doc.id,
+      live: data.live ?? false,   // ✅ FORCE DEFAULT
+      ...data
+    });
+  });
+
   renderMatches();
-  renderLiveMatches(); // ✅ ADD THIS
-  renderStandings();
+  renderLiveMatches();
   renderHighlights();
+  renderStandings();
   renderDashboardStandings();
   renderNextMatch();
 });
