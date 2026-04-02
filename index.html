@@ -704,14 +704,16 @@ let liveTeams = new Set();
 
   // ---------- Toggle ----------
   
-  function normalizeMatch(m){
+  function normalizeMatch(data) {
   return {
-    ...m,
+    ...data,
     s1: data.s1 ?? null,
     s2: data.s2 ?? null,
-    s1: data.s1 ?? null,
-    s2: data.s2 ?? null,
-    live: m.live === true
+    y1: data.y1 ?? 0,
+    y2: data.y2 ?? 0,
+    live: data.live ?? false,
+    team1: data.team1,
+    team2: data.team2
   };
 }
 
@@ -1071,15 +1073,19 @@ onSnapshot(collection(db, "teams"), (snapshot) => {
 // Real-time listener for matches
 onSnapshot(collection(db, "matches"), (snapshot) => {
 
-  matches = snapshot.docs.map(d => {
-    const data = d.data();
+  console.log("RAW MATCHES:", snapshot.docs.map(d => d.data()));
+
+  matches = snapshot.docs.map(doc => {
+    const data = doc.data();
 
     return normalizeMatch({
-      id: d.id,
+      id: doc.id,
       ...data
     });
   });
 
+  console.log("VALID MATCHES ONLY:", matches);
+  
   renderMatches();
   renderLiveMatches();
   renderHighlights();
