@@ -119,18 +119,10 @@ padding:10px 8px;
 text-align:center;
 }
 
-  /*line zone*/
+.cutoffLine {
+  border-top: 2px solid #22c55e;
+}
   
-  .championsZone {
-  background: rgba(34,197,94,0.15);
-  border-left: 4px solid #22c55e;
-}
-
-.playoffZone {
-  background: rgba(59,130,246,0.15);
-  border-left: 4px solid #3b82f6;
-}
-
 .rank1{color:gold;font-weight:bold;}
 .rank2{color:silver;}
 .rank3{color:#cd7f32;}
@@ -1280,6 +1272,22 @@ window.saveCutoffs = async function () {
   }
 };
 
+window.setCutoff = async function(index){
+
+  if(!isAdmin) return;
+
+  // index is 0-based → convert to rank
+  let newCutoff = index + 1;
+
+  try{
+    await setDoc(doc(db, "config", "standings"), {
+      championsCutoff: newCutoff,
+      playoffCutoff: playoffCutoff // keep existing
+    });
+  }catch(err){
+    console.error(err);
+  }
+};
   
 window.addTeam = async function(){
 
@@ -1798,29 +1806,23 @@ function renderStandings() {
   arr.forEach((t, i) => {
     let c = "";
     
-    if (i < championsCutoff) {
-      c = "championsZone";
-    } else if (i < playoffCutoff) {
-      c = "playoffZone";
-    }
+    // keep your original top 3 colors
+    if (i == 0) c = "rank1";
+    if (i == 1) c = "rank2";
+    if (i == 2) c = "rank3";
 
     let teamObj = teams.find(team => team.name === t.team);
     const live = isTeamLive(t.team);
 
     let divider = "";
 
-// draw line AFTER champions cutoff
-if (i === championsCutoff) {
-  divider = `<tr><td colspan="12" style="border-top:2px solid #22c55e"></td></tr>`;
-}
-
-// draw line AFTER playoff cutoff
-if (i === playoffCutoff) {
-  divider = `<tr><td colspan="12" style="border-top:2px solid #3b82f6"></td></tr>`;
+// draw green line AFTER cutoff
+if (i === championsCutoff - 1) {
+  divider = `<tr class="cutoffLine"><td colspan="12"></td></tr>`;
 }
 
 table.innerHTML += divider + `
-<tr class="${c}">
+<tr class="${c}" onclick="setCutoff(${i})">
   <td>${i + 1}</td>
   <td>
     <img src="${teamObj?.logo || ''}" 
