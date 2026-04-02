@@ -437,6 +437,41 @@ background:radial-gradient(circle at top,#1e3a8a33,transparent 60%);
 pointer-events:none;
 z-index:-1;
 }
+
+  /* Knockout */
+  .node{
+  position:absolute;
+  width:180px;
+  background:#1e293b;
+  border-radius:10px;
+  padding:10px;
+  color:white;
+  cursor:grab;
+  box-shadow:0 0 10px rgba(0,0,0,0.4);
+}
+
+.node input{
+  width:70px;
+  margin:2px;
+}
+
+.port{
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  cursor:pointer;
+}
+
+.winPort{ background:#22c55e; }
+.losePort{ background:#ef4444; }
+.inPort{ background:#38bdf8; margin:auto; }
+
+.portRow{
+  display:flex;
+  justify-content:space-between;
+  margin-top:6px;
+}
+  
   
 </style>
 </head>
@@ -450,6 +485,7 @@ z-index:-1;
 <div class="tab" onclick="openTab('teams',event)">Teams</div>
 <div class="tab" onclick="openTab('schedule',event)">Schedule</div>
 <div class="tab" onclick="openTab('standings',event)">Standings</div>
+<div class="tab" onclick="openTab('knockout',event)">Knockout</div>
 <div class="tab" onclick="openTab('scorers',event)">Top Scorers</div>
 <div class="tab" onclick="openTab('admin',event)">Admin</div>
 </div>
@@ -656,6 +692,35 @@ Reset All Matches
 
 </div>
 
+  <!-- Knockout -->
+
+  <div id="knockout" class="section">
+
+  <h2>Knockout Editor</h2>
+
+  <div id="knockoutControls">
+    <button onclick="createNode()">➕ Add Match</button>
+  </div>
+
+  <div id="editorWrap" style="position:relative;height:600px;background:#0f172a;">
+    
+    <div id="knockoutEditor" style="
+      position:absolute;
+      width:100%;
+      height:100%;
+    "></div>
+
+    <svg id="connections" style="
+      position:absolute;
+      width:100%;
+      height:100%;
+      pointer-events:none;
+    "></svg>
+
+  </div>
+
+</div>
+
 
 <!-- SCORERS -->
 
@@ -742,6 +807,10 @@ let pressTimer = null;
 let draggingLine = null; // "champions" or "playoff"
 let isDragging = false;
 let activeLine = "champions"; // default
+let knockout = {
+  matches: {},
+  connections: []
+};
 
   // ---------- Toggle ----------
   
@@ -1096,6 +1165,26 @@ window.exportBackup = function () {
 
   reader.readAsText(file);
 };
+
+  window.createNode = function(){
+
+  if(!isAdmin) return;
+
+  const id = "m" + Date.now();
+
+  knockout.matches[id] = {
+    id,
+    x: 100,
+    y: 100,
+    team1: "",
+    team2: "",
+    s1: null,
+    s2: null
+  };
+
+  renderNodes();
+  saveKnockout();
+}
   
 window.toggleFolder = function(mw) {
 
@@ -1217,6 +1306,14 @@ snapshot.forEach(doc=>news.push({...doc.data(),id:doc.id}));
 
 renderNews();
 
+});
+
+  // Real-time listener for Knockout
+  onSnapshot(doc(db,"config","knockout"), snap=>{
+  if(snap.exists()){
+    knockout = snap.data();
+    renderNodes();
+  }
 });
   
 window.login = async function(){
@@ -1464,6 +1561,227 @@ if (!confirmFinal) return;
 
   alert("League generated!");
 }
+
+  function renderNodes(){
+    
+  if(!isAdmin){
+  node.style.pointerEvents = "none";
+}
+  const container = document.getElementById("knockoutEditor");
+  container.innerHTML = "";
+
+  Object.values(knockout.matches).forEach(m => {
+
+    let node = document.createElement("div");
+    node.className = "node";
+    node.style.left = m.x + "px";
+    node.style.top = m.y + "px";
+    node.dataset.id = m.id;
+
+    node.innerHTML = `
+      <strong>${m.id}</strong><br>
+
+      <input value="${m.team1}" 
+        onchange="updateTeam('${m.id}',1,this.value)">
+      <input value="${m.team2}" 
+        onchange="updateTeam('${m.id}',2,this.value)"><br>
+
+      <input type="number" value="${m.s1 ?? ""}" 
+        onchange="updateScoreKO('${m.id}',1,this.value)">
+      :
+      <input type="number" value="${m.s2 ?? ""}" 
+        onchange="updateScoreKO('${m.id}',2,this.value)">
+
+      <div class="portRow">
+        <div class="port winPort" data-type="win"></div>
+        <div class="port losePort" data-type="lose"></div>
+      </div>
+
+      <div class="port inPort"></div>
+    `;
+
+    container.appendChild(node);
+
+    makeDraggable(node, m);
+    setupConnectionEvents(node);
+  });
+
+  drawLines();
+}
+
+  function makeDraggable(node, match){
+
+  let dragging = false, offsetX, offsetY;
+
+  node.onmousedown = (e)=>{
+    if(!isAdmin) return;
+    dragging = true;
+    offsetX = e.offsetX;
+    offsetY = e.offsetY;
+  };
+
+  document.onmousemove = (e)=>{
+    if(!dragging) return;
+
+    match.x = e.pageX - offsetX;
+    match.y = e.pageY - offsetY;
+
+    node.style.left = match.x + "px";
+    node.style.top = match.y + "px";
+
+    drawLines();
+  };
+
+  document.onmouseup = ()=>{
+    if(dragging){
+      dragging = false;
+      saveKnockout();
+    }
+  };
+}
+
+  let currentLink = null;
+
+function setupConnectionEvents(node){
+
+  const id = node.dataset.id;
+
+  node.querySelector(".inPort").onclick = ()=>{
+
+  if(!currentLink) return;
+
+  // ✅ LIMIT TO 2 INPUTS
+  let count = knockout.connections.filter(c => c.to === id).length;
+
+  if(count >= 2){
+    alert("Max 2 connections allowed");
+    return;
+  }
+
+  knockout.connections.push({
+    from: currentLink.from,
+    to: id,
+    type: currentLink.type
+  });
+
+  currentLink = null;
+
+  saveKnockout();
+  drawLines();
+};
+
+  node.querySelector(".inPort").onclick = ()=>{
+    if(!currentLink) return;
+
+    knockout.connections.push({
+      from: currentLink.from,
+      to: id,
+      type: currentLink.type
+    });
+
+    currentLink = null;
+
+    saveKnockout();
+    drawLines();
+  };
+}
+
+  window.updateScoreKO = function(id, side, val){
+
+  let m = knockout.matches[id];
+  val = parseInt(val);
+  if(isNaN(val)) return;
+
+  if(side===1) m.s1 = val;
+  else m.s2 = val;
+
+  if(m.s1 != null && m.s2 != null){
+
+  // FIRST: clear all targets connected from this match
+  knockout.connections.forEach(c => {
+    if(c.from !== id) return;
+
+    let target = knockout.matches[c.to];
+    target.team1 = "";
+    target.team2 = "";
+  });
+
+  // SECOND: rebuild inputs correctly
+  knockout.connections.forEach(c => {
+
+    if(c.from !== id) return;
+
+    let target = knockout.matches[c.to];
+
+    knockout.connections.forEach(c2 => {
+
+      if(c2.to !== c.to) return;
+
+      let source = knockout.matches[c2.from];
+      if(source.s1 == null || source.s2 == null) return;
+
+      let w = source.s1 > source.s2 ? source.team1 : source.team2;
+      let l = source.s1 > source.s2 ? source.team2 : source.team1;
+
+      let teamToSend = c2.type === "win" ? w : l;
+
+      if(!target.team1) target.team1 = teamToSend;
+      else if(!target.team2) target.team2 = teamToSend;
+
+    });
+  });
+}
+    
+  saveKnockout();
+  renderNodes();
+}
+
+  window.updateTeam = function(id, side, val){
+  knockout.matches[id][side===1?"team1":"team2"] = val;
+  saveKnockout();
+}
+
+  async function saveKnockout(){
+  await setDoc(doc(db,"config","knockout"), knockout);
+}
+
+  function drawLines(){
+
+  const svg = document.getElementById("connections");
+  svg.innerHTML = "";
+
+  knockout.connections.forEach(c => {
+
+    let from = document.querySelector(`[data-id='${c.from}']`);
+    let to = document.querySelector(`[data-id='${c.to}']`);
+
+    if(!from || !to) return;
+
+    let x1 = from.offsetLeft + from.offsetWidth;
+    let y1 = from.offsetTop + 50;
+
+    let x2 = to.offsetLeft;
+    let y2 = to.offsetTop + 50;
+
+    let path = document.createElementNS("http://www.w3.org/2000/svg","path");
+
+    path.setAttribute("d", `M${x1},${y1} C${x1+50},${y1} ${x2-50},${y2} ${x2},${y2}`);
+    path.setAttribute("stroke", c.type==="win"?"#22c55e":"#ef4444");
+    path.setAttribute("fill","none");
+
+    svg.appendChild(path);
+  });
+}
+  
+  document.getElementById("connections").onclick = function(){
+  if(!isAdmin) return;
+
+  if(confirm("Remove last connection?")){
+    knockout.connections.pop();
+    saveKnockout();
+    drawLines();
+  }
+};
 
  window.generateNews = async function(matchId) {
 
