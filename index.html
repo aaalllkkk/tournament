@@ -696,6 +696,19 @@ let news=[];
 let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
 
   // ---------- Toggle ----------
+
+  function normalizeTeam(team) {
+  return {
+    id: team.id ?? team.name,
+    name: team.name ?? "Unknown",
+    p: Number(team.p ?? 0),
+    w: Number(team.w ?? 0),
+    d: Number(team.d ?? 0),
+    l: Number(team.l ?? 0)
+  };
+}
+
+  
   function safe(val, fallback = "") {
   return val ?? fallback;
 }
@@ -993,21 +1006,25 @@ window.openTab = function(id,e){
   });
 }
 
-window.addTeam = async function(){
-  if(!isAdmin) return alert("Admin only");
+window.addTeam = function (team) {
+  if (!team) return;
 
-  let name=document.getElementById("teamName").value.trim();
-  let logo=document.getElementById("teamLogo").value.trim();
+  const safeTeam = normalizeTeam(team);
 
-  if(!name) return alert("Team name required");
+  // prevent duplicates after delete/re-add
+  const exists = teams.find(t => t.id === safeTeam.id);
+  if (exists) return;
 
-  await addDoc(collection(db,"teams"),{name,logo});
-}
+  teams.push(safeTeam);
 
-window.deleteTeam = async function(id){
-  if(!isAdmin) return alert("Admin only");
-  await deleteDoc(doc(db,"teams",id));
-}
+  renderStandings();
+};
+
+window.deleteTeam = function (teamId) {
+  teams = teams.filter(t => t.id !== teamId);
+
+  renderStandings();
+};
 function populateMatchweek(){
   const select = document.getElementById("matchMatchweek");
   if(!select) return;
@@ -1386,21 +1403,20 @@ setTimeout(() => {
   }
 }; // renderMatches end
   
-function calculateStandings(){
-  let table={};
-  teams.forEach(t=>{table[t.name]={p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0,y:0}});
-  matches.forEach(m=>{
-    if(m.s1===null && !m.live) return;
-    let t1=table[m.team1]; let t2=table[m.team2];
-    t1.p++; t2.p++;
-    t1.gf+=m.s1; t1.ga+=m.s2;
-    t2.gf+=m.s2; t2.ga+=m.s1;
-    t1.y+=m.y1||0; t2.y+=m.y2||0;
-    if(m.s1>m.s2){t1.w++;t2.l++;t1.pts+=3}
-    else if(m.s2>m.s1){t2.w++;t1.l++;t2.pts+=3}
-    else{t1.d++;t2.d++;t1.pts++;t2.pts++}
+function calculateStandings() {
+  if (!Array.isArray(teams)) return;
+
+  return teams.map(t => {
+    const team = normalizeTeam(t);
+
+    return {
+      ...team,
+      p: Number(team.p),
+      w: Number(team.w),
+      d: Number(team.d),
+      l: Number(team.l)
+    };
   });
-  return table;
 }
 
   function isTeamLive(teamName){
