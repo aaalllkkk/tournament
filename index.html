@@ -443,8 +443,11 @@ z-index:-1;
 
 <button onclick="login()">Login</button>
 <button onclick="logout()">Logout</button>
-<button onclick="exportBackup()">📦 Backup</button>
-<input type="file" accept=".json" onchange="importBackup(event)">
+<div id="adminTools" style="display:none;">
+  <button onclick="exportBackup()">📦 Backup</button>
+
+  <input type="file" accept=".json" onchange="importBackup(event)">
+</div>
 
 <p>Status : <span id="status">Viewer Mode</span></p>
 
