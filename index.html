@@ -1444,24 +1444,31 @@ if(lastWeek) document.getElementById("matchMatchweek").value = lastWeek;
 }
   
 window.renderMatches = function () {
-  try {
-    const container = document.getElementById("matchContainer");
-    if (!container) return;
+  const container = document.getElementById("matchContainer");
+  if (!container) return;
 
-    const team1 = document.getElementById("filterTeam1")?.value?.toLowerCase();
-    const team2 = document.getElementById("filterTeam2")?.value?.toLowerCase();
+  const filter1 = document.getElementById("filterTeam1")?.value?.toLowerCase();
+  const filter2 = document.getElementById("filterTeam2")?.value?.toLowerCase();
 
-    let filtered = matches.filter(m => {
-      const t1 = resolveTeam(m.team1);
-      const t2 = resolveTeam(m.team2);
+  let filtered = matches.filter(m => {
+    const t1 = (m.team1 || "").toLowerCase();
+    const t2 = (m.team2 || "").toLowerCase();
 
-      if (!team1 && !team2) return true;
-      if (team1 && !team2) return t1 === team1 || t2 === team1;
-      if (!team1 && team2) return t1 === team2 || t2 === team2;
+    if (!filter1 && !filter2) return true;
 
-      return (t1 === team1 && t2 === team2) ||
-             (t1 === team2 && t2 === team1);
-    });
+    if (filter1 && !filter2) {
+      return t1 === filter1 || t2 === filter1;
+    }
+
+    if (!filter1 && filter2) {
+      return t1 === filter2 || t2 === filter2;
+    }
+
+    return (
+      (t1 === filter1 && t2 === filter2) ||
+      (t1 === filter2 && t2 === filter1)
+    );
+  });
 
        filtered.sort((a, b) =>
       (b.live - a.live) || // 🔥 LIVE first
