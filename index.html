@@ -697,14 +697,18 @@ let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
 
   // ---------- Toggle ----------
 
-  function normalizeTeam(team) {
+function normalizeTeam(team) {
   return {
-    id: team.id ?? team.name,
+    id: team.id ?? team.name ?? crypto.randomUUID(),
     name: team.name ?? "Unknown",
     p: Number(team.p ?? 0),
     w: Number(team.w ?? 0),
     d: Number(team.d ?? 0),
-    l: Number(team.l ?? 0)
+    l: Number(team.l ?? 0),
+    gf: Number(team.gf ?? 0),
+    ga: Number(team.ga ?? 0),
+    pts: Number(team.pts ?? 0),
+    y: Number(team.y ?? 0)
   };
 }
 
@@ -1404,56 +1408,60 @@ setTimeout(() => {
 }; // renderMatches end
   
 function calculateStandings() {
-  if (!Array.isArray(teams)) return;
+  if (!Array.isArray(teams)) return [];
 
   return teams.map(t => {
     const team = normalizeTeam(t);
 
     return {
-      ...team,
-      p: Number(team.p),
-      w: Number(team.w),
-      d: Number(team.d),
-      l: Number(team.l)
+      team: team.name,
+      p: Number(team.p || 0),
+      w: Number(team.w || 0),
+      d: Number(team.d || 0),
+      l: Number(team.l || 0),
+      gf: Number(team.gf || 0),
+      ga: Number(team.ga || 0),
+      pts: Number(team.pts || 0),
+      y: Number(team.y || 0)
     };
   });
 }
-
   function isTeamLive(teamName){
   return matches.some(m =>
     m.live && (m.team1 === teamName || m.team2 === teamName)
   );
 }
   
-function renderStandings(){
-  let standings=calculateStandings();
-  let arr=[];
-  for(let t in standings){
-    let d=standings[t];
-    arr.push({team:t,...d,gd:d.gf-d.ga,suspend:Math.floor(d.y/3)});
-  }
-  arr.sort((a,b)=>b.pts-a.pts||b.gd-a.gd);
-  let table=document.getElementById("standingsTable");
-  table.innerHTML="";
-  arr.forEach((t,i)=>{
-    let c=""; if(i==0)c="rank1"; if(i==1)c="rank2"; if(i==2)c="rank3";
-   
-    // Find the team object to get the logo
-let teamObj = teams.find(team => team.name === t.team);
+function renderStandings() {
+  let standings = calculateStandings();
 
-table.innerHTML+=`
+  let arr = standings.map(t => ({
+    ...t,
+    gd: (t.gf || 0) - (t.ga || 0),
+    suspend: Math.floor((t.y || 0) / 3)
+  }));
+
+  arr.sort((a, b) => (b.pts || 0) - (a.pts || 0) || (b.gd || 0) - (a.gd || 0));
+
+  let table = document.getElementById("standingsTable");
+  table.innerHTML = "";
+
+  arr.forEach((t, i) => {
+    let c = "";
+    if (i == 0) c = "rank1";
+    if (i == 1) c = "rank2";
+    if (i == 2) c = "rank3";
+
+    let teamObj = teams.find(team => team.name === t.team);
+
+    table.innerHTML += `
 <tr class="${c}">
-  <td>${i+1}</td>
+  <td>${i + 1}</td>
   <td>
-  <img src="${teamObj?.logo||''}" 
-  style="width:24px;height:24px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
-
-  ${t.team}
-
-  ${isTeamLive(t.team) ? `
-    <span class="liveDot" style="margin-left:6px;"></span>
-  ` : ""}
-</td>
+    <img src="${teamObj?.logo || ''}" 
+      style="width:24px;height:24px;border-radius:4px;margin-right:6px;vertical-align:middle;">
+    ${t.team || "Unknown"}
+  </td>
   <td>${t.p}</td>
   <td>${t.w}</td>
   <td>${t.d}</td>
