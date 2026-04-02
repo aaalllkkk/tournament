@@ -1070,18 +1070,15 @@ onSnapshot(collection(db, "teams"), (snapshot) => {
 
 // Real-time listener for matches
 onSnapshot(collection(db, "matches"), (snapshot) => {
-  matches = [];
 
-  snapshot.forEach(doc => {
-    const data = doc.data();
+  matches = snapshot.docs.map(d => {
+    const data = d.data();
 
-    matches.push({
-      id: doc.id,
-      live: data.live ?? false,   // ✅ FORCE DEFAULT
+    return normalizeMatch({
+      id: d.id,
       ...data
     });
   });
-  matches = snapshot.docs.map(d => normalizeMatch(d.data()));
 
   renderMatches();
   renderLiveMatches();
@@ -1582,8 +1579,8 @@ function calculateStandings() {
   let hs = Number(m.s1);
   let aw = Number(m.s2);
   
-  table[team1].y += Number(m.y1 || 0);
-  table[team2].y += Number(m.y2 || 0);
+  home.y += Number(m.y1 || 0);
+  away.y += Number(m.y2 || 0);
 
   home.p++;
   away.p++;
