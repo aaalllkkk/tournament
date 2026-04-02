@@ -707,10 +707,10 @@ let liveTeams = new Set();
   function normalizeMatch(m){
   return {
     ...m,
-    s1: Number(m.s1 ?? 0),
-    s2: Number(m.s2 ?? 0),
-    y1: Number(m.y1 ?? 0),
-    y2: Number(m.y2 ?? 0),
+    s1: data.s1 ?? null,
+    s2: data.s2 ?? null,
+    s1: data.s1 ?? null,
+    s2: data.s2 ?? null,
     live: m.live === true
   };
 }
@@ -1565,45 +1565,35 @@ function calculateStandings() {
   });
 
   // loop firebase matches
-  matches.forEach(m => {
-  if (!isValidMatch(m)) return;
+ matches.forEach(m => {
 
-  let homeName = m.team1;
-  let awayName = m.team2;
+  if (m.s1 === null || m.s2 === null) return;
 
-  let home = table[homeName];
-  let away = table[awayName];
+  const home = table[m.team1];
+  const away = table[m.team2];
 
   if (!home || !away) return;
-
-  let hs = Number(m.s1);
-  let aw = Number(m.s2);
-  
-  home.y += Number(m.y1 || 0);
-  away.y += Number(m.y2 || 0);
 
   home.p++;
   away.p++;
 
-  home.gf += hs;
-  home.ga += aw;
+  home.gf += m.s1;
+  home.ga += m.s2;
 
-  away.gf += aw;
-  away.ga += hs;
+  away.gf += m.s2;
+  away.ga += m.s1;
 
-  if (hs > aw) {
-    home.w++;
+  home.y += Number(m.y1 || 0);
+  away.y += Number(m.y2 || 0);
+
+  if (m.s1 > m.s2) {
+    home.w++; away.l++;
     home.pts += 3;
-    away.l++;
-  } 
-  else if (aw > hs) {
-    away.w++;
+  } else if (m.s1 < m.s2) {
+    away.w++; home.l++;
     away.pts += 3;
-    home.l++;
-  } 
-  else {
-    home.d++;
-    away.d++;
+  } else {
+    home.d++; away.d++;
     home.pts += 1;
     away.pts += 1;
   }
