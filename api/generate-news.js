@@ -43,12 +43,8 @@ Score: ${score}
     const text =
       data?.candidates?.[0]?.content?.parts?.[0]?.text ||
       "No result";
-    
-console.log("IMAGE URL:", image);
 
-    res.status(200).json({
-  text
-});
+    res.status(200).json({ text });
 
   } catch (err) {
     console.error(err);
