@@ -1822,6 +1822,20 @@ ${isAdmin ? `
   });
 }
   let currentLink = null;
+  
+function highlightPorts(){
+
+  document.querySelectorAll(".inPort").forEach(p=>{
+    p.classList.add("active");
+  });
+
+}
+
+function clearHighlights(){
+  document.querySelectorAll(".port").forEach(p=>{
+    p.classList.remove("active");
+  });
+}
 
 function setupConnectionEvents(node){
 
@@ -2361,9 +2375,11 @@ function renderStandings() {
 
 // GREEN line (champions)
 if (i === championsCutoff - 1) {
-  divider += `<tr class="cutoffLineGreen"
-  onmousedown="startLinePress('champions')"
-  ontouchstart="startLinePress('champions')"><td colspan="12"></td></tr>`;
+ <tr class="cutoffLineGreen"
+onmousedown="startLinePress('champions')"
+onmouseup="endLinePress()"
+ontouchstart="startLinePress('champions')"
+ontouchend="endLinePress()">
 }
 
 // BLUE line (playoff)
@@ -2712,20 +2728,6 @@ ${m.team2}
 `;
 
 });
-
-  function highlightPorts(){
-
-  document.querySelectorAll(".inPort").forEach(p=>{
-    p.classList.add("active");
-  });
-
-}
-
-function clearHighlights(){
-  document.querySelectorAll(".port").forEach(p=>{
-    p.classList.remove("active");
-  });
-}
 
 }
 
