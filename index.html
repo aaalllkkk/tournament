@@ -119,8 +119,21 @@ padding:10px 8px;
 text-align:center;
 }
 
-.cutoffLine {
+.cutoffLineGreen {
   border-top: 2px solid #22c55e;
+}
+
+.cutoffLineBlue {
+  border-top: 2px solid #3b82f6;
+}
+.cutoffLineGreen,
+.cutoffLineBlue {
+  cursor: grab;
+}
+
+.cutoffLineGreen:active,
+.cutoffLineBlue:active {
+  cursor: grabbing;
 }
   
 .rank1{color:gold;font-weight:bold;}
@@ -344,6 +357,10 @@ border-radius:10px;
 
 #newsList::-webkit-scrollbar-thumb:hover{
 background:#94a3b8;
+}
+
+#standingsTable tr:active {
+  background: rgba(34,197,94,0.12);
 }
 
 #adminTeamControls,
@@ -721,6 +738,10 @@ let championsCutoff = 4;
 let playoffCutoff = 8;
 let teamMap = new Map();
 let liveTeams = new Set();
+let pressTimer = null;
+let draggingLine = null; // "champions" or "playoff"
+let isDragging = false;
+let activeLine = "champions"; // default
 
   // ---------- Toggle ----------
   
@@ -1816,13 +1837,22 @@ function renderStandings() {
 
     let divider = "";
 
-// draw green line AFTER cutoff
+// GREEN line (champions)
 if (i === championsCutoff - 1) {
-  divider = `<tr class="cutoffLine"><td colspan="12"></td></tr>`;
+  divider += `<tr class="cutoffLineGreen"
+  onmousedown="startLinePress('champions')"
+  ontouchstart="startLinePress('champions')"><td colspan="12"></td></tr>`;
+}
+
+// BLUE line (playoff)
+if (i === playoffCutoff - 1) {
+  divider += `<tr class="cutoffLineBlue"
+  onmousedown="startLinePress('playoff')"
+  ontouchstart="startLinePress('playoff')"><td colspan="12"></td></tr>`;
 }
 
 table.innerHTML += divider + `
-<tr class="${c}" onclick="setCutoff(${i})">
+<tr class="${c}" data-index="${i}">
   <td>${i + 1}</td>
   <td>
     <img src="${teamObj?.logo || ''}" 
@@ -1842,6 +1872,63 @@ table.innerHTML += divider + `
   <td>${t.suspend}</td>
 </tr>`;
   });
+}
+  
+  function getRowIndexFromEvent(e){
+  let target = e.target.closest("tr[data-index]");
+  if(!target) return null;
+  return parseInt(target.dataset.index);
+}
+  
+  function handleDrag(e){
+  if(!isDragging || !draggingLine) return;
+
+  let index = getRowIndexFromEvent(e);
+  if(index === null) return;
+
+  let newPos = index + 1;
+
+  // LIVE preview
+  if(draggingLine === "champions"){
+  championsCutoff = newPos;
+} else if(draggingLine === "playoff"){
+  playoffCutoff = newPos;
+}
+
+  renderStandings();
+}
+  
+  async function stopDrag(e){
+
+  clearTimeout(pressTimer);
+
+  if(!isDragging){
+    draggingLine = null;
+    return;
+  }
+
+  let index = getRowIndexFromEvent(e);
+  if(index === null){
+    draggingLine = null;
+    isDragging = false;
+    return;
+  }
+
+  let newPos = index + 1;
+
+  try{
+    await setDoc(doc(db, "config", "standings"), {
+  championsCutoff: draggingLine === "champions" ? newPos : championsCutoff,
+  playoffCutoff: draggingLine === "playoff" ? newPos : playoffCutoff
+});
+  }catch(err){
+    console.error(err);
+  }
+
+  // reset state
+  draggingLine = null;
+  isDragging = false;
+  document.body.style.cursor = "default";
 }
   
 function renderDashboardStandings(){
@@ -1963,6 +2050,21 @@ ${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete<
 </tr>`;
   });
 }
+
+  window.startLinePress = function(type){
+  if(!isAdmin) return;
+
+  draggingLine = type;
+
+  pressTimer = setTimeout(() => {
+    isDragging = true;
+    document.body.style.cursor = "grabbing";
+  }, 500);
+};
+
+window.endLinePress = function(){
+  clearTimeout(pressTimer);
+};
   
  function renderNextMatch() {
 
@@ -2090,6 +2192,11 @@ ${m.team2}
 });
 
 }
+document.addEventListener("mousemove", handleDrag);
+document.addEventListener("mouseup", stopDrag);
+
+document.addEventListener("touchmove", handleDrag);
+document.addEventListener("touchend", stopDrag);
   populateMatchweek();
 </script>
 </body>
