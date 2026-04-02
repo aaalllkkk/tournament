@@ -937,6 +937,7 @@ onSnapshot(collection(db, "teams"), (snapshot) => {
   teams = [];
   snapshot.forEach(doc => teams.push({ ...doc.data(), id: doc.id }));
   renderTeams();
+  matches = firebaseData.matches;
   renderStandings();
   renderScorers();
   renderDashboardStandings();
@@ -1408,24 +1409,67 @@ setTimeout(() => {
 }; // renderMatches end
   
 function calculateStandings() {
-  if (!Array.isArray(teams)) return [];
+  let table = {};
 
-  return teams.map(t => {
-    const team = normalizeTeam(t);
-
-    return {
-      team: team.name,
-      p: Number(team.p || 0),
-      w: Number(team.w || 0),
-      d: Number(team.d || 0),
-      l: Number(team.l || 0),
-      gf: Number(team.gf || 0),
-      ga: Number(team.ga || 0),
-      pts: Number(team.pts || 0),
-      y: Number(team.y || 0)
+  // init teams
+  teams.forEach(t => {
+    table[t.name] = {
+      team: t.name,
+      p: 0,
+      w: 0,
+      d: 0,
+      l: 0,
+      gf: 0,
+      ga: 0,
+      pts: 0,
+      y: t.y || 0
     };
   });
+
+  // loop firebase matches
+  matches.forEach(m => {
+    let homeName = m.team1;
+    let awayName = m.team2;
+
+    let home = table[homeName];
+    let away = table[awayName];
+
+    if (!home || !away) return;
+
+    let hs = Number(m.s1);
+    let aw = Number(m.s2);
+
+    home.p++;
+    away.p++;
+
+    home.gf += hs;
+    home.ga += aw;
+
+    away.gf += aw;
+    away.ga += hs;
+
+    if (hs > aw) {
+      home.w++;
+      home.pts += 3;
+      away.l++;
+    } 
+    else if (aw > hs) {
+      away.w++;
+      away.pts += 3;
+      home.l++;
+    } 
+    else {
+      home.d++;
+      away.d++;
+      home.pts += 1;
+      away.pts += 1;
+    }
+  });
+
+  return Object.values(table);
 }
+  console.log("MATCHES FROM FIREBASE:", matches);
+  
   function isTeamLive(teamName){
   return matches.some(m =>
     m.live && (m.team1 === teamName || m.team2 === teamName)
