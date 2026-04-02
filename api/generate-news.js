@@ -18,10 +18,6 @@ The tone should feel like a breaking news headline expanded into one paragraph. 
 Match: ${team1} vs ${team2}
 Score: ${score}
 `;
-    const imagePrompt = `
-A dramatic football match between ${team1} and ${team2}, 
-intense moment, stadium lights, crowd cheering, cinematic, realistic
-`;
 
     const response = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=" +
@@ -48,12 +44,10 @@ intense moment, stadium lights, crowd cheering, cinematic, realistic
       data?.candidates?.[0]?.content?.parts?.[0]?.text ||
       "No result";
     
-    const image = generateImage(imagePrompt);
 console.log("IMAGE URL:", image);
 
     res.status(200).json({
-  text,
-  image
+  text
 });
 
   } catch (err) {
