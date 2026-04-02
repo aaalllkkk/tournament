@@ -839,10 +839,11 @@ function findTeam(name) {
         ${team1.disqualified ? "<span style='color:gray;font-size:11px'> (Disqualified)</span>" : ""}
       </td>
 
-      <td style="text-align:center;font-weight:bold;">
-       ${m.live === true ? `
-        `<span class="liveBadge"><span class="liveDot"></span> LIVE</span>`
-          : safeNumber(m.s1) + " : " + safeNumber(m.s2)
+            <td style="text-align:center;font-weight:bold;">
+        ${
+          m.live === true
+            ? `<span class="liveBadge"><span class="liveDot"></span> LIVE</span>`
+            : `${safeNumber(m.s1)} : ${safeNumber(m.s2)}`
         }
       </td>
 
