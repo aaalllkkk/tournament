@@ -1635,6 +1635,7 @@ function renderStandings() {
 <tr class="${c}">
   <td>${i + 1}</td>
   <td>
+  ${live ? `<span class="liveBadge"><span class="liveDot"></span></span>` : ""}
     <img src="${teamObj?.logo || ''}" 
       style="width:24px;height:24px;border-radius:4px;margin-right:6px;vertical-align:middle;">
     ${t.team || "Unknown"}
