@@ -119,6 +119,18 @@ padding:10px 8px;
 text-align:center;
 }
 
+  /*line zone*/
+  
+  .championsZone {
+  background: rgba(34,197,94,0.15);
+  border-left: 4px solid #22c55e;
+}
+
+.playoffZone {
+  background: rgba(59,130,246,0.15);
+  border-left: 4px solid #3b82f6;
+}
+
 .rank1{color:gold;font-weight:bold;}
 .rank2{color:silver;}
 .rank3{color:#cd7f32;}
@@ -445,6 +457,18 @@ z-index:-1;
 <button onclick="login()">Login</button>
 <button onclick="logout()">Logout</button>
 <div id="adminTools" style="display:none;">
+  <hr style="margin:15px 0;">
+
+<h3>Standings Zones</h3>
+
+<label>Champions cutoff:</label>
+<input type="number" id="championsInput" min="1" style="width:60px">
+
+<label>Playoff cutoff:</label>
+<input type="number" id="playoffInput" min="1" style="width:60px">
+
+<button onclick="saveCutoffs()">Save</button>
+  
   <button onclick="exportBackup()">📦 Backup</button>
 
   <input type="file" accept=".json" onchange="importBackup(event)">
@@ -670,7 +694,8 @@ addDoc,
 getDocs,
 deleteDoc,
 doc,
-updateDoc
+updateDoc,
+setDoc   // ✅ ADD THIS
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 import {
@@ -700,6 +725,8 @@ let matches=[];
 let scorers=[];
 let news=[];
 let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
+let championsCutoff = 4;
+let playoffCutoff = 8;
 let teamMap = new Map();
 let liveTeams = new Set();
 
@@ -1113,6 +1140,27 @@ onSnapshot(collection(db, "teams"), (snapshot) => {
   renderTeams();
   renderStandings();
   renderDashboardStandings();
+  onSnapshot(doc(db, "config", "standings"), (docSnap) => {
+
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+
+    championsCutoff = data.championsCutoff ?? 4;
+    playoffCutoff = data.playoffCutoff ?? 8;
+
+  } else {
+    // 🔥 FIRST TIME AUTO-CREATE DEFAULT
+    setDoc(doc(db, "config", "standings"), {
+      championsCutoff: 4,
+      playoffCutoff: 8
+    });
+  }
+
+  renderStandings();
+  renderDashboardStandings();
+
+  });
+  
 });
 
 // Real-time listener for matches
@@ -1178,6 +1226,11 @@ onAuthStateChanged(auth,user=>{
   }
 
   toggleAdminUI();
+  if (isAdmin) {
+  document.getElementById("championsInput").value = championsCutoff;
+  document.getElementById("playoffInput").value = playoffCutoff;
+}
+  
   renderMatchHeader();
 });
 
@@ -1196,6 +1249,38 @@ window.openTab = function(id,e){
   });
 }
 
+window.saveCutoffs = async function () {
+
+  if (!isAdmin) return;
+
+  let c = parseInt(document.getElementById("championsInput").value);
+  let p = parseInt(document.getElementById("playoffInput").value);
+
+  if (isNaN(c) || isNaN(p) || c <= 0 || p <= 0) {
+    alert("Invalid values");
+    return;
+  }
+
+  if (c >= p) {
+    alert("Champions must be above Playoff");
+    return;
+  }
+
+  try {
+    await setDoc(doc(db, "config", "standings"), {
+      championsCutoff: c,
+      playoffCutoff: p
+    });
+
+    alert("✅ Saved globally");
+
+  } catch (err) {
+    console.error(err);
+    alert("❌ Failed to save");
+  }
+};
+
+  
 window.addTeam = async function(){
 
   if(!isAdmin) return alert("Admin only");
@@ -1712,14 +1797,29 @@ function renderStandings() {
 
   arr.forEach((t, i) => {
     let c = "";
-    if (i == 0) c = "rank1";
-    if (i == 1) c = "rank2";
-    if (i == 2) c = "rank3";
+    
+    if (i < championsCutoff) {
+      c = "championsZone";
+    } else if (i < playoffCutoff) {
+      c = "playoffZone";
+    }
 
     let teamObj = teams.find(team => team.name === t.team);
     const live = isTeamLive(t.team);
 
-    table.innerHTML += `
+    let divider = "";
+
+// draw line AFTER champions cutoff
+if (i === championsCutoff) {
+  divider = `<tr><td colspan="12" style="border-top:2px solid #22c55e"></td></tr>`;
+}
+
+// draw line AFTER playoff cutoff
+if (i === playoffCutoff) {
+  divider = `<tr><td colspan="12" style="border-top:2px solid #3b82f6"></td></tr>`;
+}
+
+table.innerHTML += divider + `
 <tr class="${c}">
   <td>${i + 1}</td>
   <td>
