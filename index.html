@@ -729,20 +729,28 @@ function normalizeTeam(team) {
   };
 }
   
+  function normalizeKey(str) {
+  return (str || "")
+    .toString()
+    .trim()
+    .toLowerCase();
+}
+  
   function resolveTeam(name) {
-  const team = teamMap.get(name);
+  const key = normalizeKey(name);
+
+  const team = teams.find(t => normalizeKey(t.name) === key);
 
   if (team) {
     return {
-      name: team.name,
-      logo: team.logo,
+      ...team,
       disqualified: false
     };
   }
 
   return {
     name: name,
-    logo: "https://via.placeholder.com/32/999999/ffffff?text=X",
+    logo: "https://via.placeholder.com/40?text=DQ",
     disqualified: true
   };
 }
