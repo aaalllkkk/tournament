@@ -471,6 +471,46 @@ z-index:-1;
   justify-content:space-between;
   margin-top:6px;
 }
+  .nodeHeader{
+  font-weight:bold;
+  margin-bottom:6px;
+  font-size:13px;
+}
+
+.nodeBody{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.teamInput{
+  width:100%;
+  padding:4px;
+  border-radius:6px;
+  border:none;
+}
+
+.scoreRow{
+  display:flex;
+  justify-content:center;
+  gap:6px;
+}
+
+.scoreRow input{
+  width:50px;
+  text-align:center;
+}
+
+.teamText{
+  text-align:center;
+  font-weight:500;
+}
+
+.scoreText{
+  text-align:center;
+  font-weight:bold;
+  color:#f4c542;
+}
   
   
 </style>
@@ -1564,9 +1604,6 @@ if (!confirmFinal) return;
 
   function renderNodes(){
     
-  if(!isAdmin){
-  node.style.pointerEvents = "none";
-}
   const container = document.getElementById("knockoutEditor");
   container.innerHTML = "";
 
@@ -1578,27 +1615,59 @@ if (!confirmFinal) return;
     node.style.top = m.y + "px";
     node.dataset.id = m.id;
 
+    if(!isAdmin){
+  node.style.pointerEvents = "none";
+}
+    
     node.innerHTML = `
-      <strong>${m.id}</strong><br>
+  <div class="nodeHeader">${m.id}</div>
 
-      <input value="${m.team1}" 
-        onchange="updateTeam('${m.id}',1,this.value)">
-      <input value="${m.team2}" 
-        onchange="updateTeam('${m.id}',2,this.value)"><br>
+  <div class="nodeBody">
 
-      <input type="number" value="${m.s1 ?? ""}" 
-        onchange="updateScoreKO('${m.id}',1,this.value)">
-      :
-      <input type="number" value="${m.s2 ?? ""}" 
-        onchange="updateScoreKO('${m.id}',2,this.value)">
+    ${
+      isAdmin
+      ? `
+        <input class="teamInput" value="${m.team1}"
+          onchange="updateTeam('${m.id}',1,this.value)">
+        
+        <div class="scoreRow">
+          <input type="number" value="${m.s1 ?? ""}"
+            onchange="updateScoreKO('${m.id}',1,this.value)">
+          :
+          <input type="number" value="${m.s2 ?? ""}"
+            onchange="updateScoreKO('${m.id}',2,this.value)">
+        </div>
 
+        <input class="teamInput" value="${m.team2}"
+          onchange="updateTeam('${m.id}',2,this.value)">
+      `
+      : `
+        <div class="teamText">${m.team1 || "-"}</div>
+
+        <div class="scoreText">
+          ${m.s1 ?? "-"} : ${m.s2 ?? "-"}
+        </div>
+
+        <div class="teamText">${m.team2 || "-"}</div>
+      `
+    }
+
+  </div>
+
+  <!-- INPUT PORT -->
+  <div class="port inPort"></div>
+
+  ${
+    isAdmin
+    ? `
       <div class="portRow">
-        <div class="port winPort" data-type="win"></div>
-        <div class="port losePort" data-type="lose"></div>
+        <div class="port winPort" data-type="win" title="Winner"></div>
+        <div class="port losePort" data-type="lose" title="Loser"></div>
       </div>
-
-      <div class="port inPort"></div>
-    `;
+    `
+    : ""
+  }
+`;
 
     container.appendChild(node);
 
@@ -1646,7 +1715,14 @@ function setupConnectionEvents(node){
 
   const id = node.dataset.id;
 
-  node.querySelector(".inPort").onclick = ()=>{
+  node.querySelectorAll(".winPort, .losePort").forEach(port => {
+  port.onclick = () => {
+    currentLink = {
+      from: id,
+      type: port.dataset.type
+    };
+  };
+});
 
   if(!currentLink) return;
 
@@ -1657,6 +1733,7 @@ function setupConnectionEvents(node){
     alert("Max 2 connections allowed");
     return;
   }
+    
 
   knockout.connections.push({
     from: currentLink.from,
