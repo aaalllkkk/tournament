@@ -700,8 +700,20 @@ let scorers=[];
 let news=[];
 let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
 let teamMap = new Map();
+let liveTeams = new Set();
 
   // ---------- Toggle ----------
+
+  function refreshLiveTeams(){
+  liveTeams = new Set();
+
+  matches.forEach(m => {
+    if(m.live){
+      liveTeams.add(m.team1);
+      liveTeams.add(m.team2);
+    }
+  });
+}
   
   function refreshTeamMap() {
   teamMap = new Map(teams.map(t => [t.name, t]));
@@ -1062,6 +1074,7 @@ onSnapshot(collection(db, "matches"), (snapshot) => {
   renderMatches();
   renderLiveMatches();
   renderHighlights();
+  refreshLiveTeams();
   renderStandings();
   renderDashboardStandings();
   renderNextMatch();
@@ -1616,6 +1629,7 @@ function renderStandings() {
     if (i == 2) c = "rank3";
 
     let teamObj = teams.find(team => team.name === t.team);
+    const isLive = liveTeams.has(t.team);
 
     table.innerHTML += `
 <tr class="${c}">
