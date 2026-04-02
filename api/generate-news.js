@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     const { team1, team2, score } = req.body;
 
     const prompt = `
-Generate a single short paragraph football news update. Make it dramatic, high tension, and easy to read. 
+Generate a single short paragraph football news update. Make it dramatic, high tension,big place the Score, and easy to read. 
 Avoid all player names completely. Refer only to teams or general positions (e.g., striker, goalkeeper). 
 The tone should feel like a breaking news headline expanded into one paragraph. No analysis, no commentary, no second paragraph.Strictly limit to 2–3 sentences maximum.
 
