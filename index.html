@@ -703,6 +703,17 @@ let teamMap = new Map();
 let liveTeams = new Set();
 
   // ---------- Toggle ----------
+  
+  function normalizeMatch(m){
+  return {
+    ...m,
+    s1: Number(m.s1 ?? 0),
+    s2: Number(m.s2 ?? 0),
+    y1: Number(m.y1 ?? 0),
+    y2: Number(m.y2 ?? 0),
+    live: m.live === true
+  };
+}
 
   function refreshLiveTeams(){
   liveTeams = new Set();
@@ -1070,6 +1081,7 @@ onSnapshot(collection(db, "matches"), (snapshot) => {
       ...data
     });
   });
+  matches = snapshot.docs.map(d => normalizeMatch(d.data()));
 
   renderMatches();
   renderLiveMatches();
@@ -1569,6 +1581,9 @@ function calculateStandings() {
 
   let hs = Number(m.s1);
   let aw = Number(m.s2);
+  
+  table[team1].y += Number(m.y1 || 0);
+  table[team2].y += Number(m.y2 || 0);
 
   home.p++;
   away.p++;
