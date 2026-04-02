@@ -548,11 +548,30 @@ z-index:-1;
   transform: translateY(-50%);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  justify-content: space-between;
+  height: 80px;
 }
 
 .ports.left { left: -8px; }
 .ports.right { right: -8px; }
+
+/* vertical alignment */
+.winIn, .winOut { align-self: flex-start; }
+.midIn, .midOut { align-self: center; }
+.loseIn, .loseOut { align-self: flex-end; }
+
+/* colors */
+.winIn, .winOut { background:#22c55e; }
+.midIn, .midOut { background:#38bdf8; }
+.loseIn, .loseOut { background:#ef4444; }
+
+.viewerPort {
+  background:#38bdf8;
+  opacity:0.8;
+  width:12px;
+  height:12px;
+  border-radius:50%;
+}
 
 .port {
   width: 12px;
@@ -569,6 +588,14 @@ z-index:-1;
 
 .port.active {
   box-shadow: 0 0 12px #facc15;
+}
+
+/* hide admin-only ports completely */
+body:not(.admin) .winIn,
+body:not(.admin) .loseIn,
+body:not(.admin) .winOut,
+body:not(.admin) .loseOut {
+  display:none;
 }
   
   
@@ -1441,6 +1468,11 @@ onAuthStateChanged(auth,user=>{
   document.getElementById("championsInput").value = championsCutoff;
   document.getElementById("playoffInput").value = playoffCutoff;
 }
+  if(user){
+  document.body.classList.add("admin");
+}else{
+  document.body.classList.remove("admin");
+}
   
   renderMatchHeader();
 });
@@ -1681,7 +1713,6 @@ if (!confirmFinal) return;
 }
     
     node.innerHTML = `
-<div class="nodeHeader">${m.id}</div>
 
 <div class="nodeBody">
 
@@ -1715,17 +1746,30 @@ if (!confirmFinal) return;
 
 </div>
 
-<!-- LEFT (INPUTS) -->
-<div class="ports left">
-  <div class="port inPort"></div>
-  <div class="port inPort"></div>
-</div>
+${isAdmin ? `
+  <!-- ADMIN INPUT PORTS -->
+  <div class="ports left">
+    <div class="port inPort winIn" data-type="win"></div>
+    <div class="port inPort midIn" data-type="mid"></div>
+    <div class="port inPort loseIn" data-type="lose"></div>
+  </div>
 
-<!-- RIGHT (OUTPUTS) -->
-<div class="ports right">
-  <div class="port winPort"></div>
-  <div class="port losePort"></div>
-</div>
+  <!-- ADMIN OUTPUT PORTS -->
+  <div class="ports right">
+    <div class="port outPort winOut" data-type="win"></div>
+    <div class="port outPort midOut" data-type="mid"></div>
+    <div class="port outPort loseOut" data-type="lose"></div>
+  </div>
+` : `
+  <!-- VIEWER ONLY MIDDLE FLOW -->
+  <div class="ports left">
+    <div class="port viewerPort"></div>
+  </div>
+
+  <div class="ports right">
+    <div class="port viewerPort"></div>
+  </div>
+`}
 `;
 
     container.appendChild(node);
@@ -1740,25 +1784,27 @@ if (!confirmFinal) return;
   function makeDraggable(node, match){
 
   let dragging = false;
-  let offsetX, offsetY;
+  let offsetX = 0;
+  let offsetY = 0;
 
-  node.onmousedown = (e)=>{
+  node.addEventListener("mousedown", (e)=>{
     if(!isAdmin) return;
 
     dragging = true;
 
     offsetX = e.clientX - match.x;
     offsetY = e.clientY - match.y;
-  };
+  });
 
-  document.onmousemove = (e)=>{
+  window.addEventListener("mousemove", (e)=>{
     if(!dragging) return;
 
     match.x = e.clientX - offsetX;
     match.y = e.clientY - offsetY;
 
-    // SNAP GRID
-    const GRID = 20;
+    // GRID SNAP
+    const GRID = 40;
+
     match.x = Math.round(match.x / GRID) * GRID;
     match.y = Math.round(match.y / GRID) * GRID;
 
@@ -1766,14 +1812,14 @@ if (!confirmFinal) return;
     node.style.top = match.y + "px";
 
     drawLines();
-  };
+  });
 
-  document.onmouseup = ()=>{
+  window.addEventListener("mouseup", ()=>{
     if(dragging){
       dragging = false;
       saveKnockout();
     }
-  };
+  });
 }
   let currentLink = null;
 
@@ -1781,19 +1827,41 @@ function setupConnectionEvents(node){
 
   const id = node.dataset.id;
 
-  // OUTPUT (start connection)
-  node.querySelectorAll(".winPort, .losePort").forEach(port => {
-    port.onclick = (e) => {
+  // OUTPUT → start link
+  node.querySelectorAll(".outPort").forEach(port=>{
+    port.onclick = (e)=>{
       e.stopPropagation();
 
       currentLink = {
         from: id,
-        type: port.classList.contains("winPort") ? "win" : "lose"
+        type: port.dataset.type
       };
 
       highlightPorts();
     };
   });
+
+  // INPUT → complete link
+  node.querySelectorAll(".inPort").forEach(port=>{
+    port.onclick = (e)=>{
+      e.stopPropagation();
+
+      if(!currentLink) return;
+
+      knockout.connections.push({
+        from: currentLink.from,
+        to: id,
+        type: port.dataset.type
+      });
+
+      currentLink = null;
+
+      clearHighlights();
+      saveKnockout();
+      drawLines();
+    };
+  });
+}
 
   // INPUT (complete connection)
   node.querySelectorAll(".inPort").forEach(port => {
@@ -1879,28 +1947,44 @@ function setupConnectionEvents(node){
   function drawLines(){
 
   const svg = document.getElementById("connections");
+  if(!svg) return;
+
   svg.innerHTML = "";
 
-  knockout.connections.forEach(c => {
+  requestAnimationFrame(() => {
 
-    let from = document.querySelector(`[data-id='${c.from}']`);
-    let to = document.querySelector(`[data-id='${c.to}']`);
+    knockout.connections.forEach(c => {
 
-    if(!from || !to) return;
+      let from = document.querySelector(`[data-id='${c.from}']`);
+      let to = document.querySelector(`[data-id='${c.to}']`);
 
-    let x1 = from.offsetLeft + from.offsetWidth;
-    let y1 = from.offsetTop + 50;
+      if(!from || !to) return;
 
-    let x2 = to.offsetLeft;
-    let y2 = to.offsetTop + 50;
+      const fromRect = from.getBoundingClientRect();
+      const toRect = to.getBoundingClientRect();
+      const parentRect = svg.getBoundingClientRect();
 
-    let path = document.createElementNS("http://www.w3.org/2000/svg","path");
+      let x1 = fromRect.right - parentRect.left;
+      let y1 = fromRect.top + fromRect.height/2 - parentRect.top;
 
-    path.setAttribute("d", `M${x1},${y1} C${x1+50},${y1} ${x2-50},${y2} ${x2},${y2}`);
-    path.setAttribute("stroke", c.type==="win"?"#22c55e":"#ef4444");
-    path.setAttribute("fill","none");
+      let x2 = toRect.left - parentRect.left;
+      let y2 = toRect.top + toRect.height/2 - parentRect.top;
 
-    svg.appendChild(path);
+      let color = "#38bdf8"; // mid default
+
+      if(c.type === "win") color = "#22c55e";
+      if(c.type === "lose") color = "#ef4444";
+
+      path.setAttribute("stroke", color);
+
+      path.setAttribute("d", `M${x1},${y1} C${x1+60},${y1} ${x2-60},${y2} ${x2},${y2}`);
+      path.setAttribute("stroke", c.type==="win" ? "#22c55e" : "#ef4444");
+      path.setAttribute("stroke-width", "2");
+      path.setAttribute("fill","none");
+
+      svg.appendChild(path);
+    });
+
   });
 }
   
@@ -2631,9 +2715,11 @@ ${m.team2}
 });
 
   function highlightPorts(){
+
   document.querySelectorAll(".inPort").forEach(p=>{
     p.classList.add("active");
   });
+
 }
 
 function clearHighlights(){
@@ -2643,6 +2729,12 @@ function clearHighlights(){
 }
 
 }
+
+document.addEventListener("click", () => {
+  currentLink = null;
+  clearHighlights();
+});
+  
 document.addEventListener("mousemove", handleDrag);
 document.addEventListener("mouseup", stopDrag);
 
