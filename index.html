@@ -1,783 +1,2726 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>PILDUN DUNIA🏆</title>
-  <style>
-    /* --- Base Styles --- */
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(180deg, #0b1e3d 0%, #07142a 100%);
-      color: white;
-      margin: 0;
-      padding: 20px;
-      min-height: 100vh;
-      position: relative;
-    }
+<meta charset="UTF-8">
+<title>PILDUN DUNIA🏆</title>
 
-    body::before {
-      content: "";
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(circle at top, #1e3a8a33, transparent 60%);
-      pointer-events: none;
-      z-index: -1;
-    }
+<style>
 
-    h1 {
-      text-align: center;
-      margin-bottom: 15px;
-      color: #f4c542;
-      text-shadow: 0 0 10px rgba(244, 197, 66, 0.6);
-    }
+body{
+font-family:Segoe UI;
+background:linear-gradient(180deg,#0b1e3d 0%,#07142a 100%);
+color:white;
+margin:0;
+padding:20px;
+min-height:100vh;
+}
 
-    /* --- Tabs Navigation --- */
-    .tabs {
-      display: flex;
-      gap: 16px;
-      margin-bottom: 28px;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
+h1{
+text-align:center;
+margin-bottom:15px;
+color:#f4c542;
+text-shadow:0 0 10px rgba(244,197,66,0.6);
+}
+  
+td {
+text-align: center;
+}
 
-    .tab {
-      background: #13294b;
-      color: white;
-      padding: 10px 18px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: background 0.2s;
-    }
+  td[colspan] {
+  text-align: center;
+}
 
-    .tab:hover { background: #1e3a5f; }
-    .tab.active {
-      background: #f4c542;
-      color: #0b1e3d;
-      font-weight: 600;
-    }
+  /* Smooth collapse */
+.mw-row {
+  overflow: hidden;
+  transition: 
+    opacity 0.25s ease,
+    transform 0.25s ease,
+    height 0.25s ease;
+}
 
-    /* --- Sections & Layout --- */
-    .section {
-      display: none;
-      background: transparent;
-      padding: 20px;
-      border-radius: 10px;
-    }
+.mw-collapsing {
+  opacity: 0;
+  transform: scaleY(0.95);
+}
 
-    .section.active { display: block; }
+.tabs{
+display:flex;
+gap:16px;
+margin-bottom:28px;
+justify-content:center;
+flex-wrap:wrap;
+}
+.tab{
+background:#13294b;
+color:white;
+padding:10px 18px;
+border-radius:8px;
+cursor:pointer;
+font-size:14px;
+}
 
-    .mainLayout {
-      display: grid;
-      grid-template-columns: 1.3fr 1.7fr;
-      gap: 20px;
-      align-items: start;
-    }
+.tab:hover{
+background:#1e3a5f;
+}
 
-    .card {
-      background: #13294b;
-      border: 1px solid #1e3a5f;
-      border-radius: 10px;
-      padding: 15px;
-      transition: all 0.2s ease;
-      margin-bottom: 20px;
-    }
+.tab.active{
+background:#f4c542;
+color:#0b1e3d;
+font-weight:600;
+}
+  
+.section{
+display:none;
+background:transparent;
+padding:20px;
+border-radius:10px;
+}
 
-    .card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 0 20px rgba(34, 211, 238, 0.18);
-    }
+.section.active{
+display:block;
+}
 
-    .card h2 {
-      color: #22d3ee;
-      text-shadow: 0 0 6px #22d3ee55;
-      margin-top: 0;
-    }
+input,select{
+padding:8px;
+margin:5px;
+border-radius:6px;
+border:none;
+}
 
-    /* --- Tables --- */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-    }
+button{
+background:#f4c542;
+color:#0b1e3d;
+font-weight:600;
+padding:8px 14px;
+border:none;
+border-radius:6px;
+cursor:pointer;
+}
 
-    th, td {
-      padding: 10px 8px;
-      text-align: center;
-    }
+button:hover{
+transform:translateY(-1px);
+opacity:0.95;
+}
 
-    /* --- Form Elements --- */
-    input, select {
-      padding: 8px;
-      margin: 5px;
-      border-radius: 6px;
-      border: none;
-    }
+.deleteBtn{
+background:#ef4444;
+color:white;
+}
 
-    button {
-      background: #f4c542;
-      color: #0b1e3d;
-      font-weight: 600;
-      padding: 8px 14px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: 0.2s;
-    }
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:15px;
+}
 
-    button:hover {
-      transform: translateY(-1px);
-      opacity: 0.95;
-    }
+th, td{
+padding:10px 8px;
+text-align:center;
+}
 
-    .deleteBtn {
-      background: #ef4444;
-      color: white;
-    }
+.cutoffLineGreen {
+  border-top: 2px solid #22c55e;
+}
 
-    /* --- Live Badge & Animations --- */
-    .liveBadge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-weight: 600;
-      color: #22c55e;
-      animation: liveTextBlink 2s ease-in-out infinite;
-    }
+.cutoffLineBlue {
+  border-top: 2px solid #3b82f6;
+}
+.cutoffLineGreen,
+.cutoffLineBlue {
+  cursor: grab;
+}
 
-    .liveDot {
-      width: 10px;
-      height: 10px;
-      background: #22c55e;
-      border-radius: 50%;
-      box-shadow: 0 0 6px rgba(34, 197, 94, 0.8);
-      animation: livePulse 1.6s ease-out infinite;
-    }
+.cutoffLineGreen:active,
+.cutoffLineBlue:active {
+  cursor: grabbing;
+}
+  
+.rank1{color:gold;font-weight:bold;}
+.rank2{color:silver;}
+.rank3{color:#cd7f32;}
 
-    @keyframes liveTextBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-    @keyframes livePulse {
-      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-      70% { transform: scale(1.4); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
-      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-    }
+/* LIVE badge */
+.liveBadge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-weight:600;
+  color:#22c55e;
+  letter-spacing:0.5px;
+  animation:liveTextBlink 2s ease-in-out infinite;
+}
 
-    /* --- Score Cards --- */
-    .scoreCard {
-      display: grid;
-      grid-template-columns: 1fr 120px 1fr;
-      align-items: center;
-      gap: 10px;
-      background: #1e3a5f;
-      padding: 10px 14px;
-      border-radius: 10px;
-      margin: 10px 0;
-    }
+@keyframes liveTextBlink{
+  0%,100%{opacity:1;}
+  50%{opacity:0.6;}
+}
 
-    .scoreCard.live {
-      border: 1px solid #22c55e;
-      animation: liveCardGlow 2.5s ease-in-out infinite;
-    }
+/* Premium pulsing dot */
+.liveDot{
+  display:inline-block; /* 🔥 important */
+  width:10px;
+  height:10px;
+  min-width:10px;       /* 🔥 prevents squish */
+  min-height:10px;
+  background:#22c55e;
+  border-radius:50%;
+  vertical-align:middle;
+  position:relative;
 
-    .teamBlock { display: flex; align-items: center; gap: 8px; }
-    .teamBlock img { width: 26px; height: 26px; border-radius: 4px; object-fit: cover; }
-    .scoreNumber { text-align: center; font-size: 18px; font-weight: bold; color: #f4c542; }
+  box-shadow:0 0 6px rgba(34,197,94,0.8);
 
-    /* --- Knockout Editor --- */
-    #editorWrap { position: relative; height: 600px; background: #0f172a; overflow: hidden; border-radius: 10px; }
-    .node {
-      width: 200px;
-      background: rgba(30, 41, 59, 0.8);
-      border: 1px solid rgba(148, 163, 184, 0.4);
-      border-radius: 10px;
-      padding: 10px;
-      position: absolute;
-      backdrop-filter: blur(6px);
-      z-index: 10;
-    }
+  animation:livePulse 1.6s ease-out infinite;
+}
 
-    /* --- Utility --- */
-    .rank1 { color: gold; font-weight: bold; }
-    .rank2 { color: silver; }
-    .rank3 { color: #cd7f32; }
-    .cutoffLineGreen { border-top: 2px solid #22c55e; cursor: grab; }
-    .cutoffLineBlue { border-top: 2px solid #3b82f6; cursor: grab; }
-    
-    /* Smooth Collapse */
-    .mw-row { overflow: hidden; transition: opacity 0.25s ease, transform 0.25s ease, height 0.25s ease; }
-    .mw-collapsing { opacity: 0; transform: scaleY(0.95); }
+@keyframes livePulse{
+  0%{
+    transform:scale(1);
+    box-shadow:0 0 0 0 rgba(34,197,94,0.7);
+  }
+  70%{
+    transform:scale(1.4);
+    box-shadow:0 0 0 10px rgba(34,197,94,0);
+  }
+  100%{
+    transform:scale(1);
+    box-shadow:0 0 0 0 rgba(34,197,94,0);
+  }
+}
 
-    .newsImage {
-      width: 220px;
-      height: 130px;
-      object-fit: contain;
-      background-color: #1e293b;
-      border-radius: 8px;
-    }
-  </style>
+/* Highlight live match card */
+.scoreCard.live{
+  border:1px solid #22c55e;
+  box-shadow:0 0 20px rgba(34,197,94,0.25),
+             inset 0 0 10px rgba(34,197,94,0.1);
+  animation:liveCardGlow 2.5s ease-in-out infinite;
+}
+
+@keyframes liveCardGlow{
+  0%,100%{
+    box-shadow:0 0 15px rgba(34,197,94,0.2),
+               inset 0 0 8px rgba(34,197,94,0.1);
+  }
+  50%{
+    box-shadow:0 0 30px rgba(34,197,94,0.4),
+               inset 0 0 14px rgba(34,197,94,0.15);
+  }
+}
+  
+.scoreCard.live:hover{
+  transform:scale(1.02);
+  transition:0.2s;
+}
+
+.matchWrap{
+  margin-bottom:12px;
+}
+
+.matchMeta{
+  text-align:center;
+  font-size:12px;
+  color:#94a3b8;
+  margin-top:4px;
+}
+  
+.teamRow{
+display:flex;
+align-items:center;
+gap:10px;
+margin:5px 0;
+}
+
+.teamRow img{
+width:32px;
+height:32px;
+object-fit:cover;
+border-radius:4px;
+}
+.mainLayout{
+display:grid;
+grid-template-columns:1.3fr 1.7fr;
+gap:20px;
+align-items:start;
+}
+
+.card{
+background:#13294b;
+border:1px solid #1e3a5f;
+border-radius:10px;
+padding:15px;
+transition:all 0.2s ease;
+}
+  
+.card:hover{
+transform:translateY(-2px);
+box-shadow:0 0 20px rgba(34,211,238,0.18);
+}
+
+.card h2{
+color:#22d3ee;
+text-shadow:0 0 6px #22d3ee55;
+}
+  
+.dashboardRow{
+display:flex;
+align-items:center;
+justify-content:space-between;
+background:#1e3a5f;
+padding:10px 14px;
+margin:10px 0;
+border-radius:8px;
+}
+
+.dashboardRow img{
+width:22px;
+height:22px;
+border-radius:4px;
+margin-right:8px;
+}
+
+.dashboardTeam{
+display:flex;
+align-items:center;
+}
+
+.leader{
+background:#f4c542;
+color:#0b1e3d;
+font-weight:bold;
+}
+
+.rankBadge{
+width:22px;
+text-align:center;
+font-weight:bold;
+margin-right:8px;
+}
+.highlightMatch{
+display:flex;
+justify-content:space-between;
+align-items:center;
+background:#334155;
+padding:8px 12px;
+margin:8px 0;
+border-radius:8px;
+font-size:14px;
+}
+
+.newsItem{
+display:flex;
+gap:14px;
+margin-bottom:18px;
+padding-bottom:12px;
+border-bottom:1px solid #334155;
+}
+
+.newsImage {
+  width: 220px;       /* keep fixed width */
+  height: 130px;      /* keep fixed height */
+  object-fit: contain; /* show full image, no cropping */
+  background-color: #1e293b; /* fill empty space */
+  border-radius: 8px;
+}
+
+.newsContent{
+  flex:1;
+  font-size:14px;
+  line-height:1.4;
+}
+
+.newsTitle{
+font-weight:bold;
+margin-bottom:4px;
+}
+  
+.newsTime{
+font-size:12px;
+color:#94a3b8;
+}
+#newsList{
+max-height:300px;
+overflow-y:auto;
+}
+#newsList::-webkit-scrollbar{
+width:8px;
+}
+
+#newsList::-webkit-scrollbar-track{
+background:#1e293b;
+border-radius:10px;
+}
+
+#newsList::-webkit-scrollbar-thumb{
+background:#64748b;
+border-radius:10px;
+}
+
+#newsList::-webkit-scrollbar-thumb:hover{
+background:#94a3b8;
+}
+
+#standingsTable tr:active {
+  background: rgba(34,197,94,0.12);
+}
+
+#adminTeamControls,
+#matchControls,
+#scorerControls,
+#newsControls {
+  display: none; /* hide by default */
+}
+  
+/* #schedule {
+  max-height: 600px;
+  overflow-y: auto;
+} */
+  
+.scoreCard{
+  display:grid;
+  grid-template-columns: 1fr 120px 1fr; /* fixed center width */
+  align-items:center;
+  gap:10px;
+  background:#1e3a5f;
+  padding:10px 14px;
+  border-radius:10px;
+  margin:10px 0;
+}
+
+.teamBlock{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  white-space:nowrap;
+}
+
+/* LEFT TEAM */
+.teamBlock:first-child{
+  justify-content:flex-start;
+}
+
+/* RIGHT TEAM */
+.teamBlock:last-child{
+  justify-content:flex-end;
+  text-align:right;
+}
+ 
+.teamBlock img{
+width:26px;
+height:26px;
+border-radius:4px;
+object-fit:cover;
+}
+
+.scoreNumber{
+  text-align:center;
+  font-size:18px;
+  font-weight:bold;
+  color:#f4c542;
+  width:120px; /* match grid */
+}
+
+.vsText{
+flex:0 0 auto;
+text-align:center;
+font-weight:bold;
+color:#94a3b8;
+}
+
+body::before{
+content:"";
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:radial-gradient(circle at top,#1e3a8a33,transparent 60%);
+pointer-events:none;
+z-index:-1;
+}
+
+  /* Knockout */
+  .node{
+  position:absolute;
+  width:180px;
+  background:#1e293b;
+  border-radius:10px;
+  padding:10px;
+  color:white;
+  cursor:grab;
+  box-shadow:0 0 10px rgba(0,0,0,0.4);
+}
+
+.node input{
+  width:70px;
+  margin:2px;
+}
+
+.port{
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  cursor:pointer;
+}
+
+.winPort{ background:#22c55e; }
+.losePort{ background:#ef4444; }
+.inPort{ background:#38bdf8; margin:auto; }
+
+.portRow{
+  display:flex;
+  justify-content:space-between;
+  margin-top:6px;
+}
+  .nodeHeader{
+  font-weight:bold;
+  margin-bottom:6px;
+  font-size:13px;
+}
+
+.nodeBody{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.teamInput{
+  width:100%;
+  padding:4px;
+  border-radius:6px;
+  border:none;
+}
+
+.scoreRow{
+  display:flex;
+  justify-content:center;
+  gap:6px;
+}
+
+.scoreRow input{
+  width:50px;
+  text-align:center;
+}
+
+.teamText{
+  text-align:center;
+  font-weight:500;
+}
+
+.scoreText{
+  text-align:center;
+  font-weight:bold;
+  color:#f4c542;
+}
+  .node {
+  width: 200px;
+  background: rgba(30,41,59,0.2);
+  border: 1px solid rgba(148,163,184,0.4);
+  border-radius: 10px;
+  padding: 10px;
+  position: absolute;
+  backdrop-filter: blur(6px);
+}
+
+.nodeBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.teamRowKO {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.teamRowKO input {
+  width: 70px;
+}
+
+.scoreKO {
+  color: #f4c542;
+  font-weight: bold;
+}
+
+.ports {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 80px;
+}
+
+.ports.left { left: -8px; }
+.ports.right { right: -8px; }
+
+/* vertical alignment */
+.winIn, .winOut { align-self: flex-start; }
+.midIn, .midOut { align-self: center; }
+.loseIn, .loseOut { align-self: flex-end; }
+
+/* colors */
+.winIn, .winOut { background:#22c55e; }
+.midIn, .midOut { background:#38bdf8; }
+.loseIn, .loseOut { background:#ef4444; }
+
+.viewerPort {
+  background:#38bdf8;
+  opacity:0.8;
+  width:12px;
+  height:12px;
+  border-radius:50%;
+}
+
+.port {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.port:hover {
+  transform: scale(1.3);
+  box-shadow: 0 0 8px #38bdf8;
+}
+
+.port.active {
+  box-shadow: 0 0 12px #facc15;
+}
+
+/* hide admin-only ports completely */
+body:not(.admin) .winIn,
+body:not(.admin) .loseIn,
+body:not(.admin) .winOut,
+body:not(.admin) .loseOut {
+  display:none;
+}
+  
+  
+</style>
 </head>
 
 <body>
-  <h1>PILDUN DUNIA🏆</h1>
 
-  <div class="tabs">
-    <div class="tab active" onclick="openTab('dashboard',event)">Dashboard</div>
-    <div class="tab" onclick="openTab('teams',event)">Teams</div>
-    <div class="tab" onclick="openTab('schedule',event)">Schedule</div>
-    <div class="tab" onclick="openTab('standings',event)">Standings</div>
-    <div class="tab" onclick="openTab('knockout',event)">Knockout</div>
-    <div class="tab" onclick="openTab('scorers',event)">Top Scorers</div>
-    <div class="tab" onclick="openTab('admin',event)">Admin</div>
-  </div>
+<h1> PILDUN DUNIA🏆 </h1>
 
-  <div id="dashboard" class="section active">
-    <div class="mainLayout">
-      <div>
-        <div class="card">
-          <h2>Standings</h2>
-          <table>
-            <thead>
-              <tr><th>Rank</th><th>Team</th><th>Pts</th></tr>
-            </thead>
-            <tbody id="dashboardStandings"></tbody>
-          </table>
-        </div>
+<div class="tabs">
+<div class="tab active" onclick="openTab('dashboard',event)">Dashboard</div>
+<div class="tab" onclick="openTab('teams',event)">Teams</div>
+<div class="tab" onclick="openTab('schedule',event)">Schedule</div>
+<div class="tab" onclick="openTab('standings',event)">Standings</div>
+<div class="tab" onclick="openTab('knockout',event)">Knockout</div>
+<div class="tab" onclick="openTab('scorers',event)">Top Scorers</div>
+<div class="tab" onclick="openTab('admin',event)">Admin</div>
+</div>
 
-        <div class="card">
-          <h2>Live Matches</h2>
-          <div id="liveMatches"></div>
-        </div>
+<!-- ADMIN TAB -->
 
-        <div class="card">
-          <h2>Match Highlights</h2>
-          <div id="highlightList"></div>
-        </div>
-      </div>
+<div id="admin" class="section">
 
-      <div>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px">
-          <div class="card">
-            <h2>Top Scorers</h2>
-            <div id="dashboardScorers"></div>
-          </div>
-          <div class="card">
-            <h2>Next Match</h2>
-            <div id="nextMatch"></div>
-          </div>
-        </div>
+<h2>Admin Login</h2>
 
-        <div class="card">
-          <h2>Tournament News</h2>
-          <div id="newsControls">
-            <input id="newsTitle" placeholder="News title">
-            <input id="newsContent" placeholder="News text">
-            <input id="newsImage" placeholder="News image URL">
-            <button onclick="addNews()">Post</button>
-          </div>
-          <div id="newsList" style="max-height: 400px; overflow-y: auto;"></div>
-        </div>
-      </div>
-    </div>
-  </div>
+<input id="email" placeholder="Admin Email">
+<input id="password" type="password" placeholder="Password">
 
-  <div id="teams" class="section">
-    <div id="adminTeamControls">
-      <h3>League Tools</h3>
-      <button onclick="generateLeague()">Generate League</button>
-      <button onclick="resetMatches()" class="deleteBtn">Reset All Matches</button>
-      <hr>
-      <h2>Add Team</h2>
-      <input id="teamName" placeholder="Team Name">
-      <input id="teamLogo" placeholder="Team Logo URL">
-      <button onclick="addTeam()">Add Team</button>
-    </div>
-    <ul id="teamList" style="list-style: none; padding: 0;"></ul>
-  </div>
+<button onclick="login()">Login</button>
+<button onclick="logout()">Logout</button>
+<div id="adminTools" style="display:none;">
+  <hr style="margin:15px 0;">
 
-  <div id="schedule" class="section">
-    <div style="margin-bottom:15px;">
-      <label>Filter:</label>
-      <select id="filterTeam1" onchange="renderMatches()"><option value="">Team 1</option></select>
-      <select id="filterTeam2" onchange="renderMatches()"><option value="">Team 2</option></select>
-    </div>
+<h3>Standings Zones</h3>
 
-    <div id="matchControls">
-      <h2>Create Match</h2>
-      <select id="team1"></select>
-      <select id="team2"></select>
-      <select id="matchMatchweek"></select>
-      <input id="date" placeholder="Date/Time">
-      <button onclick="addMatch()">Add Match</button>
-    </div>
+<label>Champions cutoff:</label>
+<input type="number" id="championsInput" min="1" style="width:60px">
 
-    <table class="card">
-      <thead><tr id="matchHeader"></tr></thead>
-      <tbody id="matchContainer"></tbody>
-    </table>
-  </div>
+<label>Playoff cutoff:</label>
+<input type="number" id="playoffInput" min="1" style="width:60px">
 
-  <div id="standings" class="section">
+<button onclick="saveCutoffs()">Save</button>
+  
+  <button onclick="exportBackup()">📦 Backup</button>
+
+  <input type="file" accept=".json" onchange="importBackup(event)">
+</div>
+
+<p>Status : <span id="status">Viewer Mode</span></p>
+
+</div>
+
+  <!-- DASHBOARD -->
+
+<div id="dashboard" class="section active">
+
+<div class="mainLayout">
+
+  <!-- LEFT COLUMN -->
+  <div>
+
     <div class="card">
       <h2>Standings</h2>
       <table>
         <thead>
           <tr>
-            <th>Rank</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th>
-            <th>GF</th><th>GA</th><th>GD</th><th>Pts</th><th>Y</th><th>S</th>
+            <th>Rank</th>
+            <th>Team</th>
+            <th>Pts</th>
           </tr>
         </thead>
-        <tbody id="standingsTable"></tbody>
+        <tbody id="dashboardStandings"></tbody>
       </table>
     </div>
+
+    <div class="card">
+      <h2>Live Matches</h2>
+      <div id="liveMatches"></div>
+    </div>
+
+    <div class="card">
+      <h2>Match Highlights</h2>
+      <div id="highlightList"></div>
+    </div>
+
   </div>
+
+  <!-- RIGHT COLUMN -->
+  <div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+
+      <div class="card">
+        <h2>Top Scorers</h2>
+        <div id="dashboardScorers"></div>
+      </div>
+
+      <div class="card">
+        <h2>Next Match</h2>
+        <div id="nextMatch"></div>
+      </div>
+
+    </div>
+
+    <div class="card">
+      <h2>Tournament News</h2>
+
+      <div id="newsControls">
+        <input id="newsTitle" placeholder="News title">
+        <input id="newsContent" placeholder="News text">
+        <input id="newsImage" placeholder="News image URL">
+        <button onclick="addNews()">Post</button>
+      </div>
+
+      <div id="newsList"></div>
+    </div>
+
+  </div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+  
+<!-- TEAMS -->
+
+<div id="teams" class="section">
+
+<div id="adminTeamControls">
+<hr style="margin:15px 0;">
+
+<h3>League Tools</h3>
+
+<button onclick="generateLeague()">Generate League</button>
+
+<button onclick="resetMatches()" 
+style="background:#ef4444;color:white;">
+Reset All Matches
+</button>
+<h2>Add Team</h2>
+
+<input id="teamName" placeholder="Team Name">
+<input id="teamLogo" placeholder="Team Logo URL">
+<button onclick="addTeam()">Add Team</button>
+</div>
+<ul id="teamList"></ul>
+
+</div>
+
+
+<!-- MATCHES -->
+
+<div id="schedule" class="section">
+  <div style="margin-bottom:10px;">
+  <label>Filter:</label>
+
+<select id="filterTeam1" onchange="renderMatches()">
+  <option value="">Team 1</option>
+</select>
+
+<select id="filterTeam2" onchange="renderMatches()">
+  <option value="">Team 2</option>
+</select>
+</div>
+
+<div id="matchControls">
+
+<h2>Create Match</h2>
+
+<select id="team1"></select>
+<select id="team2"></select>
+<select id="matchMatchweek"></select>
+<input id="date" placeholder="Date">
+<button onclick="addMatch()">Add Match</button>
+</div>
+<table>
+
+<thead>
+<tr id="matchHeader"></tr>
+</thead>
+
+<tbody id="matchContainer"></tbody>
+
+</table>
+
+</div>
+
+<!-- STANDINGS -->
+
+<div id="standings" class="section">
+
+<h2>Standings</h2>
+
+<table>
+
+<thead>
+<tr>
+<th>Rank</th>
+<th>Team</th>
+<th>P</th>
+<th>W</th>
+<th>D</th>
+<th>L</th>
+<th>GF</th>
+<th>GA</th>
+<th>GD</th>
+<th>Pts</th>
+<th>Yellow</th>
+<th>Suspended</th>
+</tr>
+</thead>
+
+<tbody id="standingsTable"></tbody>
+
+</table>
+
+</div>
+
+  <!-- Knockout -->
 
   <div id="knockout" class="section">
-    <h2>Knockout Editor</h2>
-    <div id="knockoutControls" style="margin-bottom: 10px;">
-      <button onclick="createNode()">➕ Add Match</button>
-    </div>
-    <div id="editorWrap">
-      <div id="knockoutEditor" style="position:absolute; width:100%; height:100%;"></div>
-      <svg id="connections" style="position:absolute; width:100%; height:100%; pointer-events:none;"></svg>
-    </div>
+
+  <h2>Knockout Editor</h2>
+
+  <div id="knockoutControls">
+    <button onclick="createNode()">➕ Add Match</button>
   </div>
 
-  <div id="scorers" class="section">
-    <div id="scorerControls" class="card">
-      <h2>Add Top Scorer</h2>
-      <input id="playerName" placeholder="Player Name">
-      <input id="playerImage" placeholder="Player Image URL">
-      <select id="playerTeam"></select>
-      <input id="playerGoals" type="number" placeholder="Goals">
-      <button onclick="addScorer()">Add Player</button>
-    </div>
-    <table class="card">
-      <thead><tr id="scorerHeader"></tr></thead>
-      <tbody id="scorerTable"></tbody>
-    </table>
-  </div>
-
-  <div id="admin" class="section">
-    <div class="card" style="max-width: 400px; margin: auto;">
-      <h2>Admin Login</h2>
-      <input id="email" placeholder="Admin Email" style="width: 90%;">
-      <input id="password" type="password" placeholder="Password" style="width: 90%;">
-      <div style="margin-top: 10px;">
-        <button onclick="login()">Login</button>
-        <button onclick="logout()">Logout</button>
-      </div>
-      <p>Status: <span id="status">Viewer Mode</span></p>
-    </div>
-
-    <div id="adminTools" style="display:none; margin-top: 20px;" class="card">
-      <h3>Global Config</h3>
-      <label>Champions cutoff:</label>
-      <input type="number" id="championsInput" min="1" style="width:60px">
-      <label>Playoff cutoff:</label>
-      <input type="number" id="playoffInput" min="1" style="width:60px">
-      <button onclick="saveCutoffs()">Save Settings</button>
-      <hr>
-      <button onclick="exportBackup()">📦 Export Backup</button>
-      <input type="file" accept=".json" onchange="importBackup(event)">
-    </div>
-  </div>
-
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { 
-      getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, onSnapshot 
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import {
-      getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-    // --- Configuration ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyAmlSol_3Wmfs53A98sEdEm-uSaByGzo28",
-      authDomain: "tournament-sys.firebaseapp.com",
-      projectId: "tournament-sys",
-      storageBucket: "tournament-sys.firebasestorage.app",
-      messagingSenderId: "519201807872",
-      appId: "1:519201807872:web:9054f639cbd8190d9ec2e5"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-
-    // --- State Management ---
-    let isAdmin = false;
-    let teams = [];
-    let matches = [];
-    let scorers = [];
-    let news = [];
-    let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
-    let championsCutoff = 4;
-    let playoffCutoff = 8;
-    let teamMap = new Map();
-    let draggingLine = null;
-    let isDragging = false;
-    let pressTimer = null;
-    let knockout = { matches: {}, connections: [] };
-    let currentLink = null;
-
-    // --- Helper Functions ---
-    const normalizeKey = (str) => (str || "").toString().trim().toLowerCase();
-    const safeNumber = (val) => (val === null || val === undefined) ? "-" : val;
+  <div id="editorWrap" style="position:relative;height:600px;background:#0f172a;">
     
-    function resolveTeam(name) {
-      const key = normalizeKey(name);
-      const team = teams.find(t => normalizeKey(t.name) === key);
-      return team ? { ...team, disqualified: false } : { name: name, logo: "https://i.imgur.com/xnTuRnl.png", disqualified: true };
-    }
+    <div id="knockoutEditor" style="
+      position:absolute;
+      width:100%;
+      height:100%;
+    "></div>
 
-    function getMW(m) {
-      let mw = parseInt(m.Matchweek || m.weekday);
-      return isNaN(mw) ? 1 : mw;
-    }
+    <svg id="connections" style="
+      position:absolute;
+      width:100%;
+      height:100%;
+      pointer-events:none;
+    "></svg>
 
-    // --- Auth & UI Toggle ---
-    window.openTab = (id, e) => {
-      document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
-      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-      document.getElementById(id).classList.add("active");
-      e.target.classList.add("active");
+  </div>
+
+</div>
+
+
+<!-- SCORERS -->
+
+<div id="scorers" class="section">
+
+<h2>Top Scorers</h2>
+
+<div id="scorerControls">
+
+<input id="playerName" placeholder="Player">
+<input id="playerImage" placeholder="Player Image URL">
+<select id="playerTeam"></select>
+<input id="playerGoals" placeholder="Goals">
+
+<button onclick="addScorer()">Add Player</button>
+
+</div>
+
+<table>
+
+<thead>
+<tr id="scorerHeader">
+<th>Rank</th>
+<th>Player</th>
+<th>Team</th>
+<th>Goals</th>
+</tr>
+</thead>
+
+<tbody id="scorerTable"></tbody>
+
+</table>
+
+</div>
+
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+
+import { 
+getFirestore,
+collection,
+addDoc,
+getDocs,
+deleteDoc,
+doc,
+updateDoc,
+setDoc   // ✅ ADD THIS
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+import {
+getAuth,
+signInWithEmailAndPassword,
+signOut,
+onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+
+const firebaseConfig = {
+apiKey: "AIzaSyAmlSol_3Wmfs53A98sEdEm-uSaByGzo28",
+authDomain: "tournament-sys.firebaseapp.com",
+projectId: "tournament-sys",
+storageBucket: "tournament-sys.firebasestorage.app",
+messagingSenderId: "519201807872",
+appId: "1:519201807872:web:9054f639cbd8190d9ec2e5"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+let isAdmin=false;
+let teams=[];
+let matches=[];
+let scorers=[];
+let news=[];
+let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
+let championsCutoff = 4;
+let playoffCutoff = 8;
+let teamMap = new Map();
+let liveTeams = new Set();
+let pressTimer = null;
+let draggingLine = null; // "champions" or "playoff"
+let isDragging = false;
+let activeLine = "champions"; // default
+let knockout = {
+  matches: {},
+  connections: []
+};
+
+  // ---------- Toggle ----------
+  
+  function normalizeMatch(data) {
+  return {
+    ...data,
+    s1: data.s1 ?? null,
+    s2: data.s2 ?? null,
+    y1: data.y1 ?? 0,
+    y2: data.y2 ?? 0,
+    live: data.live ?? false,
+    team1: data.team1,
+    team2: data.team2
+  };
+}
+
+  function refreshLiveTeams(){
+  liveTeams = new Set();
+
+  matches.forEach(m => {
+    if(m.live){
+      liveTeams.add(m.team1);
+      liveTeams.add(m.team2);
+    }
+  });
+}
+  
+  function refreshTeamMap() {
+  teamMap = new Map(teams.map(t => [t.name, t]));
+}
+  
+  function isValidMatch(m) {
+  return (
+    m &&
+    m.team1 &&
+    m.team2 &&
+    m.s1 !== null &&
+    m.s2 !== null &&
+    m.s1 !== undefined &&
+    m.s2 !== undefined
+  );
+}
+
+function normalizeTeam(team) {
+  return {
+    id: team.id ?? team.name ?? crypto.randomUUID(),
+    name: team.name ?? "Unknown",
+    p: Number(team.p ?? 0),
+    w: Number(team.w ?? 0),
+    d: Number(team.d ?? 0),
+    l: Number(team.l ?? 0),
+    gf: Number(team.gf ?? 0),
+    ga: Number(team.ga ?? 0),
+    pts: Number(team.pts ?? 0),
+    y: Number(team.y ?? 0)
+  };
+}
+  
+  function normalizeKey(str) {
+  return (str || "")
+    .toString()
+    .trim()
+    .toLowerCase();
+}
+  
+  function resolveTeam(name) {
+  const key = normalizeKey(name);
+
+  const team = teams.find(t => normalizeKey(t.name) === key);
+
+  if (team) {
+    return {
+      ...team,
+      disqualified: false
     };
+  }
 
-    onAuthStateChanged(auth, user => {
-      isAdmin = !!user;
-      document.getElementById("status").innerText = isAdmin ? "Admin Mode" : "Viewer Mode";
-      document.getElementById("adminTools").style.display = isAdmin ? "block" : "none";
-      document.body.classList.toggle("admin", isAdmin);
-      
-      // Toggle visibility of admin-only controls
-      ["adminTeamControls", "matchControls", "scorerControls", "newsControls"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = isAdmin ? "block" : "none";
-      });
+  return {
+    name: name,
+    logo: "https://i.imgur.com/xnTuRnl.png",
+    disqualified: true
+  };
+}
 
-      renderMatchHeader();
-      if (isAdmin) {
-        document.getElementById("championsInput").value = championsCutoff;
-        document.getElementById("playoffInput").value = playoffCutoff;
-      }
-    });
+  
+  function safe(val, fallback = "") {
+  return val ?? fallback;
+}
 
-    window.login = async () => {
-      const email = document.getElementById("email").value;
-      const pass = document.getElementById("password").value;
-      try { await signInWithEmailAndPassword(auth, email, pass); } catch(e) { alert("Login Failed"); }
-    };
+function safeNumber(val) {
+  return (val === null || val === undefined) ? "-" : val;
+}
 
-    window.logout = () => signOut(auth);
+function findTeam(name) {
+  return teams.find(t => t.name === name) || {};
+}
+  
+ function renderAdminRow(m, mw) {
+  const team1 = resolveTeam(m.team1);
+  const team2 = resolveTeam(m.team2);
 
-    // --- Real-time Listeners ---
-    onSnapshot(collection(db, "teams"), snap => {
-      teams = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderTeams();
-      renderStandings();
-      renderDashboardStandings();
-    });
+  return `
+    <tr class="mw-${mw} mw-row">
+      <td>${safe(m.date)}</td>
 
-    onSnapshot(collection(db, "matches"), snap => {
-      matches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderMatches();
-      renderLiveMatches();
-      renderHighlights();
-      renderStandings();
-      renderNextMatch();
-    });
+      <td>
+        <img src="${team1.logo || 'default.png'}" style="width:24px;" />
+        ${team1.name}
+        ${team1.disqualified ? "<span style='color:gray;font-size:11px'> (Disqualified)</span>" : ""}
+      </td>
 
-    onSnapshot(collection(db, "scorers"), snap => {
-      scorers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderScorers();
-      renderDashboardScorers();
-    });
-
-    onSnapshot(collection(db, "news"), snap => {
-      news = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderNews();
-    });
-
-    onSnapshot(doc(db, "config", "knockout"), snap => {
-      if(snap.exists()) { knockout = snap.data(); renderNodes(); }
-    });
-
-    onSnapshot(doc(db, "config", "standings"), snap => {
-      if(snap.exists()) {
-        const d = snap.data();
-        championsCutoff = d.championsCutoff || 4;
-        playoffCutoff = d.playoffCutoff || 8;
-        renderStandings();
-      }
-    });
-
-    // --- Render Functions ---
-    function renderTeams() {
-      const list = document.getElementById("teamList");
-      list.innerHTML = teams.map(t => `
-        <li class="teamRow card" style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="display:flex; align-items:center; gap:10px;">
-            <img src="${t.logo}" style="width:32px; height:32px; border-radius:4px;">
-            <span>${t.name}</span>
-          </div>
-          ${isAdmin ? `<button class="deleteBtn" onclick="deleteTeam('${t.id}')">Delete</button>` : ""}
-        </li>
-      `).join('');
-
-      // Populate selects
-      const selects = ["team1", "team2", "playerTeam", "filterTeam1", "filterTeam2"];
-      selects.forEach(id => {
-        const el = document.getElementById(id);
-        if(!el) return;
-        const current = el.value;
-        el.innerHTML = (id.startsWith('filter') ? `<option value="">Select Team</option>` : "") + 
-          teams.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
-        el.value = current;
-      });
-    }
-
-    function renderMatchHeader() {
-      const h = document.getElementById("matchHeader");
-      if(!h) return;
-      h.innerHTML = `<th>Date</th><th>Team 1</th><th>Score</th><th>Team 2</th>` + 
-        (isAdmin ? `<th>Result</th><th>Card</th><th>Live</th><th>News</th><th>Action</th>` : "");
-    }
-
-    window.renderMatches = function() {
-      const container = document.getElementById("matchContainer");
-      const f1 = document.getElementById("filterTeam1").value.toLowerCase();
-      const f2 = document.getElementById("filterTeam2").value.toLowerCase();
-
-      let filtered = matches.filter(m => {
-        const t1 = (m.team1 || "").toLowerCase();
-        const t2 = (m.team2 || "").toLowerCase();
-        if (!f1 && !f2) return true;
-        if (f1 && !f2) return t1 === f1 || t2 === f1;
-        if (!f1 && f2) return t1 === f2 || t2 === f2;
-        return (t1 === f1 && t2 === f2) || (t1 === f2 && t2 === f1);
-      });
-
-      filtered.sort((a, b) => (b.live - a.live) || getMW(a) - getMW(b));
-
-      const grouped = {};
-      filtered.forEach(m => { const mw = getMW(m); if(!grouped[mw]) grouped[mw]=[]; grouped[mw].push(m); });
-
-      let html = "";
-      Object.keys(grouped).sort((a,b) => a-b).forEach(mw => {
-        html += `
-          <tr onclick="toggleFolder(${mw})" style="background:rgba(255,255,255,0.05); cursor:pointer;">
-            <td colspan="${isAdmin ? 9 : 4}"><strong>Matchweek ${mw} ▼</strong></td>
-          </tr>`;
+        <td>
+        <input type="number" value="${safe(m.s1, "")}" style="width:40px"
+          onchange="updateScore('${m.id}', this.value, 's1')">
         
-        grouped[mw].forEach(m => {
-          const t1 = resolveTeam(m.team1);
-          const t2 = resolveTeam(m.team2);
-          if (isAdmin) {
-            html += `
-              <tr class="mw-${mw} mw-row">
-                <td>${m.date || 'TBD'}</td>
-                <td><img src="${t1.logo}" width="20"> ${t1.name}</td>
-                <td><input type="number" value="${m.s1??''}" style="width:35px" onchange="updateScore('${m.id}',this.value,'s1')"> : <input type="number" value="${m.s2??''}" style="width:35px" onchange="updateScore('${m.id}',this.value,'s2')"></td>
-                <td><img src="${t2.logo}" width="20"> ${t2.name}</td>
-                <td><button onclick="enterResult('${m.id}')">Set</button></td>
-                <td><button onclick="addYellow('${m.id}')">🟨</button></td>
-                <td><button onclick="toggleLive('${m.id}', ${!m.live})">${m.live?'Off':'Live'}</button></td>
-                <td><button onclick="generateNews('${m.id}')">📝</button></td>
-                <td><button class="deleteBtn" onclick="deleteMatch('${m.id}')">DEL</button></td>
-              </tr>`;
-          } else {
-            html += `
-              <tr class="mw-${mw} mw-row">
-                <td>${m.date || 'TBD'}</td>
-                <td><img src="${t1.logo}" width="20"> ${t1.name}</td>
-                <td style="font-weight:bold">${m.live ? '<span class="liveBadge"><span class="liveDot"></span> LIVE</span>' : `${safeNumber(m.s1)} : ${safeNumber(m.s2)}`}</td>
-                <td><img src="${t2.logo}" width="20"> ${t2.name}</td>
-              </tr>`;
-          }
+        :
+      
+        <input type="number" value="${safe(m.s2, "")}" style="width:40px"
+          onchange="updateScore('${m.id}', this.value, 's2')">
+      
+        ${m.live
+          ? `<span class="liveBadge" style="margin-left:8px;">
+              <span class="liveDot"></span> LIVE
+            </span>`
+          : ""
+        }
+      </td>
+
+      <td>
+        <img src="${team2.logo || 'default.png'}" style="width:24px;" />
+        ${team2.name}
+        ${team2.disqualified ? "<span style='color:gray;font-size:11px'> (Disqualified)</span>" : ""}
+      </td>
+
+      <td><button onclick="enterResult('${m.id}')">Enter</button></td>
+      <td><button onclick="addYellow('${m.id}')">Card</button></td>
+      <td>
+        <button onclick="toggleLive('${m.id}', ${m.live ? 'false' : 'true'})">
+          ${m.live ? 'Stop Live' : 'Go Live'}
+        </button>
+      </td>
+
+      <td>
+        <button onclick="generateNews('${m.id}')">Generate News</button>
+      </td>
+
+      <td><button onclick="deleteMatch('${m.id}')">Delete</button></td>
+    </tr>
+  `;
+}
+  
+  function renderViewerRow(m, mw) {
+  const team1 = resolveTeam(m.team1);
+  const team2 = resolveTeam(m.team2);
+
+  return `
+    <tr class="mw-${mw} mw-row">
+      <td>${safe(m.date)}</td>
+
+      <td>
+        <img src="${team1.logo || 'default.png'}" style="width:24px;" />
+        ${team1.name}
+        ${team1.disqualified ? "<span style='color:gray;font-size:11px'> (Disqualified)</span>" : ""}
+      </td>
+
+            <td style="text-align:center;font-weight:bold;">
+        ${
+          m.live === true
+            ? `<span class="liveBadge"><span class="liveDot"></span> LIVE</span>`
+            : `${safeNumber(m.s1)} : ${safeNumber(m.s2)}`
+        }
+      </td>
+
+      <td>
+        <img src="${team2.logo || 'default.png'}" style="width:24px;" />
+        ${team2.name}
+        ${team2.disqualified ? "<span style='color:gray;font-size:11px'> (Disqualified)</span>" : ""}
+      </td>
+
+      <td></td>
+    </tr>
+  `;
+}
+  
+function getMW(m){
+  // 1. Prefer new field
+  let mw = parseInt(m.Matchweek);
+  if (!isNaN(mw) && mw > 0) return mw;
+
+  // 2. Fallback to old field
+  let w = parseInt(m.weekday);
+  if (!isNaN(w) && w > 0) return w;
+
+  // 3. Safe fallback
+  return 1;
+}
+  
+ function toggleAdminUI(){
+
+let controls=document.getElementById("adminTeamControls");
+if(controls) controls.style.display = isAdmin ? "block" : "none";
+
+let matchControls = document.getElementById("matchControls");
+if(matchControls) matchControls.style.display = isAdmin ? "block" : "none";
+
+let scorerControls = document.getElementById("scorerControls");
+if(scorerControls) scorerControls.style.display = isAdmin ? "block" : "none";
+
+let newsControls = document.getElementById("newsControls");
+if(newsControls) newsControls.style.display = isAdmin ? "block" : "none";
+
+}
+  
+ function renderMWHeader(mw) {
+   const colCount = isAdmin ? 7 : 4;
+   
+  return `
+    <tr onclick="toggleFolder(${mw})">
+      <td colspan="${isAdmin ? 9 : 4}" style="
+        border-top:1px solid #334155;
+        border-bottom:1px solid #334155;
+        cursor:pointer;
+        padding:10px;
+        text-align:center;
+        color:#94a3b8;
+      ">
+        <strong>Matchweek ${mw} ▼</strong>
+      </td>
+    </tr>
+  `;
+}
+  
+  function renderLiveMatches(){
+  let box = document.getElementById("liveMatches");
+  if(!box) return;
+
+  box.innerHTML = "";
+
+  let live = matches.filter(m => 
+  m.live === true &&
+  m.team1 &&
+  m.team2
+);
+
+  if(live.length === 0){
+    box.innerHTML = "No live matches";
+    return;
+  }
+
+  live.forEach(m => {
+    let team1 = resolveTeam(m.team1);
+    let team2 = resolveTeam(m.team2);
+
+    box.innerHTML += `
+      <div class="scoreCard ${m.live ? 'live' : ''}">
+        <div class="teamBlock">
+          <img src="${team1?.logo||''}">
+          ${m.team1}
+        </div>
+
+                <div class="scoreNumber">
+          <span class="liveBadge">
+            <span class="liveDot"></span>
+            ${safeNumber(m.s1)} - ${safeNumber(m.s2)}
+          </span>
+        </div>
+
+        <div class="teamBlock">
+          <img src="${team2?.logo||''}">
+          ${m.team2}
+        </div>
+      </div>
+    `;
+  });
+}
+  
+window.exportBackup = function () {
+
+  const data = {
+    teams: teams,
+    matches: matches,
+    scorers: scorers,
+    news: news
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json"
+  });
+
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "tournament-backup.json";
+  a.click();
+
+  URL.revokeObjectURL(url);
+};
+
+  async function clearCollection(name){
+  const snapshot = await getDocs(collection(db, name));
+
+  for(const d of snapshot.docs){
+    await deleteDoc(doc(db, name, d.id));
+  }
+}
+
+ window.importBackup = async function (event) {
+
+  if(!isAdmin) return alert("Admin only");
+
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = async function (e) {
+
+    try{
+      const data = JSON.parse(e.target.result);
+
+      // 🔥 STEP 1: CLEAR FIREBASE
+      await clearCollection("teams");
+      await clearCollection("matches");
+      await clearCollection("scorers");
+      await clearCollection("news");
+
+      // 🔥 STEP 2: RE-UPLOAD DATA
+      for(const t of (data.teams || [])){
+        await addDoc(collection(db,"teams"), t);
+      }
+
+      for(const m of (data.matches || [])){
+        await addDoc(collection(db,"matches"), m);
+      }
+
+      for(const s of (data.scorers || [])){
+        await addDoc(collection(db,"scorers"), s);
+      }
+
+      for(const n of (data.news || [])){
+        await addDoc(collection(db,"news"), n);
+      }
+
+      alert("✅ Backup fully restored!");
+
+    }catch(err){
+      console.error(err);
+      alert("❌ Failed to import backup");
+    }
+  };
+
+  reader.readAsText(file);
+};
+
+  window.createNode = function(){
+
+  if(!isAdmin) return;
+
+  const id = "m" + Date.now();
+
+  knockout.matches[id] = {
+    id,
+    x: 100,
+    y: 100,
+    team1: "",
+    team2: "",
+    s1: null,
+    s2: null
+  };
+
+  renderNodes();
+  saveKnockout();
+}
+  
+window.toggleFolder = function(mw) {
+
+  const rows = document.querySelectorAll(`.mw-${mw}`);
+  if (!rows.length) return;
+
+  const isHidden = rows[0].dataset.hidden === "true";
+
+  if (isHidden) {
+    // OPEN
+    rows.forEach(r => {
+      r.style.display = "";
+      r.style.height = r.scrollHeight + "px";
+
+      requestAnimationFrame(() => {
+        r.style.height = "auto";
+        r.classList.remove("mw-collapsing");
+        r.dataset.hidden = "false";
+      });
+    });
+
+  } else {
+    // CLOSE
+    rows.forEach(r => {
+      r.style.height = r.scrollHeight + "px";
+
+      requestAnimationFrame(() => {
+        r.style.height = "0px";
+        r.classList.add("mw-collapsing");
+      });
+
+    setTimeout(() => {
+      r.style.display = "none";
+      r.style.height = "0px";   // ✅ force no leftover height
+      r.dataset.hidden = "true";
+    }, 250);
+    });
+  }
+
+  collapsed[mw] = !isHidden;
+  localStorage.setItem("collapsedMW", JSON.stringify(collapsed));
+};
+  
+   import { onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// Real-time listener for teams
+onSnapshot(collection(db, "teams"), (snapshot) => {
+  teams = [];
+  snapshot.forEach(doc => {
+    teams.push({ id: doc.id, ...doc.data() });
+  });
+
+  refreshTeamMap();
+
+  renderTeams();
+  renderStandings();
+  renderDashboardStandings();
+});
+
+  // Real-time listener for Standings
+    onSnapshot(doc(db, "config", "standings"), (docSnap) => {
+
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+
+    championsCutoff = data.championsCutoff ?? 4;
+    playoffCutoff = data.playoffCutoff ?? 8;
+
+  } else {
+    // 🔥 FIRST TIME AUTO-CREATE DEFAULT
+    setDoc(doc(db, "config", "standings"), {
+      championsCutoff: 4,
+      playoffCutoff: 8
+    });
+  }
+
+  renderStandings();
+  renderDashboardStandings();
+
+  });
+  
+
+// Real-time listener for matches
+onSnapshot(collection(db, "matches"), (snapshot) => {
+
+  console.log("RAW MATCHES:", snapshot.docs.map(d => d.data()));
+
+  matches = snapshot.docs.map(doc => {
+    const data = doc.data();
+
+    return normalizeMatch({
+      id: doc.id,
+      ...data
+    });
+  });
+
+  console.log("VALID MATCHES ONLY:", matches);
+  
+  renderMatches();
+  renderLiveMatches();
+  renderHighlights();
+  refreshLiveTeams();
+  renderStandings();
+  renderDashboardStandings();
+  renderNextMatch();
+});
+
+// Real-time listener for scorers
+onSnapshot(collection(db, "scorers"), (snapshot) => {
+  scorers = [];
+  snapshot.forEach(doc => scorers.push({ ...doc.data(), id: doc.id }));
+  renderScorers();
+  renderDashboardScorers();
+});
+
+  // Real-time listener for news
+  onSnapshot(collection(db,"news"),(snapshot)=>{
+
+news=[];
+snapshot.forEach(doc=>news.push({...doc.data(),id:doc.id}));
+
+renderNews();
+
+});
+
+  // Real-time listener for Knockout
+  onSnapshot(doc(db,"config","knockout"), snap=>{
+  if(snap.exists()){
+    knockout = snap.data();
+    renderNodes();
+  }
+});
+  
+window.login = async function(){
+  let email = document.getElementById("email").value;
+  let pass = document.getElementById("password").value;
+  await signInWithEmailAndPassword(auth,email,pass);
+}
+
+window.logout = function(){
+  signOut(auth);
+}
+
+onAuthStateChanged(auth,user=>{
+  if(user){
+    isAdmin=true;
+    document.getElementById("status").innerText="Admin Mode";
+  }else{
+    isAdmin=false;
+    document.getElementById("status").innerText="Viewer Mode";
+  }
+
+  toggleAdminUI();
+  if (isAdmin) {
+  document.getElementById("championsInput").value = championsCutoff;
+  document.getElementById("playoffInput").value = playoffCutoff;
+}
+  if(user){
+  document.body.classList.add("admin");
+}else{
+  document.body.classList.remove("admin");
+}
+  
+  renderMatchHeader();
+});
+
+window.openTab = function(id,e){
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"))
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"))
+  document.getElementById(id).classList.add("active")
+  e.target.classList.add("active")
+}
+
+  window.toggleLive = async function(id, state){
+  if(!isAdmin) return;
+
+  await updateDoc(doc(db,"matches", id), {
+    live: state
+  });
+}
+
+window.saveCutoffs = async function () {
+
+  if (!isAdmin) return;
+
+  let c = parseInt(document.getElementById("championsInput").value);
+  let p = parseInt(document.getElementById("playoffInput").value);
+
+  if (isNaN(c) || isNaN(p) || c <= 0 || p <= 0) {
+    alert("Invalid values");
+    return;
+  }
+
+  if (c >= p) {
+    alert("Champions must be above Playoff");
+    return;
+  }
+
+  try {
+    await setDoc(doc(db, "config", "standings"), {
+      championsCutoff: c,
+      playoffCutoff: p
+    });
+
+    alert("✅ Saved globally");
+
+  } catch (err) {
+    console.error(err);
+    alert("❌ Failed to save");
+  }
+};
+
+window.setCutoff = async function(index){
+
+  if(!isAdmin) return;
+
+  // index is 0-based → convert to rank
+  let newCutoff = index + 1;
+
+  try{
+    await setDoc(doc(db, "config", "standings"), {
+      championsCutoff: newCutoff,
+      playoffCutoff: playoffCutoff // keep existing
+    });
+  }catch(err){
+    console.error(err);
+  }
+};
+  
+window.addTeam = async function(){
+
+  if(!isAdmin) return alert("Admin only");
+
+  let name = document.getElementById("teamName").value.trim();
+  let logo = document.getElementById("teamLogo").value.trim();
+
+  if(!name) return alert("Team name required");
+
+  // 🔥 prevent duplicate
+  const exists = teams.find(t => normalizeKey(t.name) === normalizeKey(name));
+  if(exists) return alert("Team already exists");
+
+  try{
+    await addDoc(collection(db,"teams"),{
+      name,
+      logo,
+      p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0,y:0
+    });
+
+    document.getElementById("teamName").value="";
+    document.getElementById("teamLogo").value="";
+
+  }catch(err){
+    console.error(err);
+    alert("Failed to add team");
+  }
+  renderStandings();
+}
+
+window.deleteTeam = async function (id) {
+
+  if(!isAdmin) return alert("Admin only");
+
+  try{
+    await deleteDoc(doc(db,"teams", id));
+  }catch(err){
+    console.error(err);
+    alert("Failed to delete");
+  }
+  renderStandings();
+};
+  
+function populateMatchweek(){
+  const select = document.getElementById("matchMatchweek");
+  if(!select) return;
+
+  select.innerHTML = "";
+
+  for(let i=1;i<=22;i++){
+    select.innerHTML += `<option value="${i}">Matchweek ${i}</option>`;
+  }
+}
+  
+  function renderMatchHeader(){
+  const header = document.getElementById("matchHeader");
+
+  if(!header) return;
+
+  header.innerHTML = `
+    <th>Date</th>
+    <th>Team 1</th>
+    <th>Score</th>
+    <th>Team 2</th>
+    ${isAdmin ? "<th>Result</th><th>Yellow</th><th>Live</th><th>News</th><th>Delete</th>" : ""}
+  `;
+}
+  
+  window.updateScore = async function(id, value, side){
+  if(!isAdmin) return;
+
+  let num = parseInt(value);
+  if(isNaN(num)) return;
+
+  await updateDoc(doc(db,"matches", id), {
+    [side]: num
+  });
+}
+  
+window.resetMatches = async function(){
+  if(!isAdmin) return alert("Admin only");
+
+  const confirmGen = confirm("⚠️ Are you sure?");
+if (!confirmGen) return;
+
+const confirmFinal = confirm("This action CANNOT be undone. Continue?");
+if (!confirmFinal) return;
+
+  const snapshot = await getDocs(collection(db,"matches"));
+
+  for(const d of snapshot.docs){
+    await deleteDoc(doc(db,"matches", d.id));
+  }
+
+  alert("All matches deleted");
+}
+  
+window.generateLeague = async function(){
+  if(!isAdmin) return alert("Admin only");
+  const confirmGen = confirm("⚠️ Are you sure?");
+if (!confirmGen) return;
+
+const confirmFinal = confirm("This action CANNOT be undone. Continue?");
+if (!confirmFinal) return;
+
+  if(teams.length < 2) return alert("Not enough teams");
+
+  if(!confirm("Generate full league? This will RESET matches")) return;
+
+  // 🔥 Clear old matches
+  const snapshot = await getDocs(collection(db,"matches"));
+  for(const d of snapshot.docs){
+    await deleteDoc(doc(db,"matches", d.id));
+  }
+
+  let teamList = [...teams.map(t => t.name)];
+
+  // If odd → add dummy (bye)
+  if(teamList.length % 2 !== 0){
+    teamList.push("BYE");
+  }
+
+  const rounds = teamList.length - 1;
+  const half = teamList.length / 2;
+
+  let arr = [...teamList];
+
+  for(let round=0; round<rounds; round++){
+
+    for(let i=0; i<half; i++){
+      let t1 = arr[i];
+      let t2 = arr[arr.length - 1 - i];
+
+      if(t1 !== "BYE" && t2 !== "BYE"){
+        await addDoc(collection(db,"matches"),{
+          team1: t1,
+          team2: t2,
+          date: "TBD",
+          Matchweek: round + 1,
+          s1: null,
+          s2: null,
+          y1: 0,
+          y2: 0,
+          live:false // ✅ ADD THIS
         });
+      }
+    }
+
+    // rotate (circle method)
+    arr.splice(1, 0, arr.pop());
+  }
+
+  alert("League generated!");
+}
+
+  function renderNodes(){
+    
+  const container = document.getElementById("knockoutEditor");
+  container.innerHTML = "";
+
+  Object.values(knockout.matches).forEach(m => {
+
+    let node = document.createElement("div");
+    node.className = "node";
+    node.style.left = m.x + "px";
+    node.style.top = m.y + "px";
+    node.dataset.id = m.id;
+
+    if(!isAdmin){
+  node.style.pointerEvents = "none";
+}
+    
+    node.innerHTML = `
+
+<div class="nodeBody">
+
+  <div class="teamRowKO">
+    ${
+      isAdmin
+      ? `<input value="${m.team1}" onchange="updateTeam('${m.id}',1,this.value)">`
+      : `<span>${m.team1 || "-"}</span>`
+    }
+
+    ${
+      isAdmin
+      ? `<input type="number" value="${m.s1 ?? ""}" onchange="updateScoreKO('${m.id}',1,this.value)">`
+      : `<span class="scoreKO">${m.s1 ?? "-"}</span>`
+    }
+  </div>
+
+  <div class="teamRowKO">
+    ${
+      isAdmin
+      ? `<input value="${m.team2}" onchange="updateTeam('${m.id}',2,this.value)">`
+      : `<span>${m.team2 || "-"}</span>`
+    }
+
+    ${
+      isAdmin
+      ? `<input type="number" value="${m.s2 ?? ""}" onchange="updateScoreKO('${m.id}',2,this.value)">`
+      : `<span class="scoreKO">${m.s2 ?? "-"}</span>`
+    }
+  </div>
+
+</div>
+
+${isAdmin ? `
+  <!-- ADMIN INPUT PORTS -->
+  <div class="ports left">
+    <div class="port inPort winIn" data-type="win"></div>
+    <div class="port inPort midIn" data-type="mid"></div>
+    <div class="port inPort loseIn" data-type="lose"></div>
+  </div>
+
+  <!-- ADMIN OUTPUT PORTS -->
+  <div class="ports right">
+    <div class="port outPort winOut" data-type="win"></div>
+    <div class="port outPort midOut" data-type="mid"></div>
+    <div class="port outPort loseOut" data-type="lose"></div>
+  </div>
+` : `
+  <!-- VIEWER ONLY MIDDLE FLOW -->
+  <div class="ports left">
+    <div class="port viewerPort"></div>
+  </div>
+
+  <div class="ports right">
+    <div class="port viewerPort"></div>
+  </div>
+`}
+`;
+
+    container.appendChild(node);
+
+    makeDraggable(node, m);
+    setupConnectionEvents(node);
+  });
+
+  drawLines();
+}
+
+  function makeDraggable(node, match){
+
+  let dragging = false;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  node.addEventListener("mousedown", (e)=>{
+    if(!isAdmin) return;
+
+    dragging = true;
+
+    offsetX = e.clientX - match.x;
+    offsetY = e.clientY - match.y;
+  });
+
+  window.addEventListener("mousemove", (e)=>{
+    if(!dragging) return;
+
+    match.x = e.clientX - offsetX;
+    match.y = e.clientY - offsetY;
+
+    // GRID SNAP
+    const GRID = 40;
+
+    match.x = Math.round(match.x / GRID) * GRID;
+    match.y = Math.round(match.y / GRID) * GRID;
+
+    node.style.left = match.x + "px";
+    node.style.top = match.y + "px";
+
+    drawLines();
+  });
+
+  window.addEventListener("mouseup", ()=>{
+    if(dragging){
+      dragging = false;
+      saveKnockout();
+    }
+  });
+}
+  let currentLink = null;
+  
+function highlightPorts(){
+
+  document.querySelectorAll(".inPort").forEach(p=>{
+    p.classList.add("active");
+  });
+
+}
+
+function clearHighlights(){
+  document.querySelectorAll(".port").forEach(p=>{
+    p.classList.remove("active");
+  });
+}
+
+function setupConnectionEvents(node){
+
+  const id = node.dataset.id;
+
+  // OUTPUT → start link
+  node.querySelectorAll(".outPort").forEach(port=>{
+    port.onclick = (e)=>{
+      e.stopPropagation();
+
+      currentLink = {
+        from: id,
+        type: port.dataset.type
+      };
+
+      highlightPorts();
+    };
+  });
+
+  // INPUT → complete link
+  node.querySelectorAll(".inPort").forEach(port=>{
+    port.onclick = (e)=>{
+      e.stopPropagation();
+
+      if(!currentLink) return;
+
+      knockout.connections.push({
+        from: currentLink.from,
+        to: id,
+        type: port.dataset.type
       });
-      container.innerHTML = html;
+
+      currentLink = null;
+
+      clearHighlights();
+      saveKnockout();
+      drawLines();
     };
+  });
+}
 
-    // --- Action Functions (Global) ---
-    window.addTeam = async () => {
-      const name = document.getElementById("teamName").value.trim();
-      const logo = document.getElementById("teamLogo").value.trim();
-      if(!name) return;
-      await addDoc(collection(db, "teams"), { name, logo, p:0, w:0, d:0, l:0, gf:0, ga:0, pts:0, y:0 });
-      document.getElementById("teamName").value = "";
+  window.updateScoreKO = function(id, side, val){
+
+  let m = knockout.matches[id];
+  val = parseInt(val);
+  if(isNaN(val)) return;
+
+  if(side===1) m.s1 = val;
+  else m.s2 = val;
+
+  if(m.s1 != null && m.s2 != null){
+
+  // FIRST: clear all targets connected from this match
+  knockout.connections.forEach(c => {
+    if(c.from !== id) return;
+
+    let target = knockout.matches[c.to];
+    target.team1 = "";
+    target.team2 = "";
+  });
+
+  // SECOND: rebuild inputs correctly
+  knockout.connections.forEach(c => {
+
+    if(c.from !== id) return;
+
+    let target = knockout.matches[c.to];
+
+    knockout.connections.forEach(c2 => {
+
+      if(c2.to !== c.to) return;
+
+      let source = knockout.matches[c2.from];
+      if(source.s1 == null || source.s2 == null) return;
+
+      let w = source.s1 > source.s2 ? source.team1 : source.team2;
+      let l = source.s1 > source.s2 ? source.team2 : source.team1;
+
+      let teamToSend = c2.type === "win" ? w : l;
+
+      if(!target.team1) target.team1 = teamToSend;
+      else if(!target.team2) target.team2 = teamToSend;
+
+    });
+  });
+}
+    
+  saveKnockout();
+  renderNodes();
+}
+
+  window.updateTeam = function(id, side, val){
+  knockout.matches[id][side===1?"team1":"team2"] = val;
+  saveKnockout();
+}
+
+  async function saveKnockout(){
+  await setDoc(doc(db,"config","knockout"), knockout);
+}
+
+  function drawLines(){
+
+  const svg = document.getElementById("connections");
+  if(!svg) return;
+
+  svg.innerHTML = "";
+
+  requestAnimationFrame(() => {
+
+    knockout.connections.forEach(c => {
+
+      let from = document.querySelector(`[data-id='${c.from}']`);
+      let to = document.querySelector(`[data-id='${c.to}']`);
+
+      if(!from || !to) return;
+
+      const fromRect = from.getBoundingClientRect();
+      const toRect = to.getBoundingClientRect();
+      const parentRect = svg.getBoundingClientRect();
+
+      let x1 = fromRect.right - parentRect.left;
+      let y1 = fromRect.top + fromRect.height/2 - parentRect.top;
+
+      let x2 = toRect.left - parentRect.left;
+      let y2 = toRect.top + toRect.height/2 - parentRect.top;
+
+      let color = "#38bdf8"; // mid default
+
+      if(c.type === "win") color = "#22c55e";
+      if(c.type === "lose") color = "#ef4444";
+
+     let path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+path.setAttribute("d", `M${x1},${y1} C${x1+60},${y1} ${x2-60},${y2} ${x2},${y2}`);
+path.setAttribute("stroke", color);
+path.setAttribute("stroke-width", "2");
+path.setAttribute("fill","none");
+
+svg.appendChild(path);
+    });
+
+  });
+}
+  
+  document.getElementById("connections").onclick = function(){
+  if(!isAdmin) return;
+
+  if(confirm("Remove last connection?")){
+    knockout.connections.pop();
+    saveKnockout();
+    drawLines();
+  }
+};
+
+ window.generateNews = async function(matchId) {
+
+  // find match from array
+  let m = matches.find(x => x.id === matchId);
+
+  if (!m) {
+    alert("Match not found");
+    return;
+  }
+
+  try {
+    const res = await fetch(
+      "https://tournament-rouge.vercel.app/api/generate-news",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          team1: m.team1,
+          team2: m.team2,
+          score: `${m.s1 ?? 0} - ${m.s2 ?? 0}`
+        })
+      }
+    );
+
+    const data = await res.json();
+
+    // save to firebase news
+    await addDoc(collection(db, "news"), {
+      title: `${m.team1} vs ${m.team2}`,
+      content: data.text,
+      image: data.image || "",   // 🔥 ADD THIS
+      time: Date.now()
+    });
+
+    alert("News generated!");
+
+  } catch (err) {
+    console.error(err);
+    alert("Failed to generate news");
+  }
+};
+
+window.addMatch = async function(){
+  if(!isAdmin) return alert("Admin only");
+   // ensure Matchweek options exist
+  let MatchweekSelect = document.getElementById("matchMatchweek");
+  if(MatchweekSelect.options.length === 0){
+    for(let i=1;i<=22;i++){
+      MatchweekSelect.innerHTML += `<option value="${i}">Matchweek ${i}</option>`;
+    }
+  }
+  let t1=document.getElementById("team1").value;
+  let t2=document.getElementById("team2").value;
+  if(t1 === t2) return alert("Teams cannot be the same");
+  let date=document.getElementById("date").value;
+  if(!date) return alert("Date required");
+  let Matchweek = parseInt(document.getElementById("matchMatchweek").value);
+
+if (isNaN(Matchweek) || Matchweek <= 0) {
+  return alert("Matchweek invalid");
+}
+  localStorage.setItem("lastTeam1", t1);
+  localStorage.setItem("lastTeam2", t2);
+  localStorage.setItem("lastMatchweek", Matchweek);
+  await addDoc(collection(db,"matches"),{
+    team1:t1, team2:t2, date:date, Matchweek: Matchweek, s1:null, s2:null, y1:0, y2:0
+  });
+}
+
+window.deleteMatch = async function(id){
+  if(!isAdmin) return alert("Admin only");
+  await deleteDoc(doc(db,"matches",id));
+}
+
+window.enterResult = async function(id){
+  if(!isAdmin) return alert("Admin only");
+  let s1=parseInt(prompt("Score team1"));
+  let s2=parseInt(prompt("Score team2"));
+  await updateDoc(doc(db,"matches",id),{s1,s2});
+}
+
+window.addYellow = async function(id){
+  if(!isAdmin) return alert("Admin only");
+  let y1=parseInt(prompt("Yellow Team1"));
+  let y2=parseInt(prompt("Yellow Team2"));
+  await updateDoc(doc(db,"matches",id),{y1,y2});
+}
+
+window.addScorer = async function(){
+  if(!isAdmin) return alert("Admin only");
+  let player = document.getElementById("playerName").value;
+  let team = document.getElementById("playerTeam").value;
+  let goals = parseInt(document.getElementById("playerGoals").value);
+  if(isNaN(goals) || goals < 0) return alert("Invalid goals");
+  let image = document.getElementById("playerImage").value;  // <-- new line
+
+  await addDoc(collection(db,"scorers"), {player, team, goals, image}); // include image
+}
+
+window.addNews = async function(){
+
+if(!isAdmin) return alert("Admin only");
+
+let title=document.getElementById("newsTitle").value.trim();
+let content=document.getElementById("newsContent").value.trim();
+
+if(!title || !content) return alert("Title and content required");
+let image=document.getElementById("newsImage").value;
+
+await addDoc(collection(db,"news"),{
+
+title,
+content,
+image,
+time: Date.now()
+
+});
+
+}
+  
+window.deleteScorer = async function(id){
+  if(!isAdmin) return alert("Admin only");
+  await deleteDoc(doc(db,"scorers",id));
+}
+
+window.editGoals = async function(id,currentGoals){
+
+  if(!isAdmin) return alert("Admin only");
+  let newGoals = parseInt(prompt("Enter new goal total:", currentGoals));
+  if(isNaN(newGoals)) return;
+  await updateDoc(doc(db,"scorers",id),{
+    goals:newGoals
+  });
+
+}
+// ----------------------------------
+
+  
+// ---- RENDER FUNCTIONS ----
+
+function renderTeams(){
+  let teamList=document.getElementById("teamList");
+  teamList.innerHTML="";
+
+  teams.forEach(t=>{
+    teamList.innerHTML+=`
+      <li class="teamRow">
+      <img src="${t.logo||''}">
+      ${t.name}
+      ${isAdmin ? `<button class="deleteBtn" onclick="deleteTeam('${t.id}')">Delete</button>` : ""}
+      </li>`;
+  });
+
+  let select1=document.getElementById("team1");
+  let select2=document.getElementById("team2");
+  let playerTeam=document.getElementById("playerTeam");
+  let filterTeam1 = document.getElementById("filterTeam1");
+  let filterTeam2 = document.getElementById("filterTeam2");
+
+  // reset dropdowns
+  select1.innerHTML="";
+  select2.innerHTML="";
+  playerTeam.innerHTML="";
+
+  let current1 = filterTeam1.value;
+  let current2 = filterTeam2.value;
+
+filterTeam1.innerHTML = '<option value="">Team 1</option>';
+filterTeam2.innerHTML = '<option value="">Team 2</option>';
+
+  teams.forEach(t=>{
+    filterTeam1.innerHTML += `<option value="${t.name}">${t.name}</option>`;
+    filterTeam2.innerHTML += `<option value="${t.name}">${t.name}</option>`;
+    filterTeam1.value = current1;
+    filterTeam2.value = current2;
+    select1.innerHTML += `<option>${t.name}</option>`;
+    select2.innerHTML += `<option>${t.name}</option>`;
+    playerTeam.innerHTML += `<option>${t.name}</option>`;
+  });
+
+  const lastTeam1 = localStorage.getItem("lastTeam1");
+const lastTeam2 = localStorage.getItem("lastTeam2");
+const lastWeek = localStorage.getItem("lastMatchweek");
+
+if(lastTeam1) document.getElementById("team1").value = lastTeam1;
+if(lastTeam2) document.getElementById("team2").value = lastTeam2;
+if(lastWeek) document.getElementById("matchMatchweek").value = lastWeek;
+}
+  
+window.renderMatches = function () {
+  const container = document.getElementById("matchContainer");
+  if (!container) return;
+
+  const filter1 = document.getElementById("filterTeam1")?.value?.toLowerCase();
+  const filter2 = document.getElementById("filterTeam2")?.value?.toLowerCase();
+
+  let filtered = matches.filter(m => {
+    const t1 = (m.team1 || "").toLowerCase();
+    const t2 = (m.team2 || "").toLowerCase();
+
+    if (!filter1 && !filter2) return true;
+
+    if (filter1 && !filter2) {
+      return t1 === filter1 || t2 === filter1;
+    }
+
+    if (!filter1 && filter2) {
+      return t1 === filter2 || t2 === filter2;
+    }
+
+    return (
+      (t1 === filter1 && t2 === filter2) ||
+      (t1 === filter2 && t2 === filter1)
+    );
+  });
+
+       filtered.sort((a, b) =>
+      (b.live - a.live) || // 🔥 LIVE first
+      getMW(a) - getMW(b) ||
+      new Date(a.date) - new Date(b.date)
+    );
+
+    if (filtered.length === 0) {
+      const colCount = isAdmin ? 8 : 4;
+      container.innerHTML = `<tr><td colspan="${colCount}">No matches</td></tr>`;
+      return;
+    }
+
+    const grouped = {};
+    filtered.forEach(m => {
+      const mw = getMW(m);
+      if (!grouped[mw]) grouped[mw] = [];
+      grouped[mw].push(m);
+    });
+
+    let html = "";
+
+    Object.keys(grouped)
+      .sort((a, b) => a - b)
+      .forEach(mw => {
+
+        html += renderMWHeader(mw);
+
+        grouped[mw].forEach(m => {
+          html += isAdmin
+            ? renderAdminRow(m, mw)
+            : renderViewerRow(m, mw);
+        });
+
+      });
+
+    container.innerHTML = html;
+    // restore collapsed state safely AFTER render
+setTimeout(() => {
+  Object.keys(collapsed).forEach(mw => {
+    if (collapsed[mw]) {
+      document.querySelectorAll(`.mw-${mw}`).forEach(r => {
+        r.style.display = "none";
+        r.style.height = "0px";   // ✅ IMPORTANT
+        r.dataset.hidden = "true";
+      });
+    }
+  });
+}, 0);
+
+  } 
+  
+function calculateStandings() {
+  let table = {};
+
+  // init teams
+  teams.forEach(t => {
+    table[t.name] = {
+      team: t.name,
+      p: 0,
+      w: 0,
+      d: 0,
+      l: 0,
+      gf: 0,
+      ga: 0,
+      pts: 0,
+      y: Number(t.y ?? 0)
     };
+  });
 
-    window.deleteTeam = async (id) => { if(confirm("Delete team?")) await deleteDoc(doc(db, "teams", id)); };
+  // loop firebase matches
+ matches.forEach(m => {
+   
+  if (!m.team1 || !m.team2) return;
 
-    window.addMatch = async () => {
-      const team1 = document.getElementById("team1").value;
-      const team2 = document.getElementById("team2").value;
-      const mw = parseInt(document.getElementById("matchMatchweek").value);
-      const date = document.getElementById("date").value;
-      if(team1 === team2) return alert("Same team!");
-      await addDoc(collection(db, "matches"), { team1, team2, Matchweek: mw, date, s1: null, s2: null, y1: 0, y2: 0, live: false });
-    };
+  if (m.s1 == null || m.s2 == null) return;
 
-    window.updateScore = async (id, val, field) => { await updateDoc(doc(db, "matches", id), { [field]: parseInt(val) }); };
-    window.toggleLive = async (id, state) => { await updateDoc(doc(db, "matches", id), { live: state }); };
-    window.deleteMatch = async (id) => { if(confirm("Delete match?")) await deleteDoc(doc(db, "matches", id)); };
+  const home = table[m.team1];
+  const away = table[m.team2];
 
-    window.addScorer = async () => {
-      const player = document.getElementById("playerName").value;
-      const team = document.getElementById("playerTeam").value;
-      const goals = parseInt(document.getElementById("playerGoals").value);
-      const image = document.getElementById("playerImage").value;
-      await addDoc(collection(db, "scorers"), { player, team, goals, image });
-    };
+  if (!home || !away) return;
 
-    window.addNews = async () => {
-      const title = document.getElementById("newsTitle").value;
-      const content = document.getElementById("newsContent").value;
-      const image = document.getElementById("newsImage").value;
-      await addDoc(collection(db, "news"), { title, content, image, time: Date.now() });
-    };
+  home.p++;
+  away.p++;
 
-    // --- Standings Calculation ---
-    function calculateStandings() {
-      let stats = {};
-      teams.forEach(t => stats[t.name] = { name: t.name, p:0, w:0, d:0, l:0, gf:0, ga:0, pts:0, y:0 });
+  home.gf += m.s1;
+  home.ga += m.s2;
+
+  away.gf += m.s2;
+  away.ga += m.s1;
+
+  home.y += Number(m.y1 ?? 0);
+  away.y += Number(m.y2 ?? 0);
+
+  if (m.s1 > m.s2) {
+    home.w++; away.l++;
+    home.pts += 3;
+  } else if (m.s1 < m.s2) {
+    away.w++; home.l++;
+    away.pts += 3;
+  } else {
+    home.d++; away.d++;
+    home.pts += 1;
+    away.pts += 1;
+  }
+});
+
+  return Object.values(table);
+}
+  console.log("RAW MATCHES:", matches);
+console.log("VALID MATCHES ONLY:", matches.filter(isValidMatch));
+  
+  function isTeamLive(teamName){
+  return matches.some(m =>
+    m.live && (m.team1 === teamName || m.team2 === teamName)
+  );
+}
+  
+function renderStandings() {
+  let standings = calculateStandings();
+
+  let arr = standings.map(t => ({
+    ...t,
+    gd: (t.gf || 0) - (t.ga || 0),
+    suspend: Math.floor((t.y || 0) / 3)
+  }));
+
+  arr.sort((a, b) => (b.pts || 0) - (a.pts || 0) || (b.gd || 0) - (a.gd || 0));
+
+  let table = document.getElementById("standingsTable");
+  table.innerHTML = "";
+
+  arr.forEach((t, i) => {
+    let c = "";
+    
+    // keep your original top 3 colors
+    if (i == 0) c = "rank1";
+    if (i == 1) c = "rank2";
+    if (i == 2) c = "rank3";
+
+    let teamObj = teams.find(team => team.name === t.team);
+    const live = isTeamLive(t.team);
+
+    let divider = "";
+
+// GREEN line (champions)
+if (i === championsCutoff - 1) {
+  divider += `<tr class="cutoffLineGreen"
+  onmousedown="startLinePress('champions')"
+  onmouseup="endLinePress()"
+  ontouchstart="startLinePress('champions')"
+  ontouchend="endLinePress()"><td colspan="12"></td></tr>`;
+}
+
+// BLUE line (playoff)
+if (i === playoffCutoff - 1) {
+  divider += `<tr class="cutoffLineBlue"
+  onmousedown="startLinePress('playoff')"
+  ontouchstart="startLinePress('playoff')"><td colspan="12"></td></tr>`;
+}
+
+table.innerHTML += divider + `
+<tr class="${c}" data-index="${i}">
+  <td>${i + 1}</td>
+  <td>
+    <img src="${teamObj?.logo || ''}" 
+      style="width:24px;height:24px;border-radius:4px;margin-right:6px;vertical-align:middle;">
+    ${t.team || "Unknown"}
+    ${live ? `<span class="liveBadge"><span class="liveDot"></span></span>` : ""}
+  </td>
+  <td>${t.p}</td>
+  <td>${t.w}</td>
+  <td>${t.d}</td>
+  <td>${t.l}</td>
+  <td>${t.gf}</td>
+  <td>${t.ga}</td>
+  <td>${t.gd}</td>
+  <td>${t.pts}</td>
+  <td>${t.y}</td>
+  <td>${t.suspend}</td>
+</tr>`;
+  });
+}
+  
+  function getRowIndexFromEvent(e){
+  let target = e.target.closest("tr[data-index]");
+  if(!target) return null;
+  return parseInt(target.dataset.index);
+}
+  
+  function handleDrag(e){
+  if(!isDragging || !draggingLine) return;
+
+  let index = getRowIndexFromEvent(e);
+  if(index === null) return;
+
+  let newPos = index + 1;
+
+  // LIVE preview
+  if(draggingLine === "champions"){
+  championsCutoff = newPos;
+} else if(draggingLine === "playoff"){
+  playoffCutoff = newPos;
+}
+
+  renderStandings();
+}
+  
+  async function stopDrag(e){
+
+  clearTimeout(pressTimer);
+
+  if(!isDragging){
+    draggingLine = null;
+    return;
+  }
+
+  let index = getRowIndexFromEvent(e);
+  if(index === null){
+    draggingLine = null;
+    isDragging = false;
+    return;
+  }
+
+  let newPos = index + 1;
+
+  try{
+    await setDoc(doc(db, "config", "standings"), {
+  championsCutoff: draggingLine === "champions" ? newPos : championsCutoff,
+  playoffCutoff: draggingLine === "playoff" ? newPos : playoffCutoff
+});
+  }catch(err){
+    console.error(err);
+  }
+
+  // reset state
+  draggingLine = null;
+  isDragging = false;
+  document.body.style.cursor = "default";
+}
+  
+function renderDashboardStandings(){
+
+let standings = calculateStandings();
+
+let arr=[];
+
+for(let t in standings){
+let d=standings[t];
+arr.push({team:t,...d,gd:d.gf-d.ga});
+}
+
+arr.sort((a,b)=>b.pts-a.pts||b.gd-a.gd);
+
+let table=document.getElementById("dashboardStandings");
+
+if(!table) return;
+
+table.innerHTML="";
+
+arr.slice(0,5).forEach((t,i)=>{
+
+let teamObj = teams.find(team => team.name === t.team);
+
+let leaderClass = i===0 ? "leader" : "";
+
+table.innerHTML+=`
+
+<tr class="${leaderClass}">
+
+<td>${i+1}</td>
+
+<td style="text-align:left">
+
+<img src="${teamObj?.logo||''}" 
+style="width:20px;height:20px;border-radius:4px;margin-right:6px;vertical-align:middle;">
+
+${t.team}
+
+</td>
+
+<td>${t.pts}</td>
+
+</tr>
+
+`;
+
+});
+
+}
+  
+function renderDashboardScorers(){
+
+let box=document.getElementById("dashboardScorers");
+if(!box) return;
+
+box.innerHTML="";
+
+let top=[...scorers].sort((a,b)=>b.goals-a.goals).slice(0,5);
+
+top.forEach(s=>{
+
+box.innerHTML+=`
+
+<div style="display:flex;align-items:center;margin-bottom:8px;gap:8px;">
+
+<img src="${s.image||''}" 
+style="width:36px;height:36px;border-radius:6px;object-fit:cover;">
+
+<div>
+
+<strong>${s.player}</strong><br>
+${s.team} — ⚽ ${s.goals}
+
+</div>
+
+</div>
+
+`;
+
+});
+
+}
+  
+function renderScorers(){
+  let header = document.getElementById("scorerHeader");
+header.innerHTML = `
+<th>Rank</th>
+<th>Player</th>
+<th>Team</th>
+<th>Goals</th>
+${isAdmin ? "<th>Manage</th>" : ""}
+`;
+  let scorerTable=document.getElementById("scorerTable");
+  scorerTable.innerHTML="";
+  // sort by goals descending
+  let sorted=scorers.sort((a,b)=>b.goals-a.goals);
+  sorted.forEach((s,i)=>{
+   scorerTable.innerHTML+=`
+<tr>
+  <td>${i+1}</td>
+  <td>
+    <img src="${s.image||''}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;margin-right:8px;vertical-align:middle;">
+    ${s.player}
+  </td>
+  <td>
+    <img src="${teams.find(team=>team.name===s.team)?.logo||''}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:6px;vertical-align:middle;">
+    ${s.team}
+  </td>
+  
+<td>${s.goals}</td>
+
+<td>
+${isAdmin ? `<button onclick="editGoals('${s.id}', ${s.goals})">Edit</button>` : ""}
+${isAdmin ? `<button class="deleteBtn" onclick="deleteScorer('${s.id}')">Delete</button>` : ""}
+</td>
+
+</tr>`;
+  });
+}
+
+  window.startLinePress = function(type){
+  if(!isAdmin) return;
+
+  draggingLine = type;
+
+  pressTimer = setTimeout(() => {
+    isDragging = true;
+    document.body.style.cursor = "grabbing";
+  }, 500);
+};
+
+window.endLinePress = function(){
+  clearTimeout(pressTimer);
+};
+  
+ function renderNextMatch() {
+
+    let box = document.getElementById("nextMatch");
+    if (!box) return;
+
+    box.innerHTML = "";
+
+    // Filter for matches without scores (upcoming matches)
+    let upcoming = matches
+    .filter(m => m.s1 === null && m.team1 && m.team2)
+        // Sort first by Matchweek, then by date
+        .sort((a, b) =>
+  (getMW(a) - getMW(b)) ||
+  new Date(a.date) - new Date(b.date)
+)
+        .slice(0, 3); // show next 3 matches
+
+    if (upcoming.length === 0) {
+        box.innerHTML = "No upcoming matches";
+        return;
+    }
+   // REMOVE THIS LINE
+  //let finished = matches.filter(m => m.s1 !== null && m.s2 !== null);
+    upcoming.forEach(m => {
+        let team1 = resolveTeam(m.team1);
+        let team2 = resolveTeam(m.team2);
       
-      matches.forEach(m => {
-        if (m.s1 === null || m.s2 === null || !stats[m.team1] || !stats[m.team2]) return;
-        const h = stats[m.team1], a = stats[m.team2];
-        h.p++; a.p++;
-        h.gf += m.s1; h.ga += m.s2;
-        a.gf += m.s2; a.ga += m.s1;
-        h.y += (m.y1 || 0); a.y += (m.y2 || 0);
-        if (m.s1 > m.s2) { h.w++; a.l++; h.pts += 3; }
-        else if (m.s1 < m.s2) { a.w++; h.l++; a.pts += 3; }
-        else { h.d++; a.d++; h.pts += 1; a.pts += 1; }
-      });
-      return Object.values(stats).sort((a,b) => b.pts - a.pts || (b.gf-b.ga) - (a.gf-a.ga));
-    }
-
-    function renderStandings() {
-      const data = calculateStandings();
-      const table = document.getElementById("standingsTable");
-      if(!table) return;
-
-      table.innerHTML = data.map((t, i) => {
-        let rowClass = i === 0 ? "rank1" : i === 1 ? "rank2" : i === 2 ? "rank3" : "";
-        let divider = "";
-        if (i === championsCutoff) divider = `<tr class="cutoffLineGreen"><td colspan="12">Champions League Zone</td></tr>`;
-        if (i === playoffCutoff) divider = `<tr class="cutoffLineBlue"><td colspan="12">Playoff Zone</td></tr>`;
+        box.innerHTML += `
+        <div class="matchWrap">
         
-        return divider + `
-          <tr class="${rowClass}">
-            <td>${i+1}</td>
-            <td style="text-align:left"><img src="${resolveTeam(t.name).logo}" width="20"> ${t.name}</td>
-            <td>${t.p}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
-            <td>${t.gf}</td><td>${t.ga}</td><td>${t.gf - t.ga}</td>
-            <td style="font-weight:bold">${t.pts}</td><td>${t.y}</td><td>${Math.floor(t.y/3)}</td>
-          </tr>`;
-      }).join('');
-    }
-
-    // --- UI Helpers ---
-    window.toggleFolder = (mw) => {
-      const rows = document.querySelectorAll(`.mw-${mw}`);
-      const isHidden = rows[0]?.style.display === "none";
-      rows.forEach(r => { r.style.display = isHidden ? "" : "none"; });
-      collapsed[mw] = !isHidden;
-      localStorage.setItem("collapsedMW", JSON.stringify(collapsed));
-    };
-
-    function populateMatchweek() {
-      const s = document.getElementById("matchMatchweek");
-      for(let i=1; i<=22; i++) s.innerHTML += `<option value="${i}">Matchweek ${i}</option>`;
-    }
-
-    // Init logic
-    populateMatchweek();
-
-    // Dashboard minor renders
-    function renderLiveMatches() {
-      const container = document.getElementById("liveMatches");
-      const live = matches.filter(m => m.live);
-      container.innerHTML = live.length ? live.map(m => `
-        <div class="scoreCard live">
-          <div class="teamBlock"><img src="${resolveTeam(m.team1).logo}"> ${m.team1}</div>
-          <div class="scoreNumber">${m.s1} - ${m.s2}</div>
-          <div class="teamBlock">${m.team2} <img src="${resolveTeam(m.team2).logo}"></div>
-        </div>
-      `).join('') : "No live matches";
-    }
-
-    function renderHighlights() {
-      const container = document.getElementById("highlightList");
-      const finished = matches.filter(m => m.s1 !== null).slice(-3);
-      container.innerHTML = finished.map(m => `
-        <div class="scoreCard">
-          <span>${m.team1}</span>
-          <span class="scoreNumber">${m.s1}-${m.s2}</span>
-          <span>${m.team2}</span>
-        </div>
-      `).join('');
-    }
-
-    function renderNextMatch() {
-      const container = document.getElementById("nextMatch");
-      const next = matches.filter(m => m.s1 === null).sort((a,b) => getMW(a)-getMW(b))[0];
-      container.innerHTML = next ? `
-        <div style="text-align:center">
-          <p>MW ${getMW(next)}</p>
-          <strong>${next.team1} vs ${next.team2}</strong>
-          <p>${next.date}</p>
-        </div>` : "TBD";
-    }
-
-    function renderNews() {
-      const container = document.getElementById("newsList");
-      container.innerHTML = news.sort((a,b) => b.time - a.time).map(n => `
-        <div class="newsItem card" style="display:flex; gap:15px; align-items:start;">
-          ${n.image ? `<img src="${n.image}" width="80" style="border-radius:5px">` : ''}
-          <div>
-            <h4 style="margin:0">${n.title}</h4>
-            <p style="font-size:13px; color:#ccc">${n.content}</p>
+          <div class="scoreCard">
+            <div class="teamBlock">
+              <img src="${team1?.logo || ''}">
+              ${m.team1}
+            </div>
+        
+            <div class="scoreNumber">VS</div>
+        
+            <div class="teamBlock">
+              <img src="${team2?.logo || ''}">
+              ${m.team2}
+            </div>
           </div>
+        
+          <div class="matchMeta">
+            Matchweek ${m.Matchweek ?? "-"} — ${m.date}
+          </div>
+        
         </div>
-      `).join('');
-    }
+        `;
+    });
 
-    function renderScorers() {
-      const h = document.getElementById("scorerHeader");
-      h.innerHTML = `<th>Rank</th><th>Player</th><th>Team</th><th>Goals</th>` + (isAdmin ? `<th>Actions</th>` : "");
-      document.getElementById("scorerTable").innerHTML = scorers.sort((a,b) => b.goals - a.goals).map((s,i) => `
-        <tr>
-          <td>${i+1}</td>
-          <td>${s.player}</td>
-          <td>${s.team}</td>
-          <td>${s.goals}</td>
-          ${isAdmin ? `<td><button class="deleteBtn" onclick="deleteScorer('${s.id}')">X</button></td>` : ""}
-        </tr>`).join('');
-    }
+}
+  
+function renderNews() {
+  let list = document.getElementById("newsList");
+  if (!list) return;
 
-    window.deleteScorer = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "scorers", id)); };
+  list.innerHTML = "";
 
-    // --- Dashboard Standings Render ---
-    function renderDashboardStandings() {
-      const data = calculateStandings().slice(0, 5);
-      document.getElementById("dashboardStandings").innerHTML = data.map((t, i) => `
-        <tr><td>${i+1}</td><td>${t.name}</td><td>${t.pts}</td></tr>
-      `).join('');
-    }
+  const html = [...news]
+    .sort((a, b) => (b.time || 0) - (a.time || 0))
+    .slice(0, 6)
+    .map(n => `
+      <div class="newsItem">
+                 ${n.image
+            ? `<img src="${n.image}" class="newsImage" loading="lazy">`
+            : ""
+          }
 
-    function renderDashboardScorers() {
-      const data = scorers.sort((a,b) => b.goals - a.goals).slice(0, 5);
-      document.getElementById("dashboardScorers").innerHTML = data.map(s => `
-        <div style="font-size:13px; margin-bottom:5px;">${s.player} (${s.goals} ⚽)</div>
-      `).join('');
-    }
+        <div class="newsContent">
+          <div class="newsTitle">${n.title}</div>
+          <div>${n.content}</div>
+          <div class="newsTime">${new Date(n.time).toLocaleString()}</div>
+        </div>
+      </div>
+    `)
+    .join("");
 
-  </script>
+  list.innerHTML = html;
+}
+  
+function renderHighlights(){
+
+let container=document.getElementById("highlightList");
+
+if(!container) return;
+
+container.innerHTML="";
+
+let finished = matches.filter(m => 
+  m.s1 !== null &&
+  m.s2 !== null &&
+  m.team1 &&
+  m.team2
+);
+
+finished.slice(-5).reverse().forEach(m=>{
+
+let team1 = resolveTeam(m.team1);
+let team2 = resolveTeam(m.team2);
+
+container.innerHTML+=`
+
+<div class="scoreCard ${m.live ? 'live' : ''}">
+
+<div class="teamBlock">
+<img src="${team1?.logo||''}">
+${m.team1}
+</div>
+
+<div class="scoreNumber">
+${m.s1} - ${m.s2}
+</div>
+
+<div class="teamBlock">
+<img src="${team2?.logo||''}">
+${m.team2}
+</div>
+
+</div>
+`;
+
+});
+
+}
+
+document.addEventListener("click", () => {
+  currentLink = null;
+  clearHighlights();
+});
+  
+document.addEventListener("mousemove", handleDrag);
+document.addEventListener("mouseup", stopDrag);
+
+document.addEventListener("touchmove", handleDrag);
+document.addEventListener("touchend", stopDrag);
+  populateMatchweek();
+</script>
 </body>
 </html>
