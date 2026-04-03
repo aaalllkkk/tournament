@@ -221,8 +221,9 @@
             border-radius: 10px;
             margin: 10px 0;
         }
-
-        .teamBlock { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+        
+        .teamBlock:last-child {justify-content: flex-end; text-align: right; flex-direction: row-reverse;  }
+        .teamBlock {display: flex; align-items: center; gap: 8px; white-space: nowrap; width: 100%;   }
         .teamBlock img { width: 26px; height: 26px; border-radius: 4px; object-fit: cover; }
         .scoreNumber { text-align: center; font-size: 18px; font-weight: bold; color: #f4c542; width: 120px; }
 
@@ -599,19 +600,14 @@
                         <img src="${t.logo}">${t.name}
                         ${isAdmin ? `<button class="deleteBtn" onclick="deleteTeam('${t.id}')">Delete</button>` : ""}
                     </li>`;
-            
+                    
                     // dropdown match
-                    s1.innerHTML += `<option value="${t.name}">${t.name}</option>`;
-                    s2.innerHTML += `<option value="${t.name}">${t.name}</option>`;
-            
+                    s1.innerHTML += `<option value="${t.name}">${t.name}</option>`;s2.innerHTML += `<option value="${t.name}">${t.name}</option>`;
                     // dropdown scorer
                     pTeam.innerHTML += `<option value="${t.name}">${t.name}</option>`;
-            
                     // 🔥 FIX FILTER
-                    f1.innerHTML += `<option value="${t.name.toLowerCase()}">${t.name}</option>`;
-                    f2.innerHTML += `<option value="${t.name.toLowerCase()}">${t.name}</option>`;
+                    f1.innerHTML += `<option value="${t.name.toLowerCase()}">${t.name}</option>`; f2.innerHTML += `<option value="${t.name.toLowerCase()}">${t.name}</option>`;
                 });
-            
                 list.innerHTML = html;
             }
 
@@ -641,7 +637,8 @@
                     const t1 = resolveTeam(m.team1); const t2 = resolveTeam(m.team2);
                     html += `<tr class="mw-${mw} mw-row" data-hidden="${collapsed[mw] ? 'true' : 'false'}" style="${collapsed[mw] ? 'display:none' : ''}">
                         <td>${safe(m.date)}</td>
-                        <td><img src="${t1.logo}" style="width:24px;"> ${t1.name}</td>
+                        <td>${m.live ? `<span class="liveDot"></span>` : ""}
+                        <img src="${t1.logo}" style="width:24px;"> ${t1.name}</td>
                         <td style="font-weight:bold;">
                                 ${isAdmin ? `
                             <input type="number" value="${m.s1 ?? ""}" style="width:40px"
@@ -650,12 +647,13 @@
                                         onchange="updateScore('${m.id}',this.value,'s2')">
                         ` : `
                             ${m.live 
-                                ? `<span class="liveBadge"><span class="liveDot"></span> LIVE</span>`
+                                ? `<span class="liveBadge"><span class="liveDot"></span> ${m.s1 ?? 0} : ${m.s2 ?? 0}</span>`
                                 : `${safeNumber(m.s1)} : ${safeNumber(m.s2)}`
                             }
                         `}
                         </td>
-                        <td><img src="${t2.logo}" style="width:24px;"> ${t2.name}</td>
+                        <td>${m.live ? `<span class="liveDot"></span>` : ""}
+                        <img src="${t2.logo}" style="width:24px;"> ${t2.name}</td>
                         ${isAdmin ? `
                             <td><button onclick="toggleLive('${m.id}', ${!m.live})">${m.live ? 'Stop' : 'Live'}</button></td>
                             <td><button onclick="generateNews('${m.id}')">News</button></td>
@@ -694,6 +692,11 @@
             );
         }
 
+        function isTeamLive(teamName) {
+    return matches.some(m => 
+        m.live && (m.team1 === teamName || m.team2 === teamName)
+    );
+}
         function renderStandings() {
             const data = calculateStandings();
             const table = document.getElementById("standingsTable");
@@ -706,7 +709,11 @@
                 const tObj = resolveTeam(t.team);
                 table.innerHTML += divider + `<tr class="${rowClass}">
                     <td>${i+1}</td>
-                    <td><img src="${tObj.logo}" style="width:24px; vertical-align:middle; margin-right:5px;"> ${t.team}</td>
+                    <td>
+                        ${isTeamLive(t.team) ? `<span class="liveDot"></span>` : ""}
+                        <img src="${tObj.logo}" style="width:24px; vertical-align:middle; margin-right:5px;">
+                        ${t.team}
+                    </td>
                     <td>${t.p}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td><td>${t.gf}</td><td>${t.ga}</td><td>${t.gf-t.ga}</td><td>${t.pts}</td><td>${t.y}</td><td>${Math.floor(t.y/3)}</td>
                 </tr>`;
             });
