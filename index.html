@@ -554,7 +554,11 @@
             await addDoc(collection(db, "matches"), { team1:t1, team2:t2, Matchweek:mw, date, s1:null, s2:null, y1:0, y2:0, live:false });
         };
 
-        window.updateScore = async (id, val, side) => { if(isAdmin) await updateDoc(doc(db, "matches", id), { [side]: parseInt(val) }); };
+       window.updateScore = async (id, val, side) => {
+            if (!isAdmin) return;
+            const num = isNaN(parseInt(val)) ? null : parseInt(val);
+            await updateDoc(doc(db, "matches", id), { [side]: num });
+        };
         window.toggleLive = async (id, state) => { if(isAdmin) await updateDoc(doc(db, "matches", id), { live: state }); };
         window.deleteMatch = async (id) => { if(isAdmin && confirm("Delete?")) await deleteDoc(doc(db, "matches", id)); };
 
@@ -581,15 +585,17 @@
             const f1 = document.getElementById("filterTeam1");
             const f2 = document.getElementById("filterTeam2");
 
-            list.innerHTML = "";
+            let html = "";
             s1.innerHTML = ""; s2.innerHTML = ""; pTeam.innerHTML = "";
             f1.innerHTML = '<option value="">Team 1</option>'; f2.innerHTML = '<option value="">Team 2</option>';
 
             teams.forEach(t => {
-                list.innerHTML += `<li class="teamRow"><img src="${t.logo}">${t.name} ${isAdmin ? `<button class="deleteBtn" onclick="deleteTeam('${t.id}')">Delete</button>` : ""}</li>`;
-                [s1, s2, pTeam].forEach(s => s.innerHTML += `<option>${t.name}</option>`);
-                [f1, f2].forEach(f => f.innerHTML += `<option value="${t.name}">${t.name}</option>`);
+                html += `<li class="teamRow">
+                    <img src="${t.logo}">${t.name}
+                    ${isAdmin ? `<button class="deleteBtn" onclick="deleteTeam('${t.id}')">Delete</button>` : ""}
+                </li>`;
             });
+            list.innerHTML = html;
         }
 
         window.renderMatches = () => {
@@ -620,11 +626,17 @@
                         <td>${safe(m.date)}</td>
                         <td><img src="${t1.logo}" style="width:24px;"> ${t1.name}</td>
                         <td style="font-weight:bold;">
-                            ${isAdmin ? 
-                                `<input type="number" value="${m.s1 ?? ""}" style="width:40px" onchange="updateScore('${m.id}',this.value,'s1')"> : 
-                                 <input type="number" value="${m.s2 ?? ""}" style="width:40px" onchange="updateScore('${m.id}',this.value,'s2')">` : 
-                                (m.live ? `<span class="liveBadge"><span class="liveDot"></span> LIVE</span>` : `${safeNumber(m.s1)} : ${safeNumber(m.s2)}`)
+                                ${isAdmin ? `
+                            <input type="number" value="${m.s1 ?? ""}" style="width:40px"
+                                onchange="updateScore('${m.id}',this.value,'s1')"> :
+                                    <input type="number" value="${m.s2 ?? ""}" style="width:40px"
+                                        onchange="updateScore('${m.id}',this.value,'s2')">
+                        ` : `
+                            ${m.live 
+                                ? `<span class="liveBadge"><span class="liveDot"></span> LIVE</span>`
+                                : `${safeNumber(m.s1)} : ${safeNumber(m.s2)}`
                             }
+                        `}
                         </td>
                         <td><img src="${t2.logo}" style="width:24px;"> ${t2.name}</td>
                         ${isAdmin ? `
@@ -658,7 +670,11 @@
                 else if (m.s1 < m.s2) { a.w++; h.l++; a.pts += 3; }
                 else { h.d++; a.d++; h.pts += 1; a.pts += 1; }
             });
-            return Object.values(table).sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga));
+            return Object.values(table).sort((a, b) =>
+                b.pts - a.pts ||
+                (b.gf - b.ga) - (a.gf - a.ga) ||
+                b.gf - a.gf
+            );
         }
 
         function renderStandings() {
@@ -741,7 +757,7 @@
         function renderScorers() {
             const box = document.getElementById("scorerTable");
             const dBox = document.getElementById("dashboardScorers");
-            const sorted = scorers.sort((a,b) => b.goals - a.goals);
+            const sorted = [...scorers].sort((a,b) => b.goals - a.goals);
             box.innerHTML = sorted.map((s, i) => `
                 <tr><td>${i+1}</td><td><img src="${s.image}" style="width:40px; border-radius:5px;"> ${s.player}</td><td>${s.team}</td><td>${s.goals}</td>
                 ${isAdmin ? `<td><button onclick="deleteScorer('${s.id}')">X</button></td>` : ""}</tr>`).join("");
@@ -797,23 +813,48 @@
         }
 
         function makeDraggable(node, m) {
-            let drag = false, ox, oy;
-            node.onmousedown = e => { if(e.target.tagName !== "INPUT") { drag = true; ox = e.clientX - m.x; oy = e.clientY - m.y; } };
-            window.onmousemove = e => { 
-                if(drag) { 
-                    m.x = Math.round((e.clientX - ox)/20)*20; m.y = Math.round((e.clientY - oy)/20)*20; 
-                    node.style.left = m.x+"px"; node.style.top = m.y+"px"; drawLines(); 
-                } 
-            };
-            window.onmouseup = () => { if(drag) { drag = false; saveKnockout(); } };
-        }
+                let drag = false, ox, oy;
+                    
+                    node.addEventListener("mousedown", e => {
+                            if(e.target.tagName !== "INPUT") {
+                                drag = true;
+                                ox = e.clientX - m.x;
+                                oy = e.clientY - m.y;
+                            }
+                        });
+                    
+                    window.addEventListener("mousemove", e => {
+                            if(drag) {
+                                m.x = Math.round((e.clientX - ox)/20)*20;
+                                m.y = Math.round((e.clientY - oy)/20)*20;
+                                node.style.left = m.x+"px";
+                                node.style.top = m.y+"px";
+                                drawLines();
+                            }
+                        });
+                    
+                    window.addEventListener("mouseup", () => {
+                            if(drag) {
+                                drag = false;
+                                saveKnockout();
+                            }
+                        });
+                    }
 
         function setupConnectionEvents(node) {
             const id = node.dataset.id;
             node.querySelectorAll(".outPort").forEach(p => p.onclick = e => { e.stopPropagation(); currentLink = { from: id, type: p.dataset.type }; highlightPorts(); });
             node.querySelectorAll(".inPort").forEach(p => p.onclick = e => {
                 e.stopPropagation(); if(!currentLink) return;
-                knockout.connections.push({ from: currentLink.from, to: id, type: p.dataset.type });
+            if (!knockout.connections.find(c =>
+                c.from === currentLink.from && c.to === id && c.type === p.dataset.type
+            )) {
+                knockout.connections.push({
+                    from: currentLink.from,
+                    to: id,
+                    type: p.dataset.type
+                });
+            }
                 currentLink = null; clearHighlights(); saveKnockout(); drawLines();
             });
         }
@@ -839,8 +880,12 @@
         }
 
         window.updateTeamKO = (id, side, val) => { knockout.matches[id][side === 1 ? "team1" : "team2"] = val; saveKnockout(); };
-        window.updateScoreKO = (id, side, val) => { 
-            knockout.matches[id][side === 1 ? "s1" : "s2"] = parseInt(val); 
+        window.updateScoreKO = (id, side, val) => {
+                const num = isNaN(parseInt(val)) ? null : parseInt(val);
+                knockout.matches[id][side === 1 ? "s1" : "s2"] = num;
+                saveKnockout();
+                renderNodes();
+            };
             // Logic to propagate winner/loser...
             saveKnockout(); renderNodes(); 
         };
@@ -859,6 +904,13 @@
         
         populateMatchweek();
         renderMatchHeader();
+
+window.generateNews = () => alert("Not implemented");
+window.deleteScorer = () => alert("Not implemented");
+window.generateLeague = () => alert("Not implemented");
+window.resetMatches = () => alert("Not implemented");
+
+        
     </script>
 </body>
 </html>
