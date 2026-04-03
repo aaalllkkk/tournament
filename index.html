@@ -5,7 +5,7 @@
     <title>PILDUN DUNIA🏆</title>
 
     <style>
-        /* --- CSS TETAP SAMA SESUAI PERMINTAAN --- */
+        /* --- CSS--- */
         body {
             font-family: Segoe UI;
             background: linear-gradient(180deg, #0b1e3d 0%, #07142a 100%);
@@ -377,6 +377,7 @@
         </div>
         <table>
             <thead><tr id="scorerHeader"><th>Rank</th><th>Player</th><th>Team</th><th>Goals</th></tr></thead>
+            <input id="searchScorer" placeholder="Search player..." oninput="renderScorers()">
             <tbody id="scorerTable"></tbody>
         </table>
     </div>
@@ -590,6 +591,7 @@
             f1.innerHTML = '<option value="">Team 1</option>'; f2.innerHTML = '<option value="">Team 2</option>';
 
             teams.forEach(t => {
+                pTeam.innerHTML += `<option value="${t.name}">${t.name}</option>`;
                 html += `<li class="teamRow">
                     <img src="${t.logo}">${t.name}
                     ${isAdmin ? `<button class="deleteBtn" onclick="deleteTeam('${t.id}')">Delete</button>` : ""}
@@ -755,11 +757,23 @@
         }
 
         function renderScorers() {
+            const keyword = document.getElementById("searchScorer")?.value.toLowerCase() || "";
             const box = document.getElementById("scorerTable");
             const dBox = document.getElementById("dashboardScorers");
-            const sorted = [...scorers].sort((a,b) => b.goals - a.goals);
+            const sorted = [...scorers]
+                .filter(s => 
+                    s.player.toLowerCase().includes(keyword) ||
+                    s.team.toLowerCase().includes(keyword)
+                )
+                .sort((a,b) => b.goals - a.goals);
             box.innerHTML = sorted.map((s, i) => `
-                <tr><td>${i+1}</td><td><img src="${s.image}" style="width:40px; border-radius:5px;"> ${s.player}</td><td>${s.team}</td><td>${s.goals}</td>
+                <tr><td>${i+1}</td><td><img src="${s.image}" style="width:40px; border-radius:5px;"> ${s.player}</td><td>${s.team}</td><td>
+                    ${isAdmin 
+                        ? `<input type="number" value="${s.goals}" style="width:60px"
+                            onchange="updateScorerGoals('${s.id}', this.value)">`
+                        : s.goals
+                    }
+                </td>
                 ${isAdmin ? `<td><button onclick="deleteScorer('${s.id}')">X</button></td>` : ""}</tr>`).join("");
             dBox.innerHTML = sorted.slice(0, 5).map(s => `
                 <div style="display:flex; gap:8px; margin-bottom:8px;"><img src="${s.image}" style="width:36px; height:36px; border-radius:5px; object-fit:cover;">
@@ -881,13 +895,10 @@
 
         window.updateTeamKO = (id, side, val) => { knockout.matches[id][side === 1 ? "team1" : "team2"] = val; saveKnockout(); };
         window.updateScoreKO = (id, side, val) => {
-                const num = isNaN(parseInt(val)) ? null : parseInt(val);
-                knockout.matches[id][side === 1 ? "s1" : "s2"] = num;
-                saveKnockout();
-                renderNodes();
-            };
-            // Logic to propagate winner/loser...
-            saveKnockout(); renderNodes(); 
+            const num = isNaN(parseInt(val)) ? null : parseInt(val);
+            knockout.matches[id][side === 1 ? "s1" : "s2"] = num;
+            saveKnockout();
+            renderNodes();
         };
 
         async function saveKnockout() { await setDoc(doc(db, "config", "knockout"), knockout); }
@@ -904,9 +915,43 @@
         
         populateMatchweek();
         renderMatchHeader();
+        
+        // --- Scorer edit ---
+        window.updateScorerGoals = async (id, val) => {
+        if (!isAdmin) return;
+        const goals = isNaN(parseInt(val)) ? 0 : parseInt(val);
+        await updateDoc(doc(db, "scorers", id), { goals });
+    };
+        
+        window.addScorer = async () => {
+    if (!isAdmin) return;
+
+    const player = document.getElementById("playerName").value.trim();
+    const image = document.getElementById("playerImage").value.trim();
+    const team = document.getElementById("playerTeam").value;
+    const goals = parseInt(document.getElementById("playerGoals").value) || 0;
+
+    if (!player || !team) return alert("Fill player & team");
+
+    await addDoc(collection(db, "scorers"), {
+        player,
+        image,
+        team,
+        goals
+    });
+
+    document.getElementById("playerName").value = "";
+    document.getElementById("playerImage").value = "";
+    document.getElementById("playerGoals").value = "";
+};
 
 window.generateNews = () => alert("Not implemented");
-window.deleteScorer = () => alert("Not implemented");
+window.deleteScorer = async (id) => {
+    if (!isAdmin) return;
+    if (confirm("Delete scorer?")) {
+        await deleteDoc(doc(db, "scorers", id));
+    }
+};
 window.generateLeague = () => alert("Not implemented");
 window.resetMatches = () => alert("Not implemented");
 
