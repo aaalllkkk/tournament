@@ -222,10 +222,14 @@
             margin: 10px 0;
         }
         
-        .teamBlock:last-child {justify-content: flex-end; text-align: right; flex-direction: row-reverse;  }
         .teamBlock {display: flex; align-items: center; gap: 8px; white-space: nowrap; width: 100%;   }
         .teamBlock img { width: 26px; height: 26px; border-radius: 4px; object-fit: cover; }
+        .scoreCard > .teamBlock:first-child { justify-content: flex-start; }
+        .scoreCard > .teamBlock:last-child {justify-content: flex-end; text-align: right; flex-direction: row-reverse; }
         .scoreNumber { text-align: center; font-size: 18px; font-weight: bold; color: #f4c542; width: 120px; }
+        .scoreCard { display: grid; grid-template-columns: 1fr 120px 1fr; align-items: center; gap: 10px; background: #1e3a5f; padding: 10px 14px; border-radius: 10px; margin: 10px 0; }
+        .scoreCard > .teamBlock { min-width: 0; }
+        .teamBlock img { flex-shrink: 0;  }
 
         /* Knockout Styles */
         .node {
