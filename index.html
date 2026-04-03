@@ -1877,27 +1877,6 @@ function setupConnectionEvents(node){
   });
 }
 
-  // INPUT (complete connection)
-  node.querySelectorAll(".inPort").forEach(port => {
-    port.onclick = (e) => {
-      e.stopPropagation();
-
-      if(!currentLink) return;
-
-      knockout.connections.push({
-        from: currentLink.from,
-        to: id,
-        type: currentLink.type
-      });
-
-      currentLink = null;
-
-      clearHighlights();
-      saveKnockout();
-      drawLines();
-    };
-  });
-
   window.updateScoreKO = function(id, side, val){
 
   let m = knockout.matches[id];
@@ -2375,11 +2354,11 @@ function renderStandings() {
 
 // GREEN line (champions)
 if (i === championsCutoff - 1) {
- <tr class="cutoffLineGreen"
-onmousedown="startLinePress('champions')"
-onmouseup="endLinePress()"
-ontouchstart="startLinePress('champions')"
-ontouchend="endLinePress()">
+  divider += `<tr class="cutoffLineGreen"
+  onmousedown="startLinePress('champions')"
+  onmouseup="endLinePress()"
+  ontouchstart="startLinePress('champions')"
+  ontouchend="endLinePress()"><td colspan="12"></td></tr>`;
 }
 
 // BLUE line (playoff)
