@@ -588,7 +588,7 @@
 
             let html = "";
             s1.innerHTML = ""; s2.innerHTML = ""; pTeam.innerHTML = "";
-            f1.innerHTML = '<option value="">Team 1</option>'; f2.innerHTML = '<option value="">Team 2</option>';
+            f1.innerHTML += `<option value="${t.name.toLowerCase()}">${t.name}</option>`; f2.innerHTML += `<option value="${t.name.toLowerCase()}">${t.name}</option>`;
 
             teams.forEach(t => {
                 pTeam.innerHTML += `<option value="${t.name}">${t.name}</option>`;
