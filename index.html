@@ -585,20 +585,35 @@
             const pTeam = document.getElementById("playerTeam");
             const f1 = document.getElementById("filterTeam1");
             const f2 = document.getElementById("filterTeam2");
-
+            
             let html = "";
-            s1.innerHTML = ""; s2.innerHTML = ""; pTeam.innerHTML = "";
-            f1.innerHTML += `<option value="${t.name.toLowerCase()}">${t.name}</option>`; f2.innerHTML += `<option value="${t.name.toLowerCase()}">${t.name}</option>`;
-
-            teams.forEach(t => {
-                pTeam.innerHTML += `<option value="${t.name}">${t.name}</option>`;
-                html += `<li class="teamRow">
-                    <img src="${t.logo}">${t.name}
-                    ${isAdmin ? `<button class="deleteBtn" onclick="deleteTeam('${t.id}')">Delete</button>` : ""}
-                </li>`;
-            });
-            list.innerHTML = html;
-        }
+            
+                s1.innerHTML = "";
+                s2.innerHTML = "";
+                pTeam.innerHTML = "";
+                f1.innerHTML = '<option value="">Team 1</option>';
+                f2.innerHTML = '<option value="">Team 2</option>';
+            
+                teams.forEach(t => {
+                    html += `<li class="teamRow">
+                        <img src="${t.logo}">${t.name}
+                        ${isAdmin ? `<button class="deleteBtn" onclick="deleteTeam('${t.id}')">Delete</button>` : ""}
+                    </li>`;
+            
+                    // dropdown match
+                    s1.innerHTML += `<option value="${t.name}">${t.name}</option>`;
+                    s2.innerHTML += `<option value="${t.name}">${t.name}</option>`;
+            
+                    // dropdown scorer
+                    pTeam.innerHTML += `<option value="${t.name}">${t.name}</option>`;
+            
+                    // 🔥 FIX FILTER
+                    f1.innerHTML += `<option value="${t.name.toLowerCase()}">${t.name}</option>`;
+                    f2.innerHTML += `<option value="${t.name.toLowerCase()}">${t.name}</option>`;
+                });
+            
+                list.innerHTML = html;
+            }
 
         window.renderMatches = () => {
             const container = document.getElementById("matchContainer");
