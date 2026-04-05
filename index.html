@@ -801,6 +801,10 @@
       }
 
       document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+      
+      // RESET SIDEBAR ACTIVE
+      document.querySelectorAll(".tab").forEach(tab => {tab.classList.remove("active");
+});
 
       // RESET MOBILE ICON
       document.querySelectorAll(".mobile-tab, nav a").forEach(t => {
@@ -809,10 +813,17 @@
 
       document.getElementById(id).classList.add("active");
 
-      if (e && e.currentTarget) {
-        e.currentTarget.classList.add("text-[#ffd709]");
-      }
-    };
+      let targetEl = e?.currentTarget || e?.target;
+
+// kalau bukan dari sidebar, cari manual tab yang sesuai
+if (!targetEl || !targetEl.classList?.contains("tab")) {
+  targetEl = Array.from(document.querySelectorAll(".tab"))
+    .find(t => t.getAttribute("onclick")?.includes(id));
+}
+
+if (targetEl) {
+  targetEl.classList.add("active");
+}
 
     window.toggleFolder = (mw) => {
       collapsed[mw] = !collapsed[mw];
