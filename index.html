@@ -352,18 +352,22 @@
       inset: 0;
       width: 100%;
       height: 100%;
-      object-cover: cover;
+      object-fit: cover; /* Memastikan gambar penuh tanpa batas */
       opacity: 0;
-      /* Default sembunyi */
-      transition: opacity 2s ease-in-out;
-      /* Efek pelan 2 detik */
+      transition: opacity 2s ease-in-out; /* Efek memudar pelan */
     }
 
     .headline-image.active {
-      opacity: 0.6;
-      /* Opacity saat muncul, disesuaikan dengan desain gelap kamu */
+      opacity: 0.5; /* Transparansi gambar agar teks terbaca */
     }
-
+    
+    .headline-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, #070e1c 5%, rgba(7, 14, 28, 0.4) 40%, transparent 100%);
+      z-index: 5; /* Di atas gambar, di bawah konten */
+    }
+    
     .headline-content {
       position: relative;
       z-index: 10;
@@ -439,13 +443,14 @@
 
     <main class="flex-1 lg:ml-64 w-full flex flex-col min-h-screen">
       <div id="dashboard" class="section active">
-        <section class="relative w-full aspect-[21/9] min-h-[400px] flex items-end overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)]" id="dashboardFeaturedMatch">
-          <div class="headline-background" id="headlineBackground">
-            </div>
-          <div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent z-5"></div>
-          <div class="headline-content" id="headlineContent">
-            </div>
-        </section>
+        <section id="dashboardFeaturedMatch" class="aspect-[21/9] flex items-end">
+  <div class="headline-background" id="headlineBackground"></div>
+  
+  <div class="headline-overlay"></div>
+  
+  <div class="headline-content max-w-7xl mx-auto w-full px-6 md:px-8 pb-12 flex flex-col md:flex-row justify-between items-end gap-8" id="headlineContent">
+    </div>
+</section>
 
         <section class="max-w-7xl mx-auto w-full px-6 md:px-8 py-12 grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div class="lg:col-span-4 space-y-6">
@@ -707,6 +712,15 @@
             <button class="admin-btn flex-1 py-4 text-sm" data-action="login">Authenticate</button>
             <button class="admin-btn flex-1 py-4 text-sm !bg-surface-container-highest !text-white hover:!bg-error" data-action="logout">Logout</button>
           </div>
+              <div id="liveBannerControls" style="display:none;" class="pt-8 border-t border-outline-variant/20 mt-6">
+      <h3 class="font-headline font-bold text-secondary uppercase mb-4 tracking-widest">Slideshow Images</h3>
+      <div class="space-y-4">
+        <input id="liveImg1" class="admin-input" placeholder="URL Gambar 1 (Utama)">
+        <input id="liveImg2" class="admin-input" placeholder="URL Gambar 2">
+        <input id="liveImg3" class="admin-input" placeholder="URL Gambar 3">
+        <button onclick="updateLiveBanner()" class="admin-btn w-full mt-2">Simpan Gambar</button>
+      </div>
+    </div>
 
           <div id="adminTools" style="display:none;" class="mt-10 pt-8 border-t border-outline-variant/20">
             <h3 class="font-headline font-bold text-xl mb-6 text-tertiary uppercase">League Configuration</h3>
@@ -1191,67 +1205,48 @@
     };
     
     // --- ACTIONS UNTUK ADMIN BANNER ---
-    window.updateLiveBanner = async () => {
-      if (!isAdmin) return;
-      const imgUrl = document.getElementById('liveImg').value.trim();
-      if (!imgUrl) return alert("Masukkan URL gambar terlebih dahulu!");
-    
-      try {
-        await setDoc(doc(db, "settings", "liveBanner"), { img: imgUrl });
-        alert("Gambar Dashboard Berhasil Diperbarui!");
-        // Input dibersihkan agar tidak bingung
-        document.getElementById('liveImg').value = "";
-      } catch (e) {
-        console.error(e);
-        alert("Gagal menyimpan gambar.");
-      }
-    };
+   window.updateLiveBanner = async () => {
+  const img1 = document.getElementById('liveImg1').value.trim();
+  const img2 = document.getElementById('liveImg2').value.trim();
+  const img3 = document.getElementById('liveImg3').value.trim();
+  const img4 = document.getElementById('liveImg4').value.trim();
+  const img5 = document.getElementById('liveImg5').value.trim();
+  const img6 = document.getElementById('liveImg6').value.trim();
+  const img7 = document.getElementById('liveImg7').value.trim();
+  const img8 = document.getElementById('liveImg8').value.trim();
+  
+  try {
+    // Menyimpan ke koleksi 'settings' dokumen 'liveBanner'
+    await setDoc(doc(db, "settings", "liveBanner"), { img1, img2, img3, img4, img5, img6, img7, img8 });
+    alert("Slideshow diperbarui!");
+  } catch (e) { alert("Gagal menyimpan: " + e.message); }
+};
     
     // --- LOGIKA SLIDESHOW FADE (JASCRIPT) ---
     
-    // Fungsi untuk menginisialisasi slideshow
-    const initSlideshow = (adminImgUrl) => {
-      const bgContainer = document.getElementById("headlineBackground");
-      if (!bgContainer) return;
-      
-      // Berhenti jika sudah ada slideshow berjalan
-      if (slideshowInterval) clearInterval(slideshowInterval);
-      
-      // Daftar gambar default (bisa kamu ganti linknya di sini)
-      const slideshowImages = [
-        "https://images.unsplash.com/photo-1508098682722-e99c43a406b2", // Lapangan Sore
-        "https://images.unsplash.com/photo-1574629810360-7efbbe195018", // Stadion Malam
-        "https://images.unsplash.com/photo-1518605368461-1e1e38ce8058"  // Tekstur Rumput
-      ];
-      
-      // Jika admin memasukkan gambar, taruh di paling depan
-      if (adminImgUrl) {
-        slideshowImages.unshift(adminImgUrl);
-      }
-      
-      // Render elemen gambar ke DOM
-      bgContainer.innerHTML = slideshowImages.map((src, index) => `
-        <img src="${src}" class="headline-image ${index === 0 ? 'active' : ''}" alt="Slideshow ${index}">
-      `).join("");
-      
-      const images = bgContainer.querySelectorAll(".headline-image");
-      if (images.length <= 1) return; // Tidak perlu cycle kalau cuma 1 gambar
-      
-      currentSlideIndex = 0;
-      
-      // Jalankan interval untuk mengganti gambar (7 detik)
-      slideshowInterval = setInterval(() => {
-        // Hapus kelas active dari gambar saat ini
-        images[currentSlideIndex].classList.remove("active");
-        
-        // Hitung index berikutnya
-        currentSlideIndex = (currentSlideIndex + 1) % images.length;
-        
-        // Tambahkan kelas active ke gambar baru (ini memicu transisi CSS)
-        images[currentSlideIndex].classList.add("active");
-        
-      }, 7000); // 7000ms = 7 detik
-    };
+   // --- SLIDESHOW LOGIC ---
+const initSlideshow = (urls) => {
+  const bg = document.getElementById("headlineBackground");
+  if (!bg) return;
+  if (slideshowInterval) clearInterval(slideshowInterval);
+
+  // Jika kosong, gunakan gambar placeholder
+  const imagesToUse = urls.length > 0 ? urls : ["https://via.placeholder.com/1920x1080"];
+
+  bg.innerHTML = imagesToUse.map((src, i) => `
+    <img src="${src}" class="headline-image ${i === 0 ? 'active' : ''}">
+  `).join("");
+
+  const imgEls = bg.querySelectorAll("img");
+  if (imgEls.length < 2) return;
+
+  let current = 0;
+  slideshowInterval = setInterval(() => {
+    imgEls[current].classList.remove("active");
+    current = (current + 1) % imgEls.length;
+    imgEls[current].classList.add("active");
+  }, 7000); // Ganti gambar setiap 7 detik
+};
     
     // Fungsi terpisah untuk mengupdate konten teks (Timi, Skor)
     const renderDashboardHeroContent = () => {
@@ -1304,16 +1299,37 @@
       `;
     };
     
-    // --- LISTENER SPESIAL UNTUK GAMBAR SLIDESHOW ---
+    // --- DATA LISTENERS ---
     onSnapshot(doc(db, "settings", "liveBanner"), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
-        // Ketika gambar admin diupdate, re-inisialisasi slideshow agar gambar admin muncul sebagai yang pertama
-        initSlideshow(data.img);
+        const urls = [data.img1, data.img2, data.img3].filter(u => u && u !== "");
+        // Isi input admin agar sinkron
+        if (isAdmin) {
+          document.getElementById('liveImg1').value = data.img1 || "";
+          document.getElementById('liveImg2').value = data.img2 || "";
+          document.getElementById('liveImg3').value = data.img3 || "";
+          document.getElementById('liveImg4').value = data.img4 || "";
+          document.getElementById('liveImg5').value = data.img5 || "";
+          document.getElementById('liveImg6').value = data.img6 || "";
+          document.getElementById('liveImg7').value = data.img7 || "";
+          document.getElementById('liveImg8').value = data.img8 || "";
+        }
+        initSlideshow(urls);
       } else {
-        // Jika tidak ada data admin, jalankan slideshow default
-        initSlideshow(null);
+        initSlideshow([]);
       }
+    });
+
+    onSnapshot(collection(db, "teams"), snap => {
+      teams = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderStandings();
+    });
+
+    onSnapshot(collection(db, "matches"), snap => {
+      matches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderMatches();
+      renderDashboardHero();
     });
 
     const renderLiveMatches = () => {
