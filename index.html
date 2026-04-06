@@ -822,18 +822,33 @@
     };
     
     // Function to calculate % based on stars
-const calculateWinProbability = (homeStars, awayStars) => {
+const calculateWinProbability = (homeStars, awayStars, s1 = 0, s2 = 0) => {
   const hS = parseFloat(homeStars) || 3.0;
   const aS = parseFloat(awayStars) || 3.0;
+  
+  // 1. Base Probability from Stars
   const baseProb = 50;
   const starDiff = hS - aS;
-  
-  // 15% shift per 1 full star + 5% Home Advantage
-  let homeWinProb = baseProb + (starDiff * 15) + 5;
+  let homeWinProb = baseProb + (starDiff * 15) + 5; // +5 Home Advantage
+
+  // 2. Score Bias (Live Update)
+  // If s1 or s2 is null (match hasn't started), treat as 0
+  const score1 = parseInt(s1) || 0;
+  const score2 = parseInt(s2) || 0;
+  const goalDiff = score1 - score2;
+
+  // Each goal lead adds 20% probability
+  homeWinProb += (goalDiff * 20);
+
+  // 3. Realistic Caps
+  // If a team is leading, they shouldn't drop below 10% 
+  // unless the star difference is massive.
   homeWinProb = Math.min(Math.max(Math.round(homeWinProb), 5), 95);
+  
   return { home: homeWinProb, away: 100 - homeWinProb };
 };
 
+    
 // Function to show star icons (optional but looks cool)
 const getStarIcons = (rating) => {
   const r = parseFloat(rating) || 0;
@@ -1393,7 +1408,7 @@ const initSlideshow = (urls) => {
       </div>
       <div class="flex justify-between text-[8px] opacity-40 uppercase">
         <span>${t1.name} (${getStarIcons(t1.stars)})</span>
-        <span>${getStarIcons(t2.stars)} ${t2.name}</span>
+        <span>(${getStarIcons(t2.stars)}) ${t2.name}</span>
       </div>
     </div>
   </div>`;
