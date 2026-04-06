@@ -1278,17 +1278,17 @@ const getStarIcons = (rating) => {
 
     // 1. ZONA CHAMPIONS (Biru)
     if (i < cCut) {
-      bgGradient = "bg-blue-500/10"; // Menggunakan warna standar agar pasti muncul
-      borderClass = "border-l-4 border-blue-500";
+      bgGradient = "bg-gradient-to-r from-primary/5 to-transparent" ; // Menggunakan warna standar agar pasti muncul
+      borderClass = "border-l-4 border-green-500";
     } 
     // 2. ZONA PLAYOFF (Kuning/Oranye)
     // Logika: Jika peringkat lebih besar dari Champions tapi masih di bawah atau sama dengan Playoff
     else if (i < pCut) {
-      bgGradient = "bg-amber-500/10"; 
-      borderClass = "border-l-4 border-amber-500";
+      bgGradient = "bg-gradient-to-r from-error/5 to-transparent"; 
+      borderClass = "border-l-4 border-red-500";
     }
     // 3. ZONA BAHAYA (Merah) - Otomatis 3 terbawah
-    else if (i >= data.length - 3 && data.length > 5) {
+    else if (i >= data.length - 1 && data.length > 3) {
       bgGradient = "bg-red-500/5";
       borderClass = "border-l-4 border-red-500/30";
     }
