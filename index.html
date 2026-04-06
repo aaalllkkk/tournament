@@ -874,23 +874,11 @@
       renderNews();
     });
 
-    onSnapshot(doc(db, "settings", "liveBanner"), (docSnap) => {
-  const container = document.getElementById("dashboardFeaturedMatch");
-  if (docSnap.exists() && container) {
-    const data = docSnap.data();
-    container.innerHTML = `
-      <div class="absolute inset-0 w-full h-full">
-        <img src="${data.img}" class="w-full h-full object-cover" alt="Live Match">
-        <div class="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent"></div>
-      </div>`;
-  }
-});
-
-    // Listener untuk Menggabungkan Gambar Admin + Match Live
+    // Cukup gunakan SATU listener ini untuk Dashboard Headline
 onSnapshot(doc(db, "settings", "liveBanner"), (bannerSnap) => {
   const bannerData = bannerSnap.exists() ? bannerSnap.data() : { img: '' };
   
-  // Mencari 1 pertandingan yang statusnya 'Live'
+  // Mencari pertandingan yang statusnya 'Live'
   const qLive = query(collection(db, "matches"), where("status", "==", "Live"), limit(1));
   
   onSnapshot(qLive, (matchSnap) => {
@@ -898,12 +886,13 @@ onSnapshot(doc(db, "settings", "liveBanner"), (bannerSnap) => {
     if (!container) return;
 
     if (!matchSnap.empty) {
+      // JIKA ADA PERTANDINGAN LIVE
       const match = matchSnap.docs[0].data();
       container.innerHTML = `
         <div class="absolute inset-0 w-full h-full">
           <img src="${bannerData.img || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2'}" 
                class="w-full h-full object-cover" alt="Live Match">
-          <div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"></div>
+          <div class="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
         </div>
         <div class="relative z-10 p-8 md:p-12 w-full">
           <div class="flex items-center gap-3 mb-4">
@@ -911,19 +900,25 @@ onSnapshot(doc(db, "settings", "liveBanner"), (bannerSnap) => {
             <span class="text-primary font-bold tracking-[0.3em] text-xs uppercase italic">On-Air: Live Match</span>
           </div>
           <h2 class="text-5xl md:text-8xl font-black font-headline italic tracking-tighter mb-4">
-            ${match.teamA} <span class="text-outline-variant text-3xl md:text-5xl not-italic mx-2">${match.scoreA} - ${match.scoreB}</span> ${match.teamB}
+            ${match.teamA} 
+            <span class="text-outline-variant text-3xl md:text-5xl not-italic mx-4">${match.scoreA} - ${match.scoreB}</span> 
+            ${match.teamB}
           </h2>
           <p class="text-on-surface-variant font-medium tracking-[0.2em] uppercase text-sm">Elite Series Tournament</p>
         </div>`;
     } else {
-      // Jika tidak ada match live, tampilkan background saja dengan pesan standby
+      // JIKA TIDAK ADA MATCH LIVE (Tampilan Standby)
       container.innerHTML = `
         <div class="absolute inset-0 w-full h-full">
-          <img src="${bannerData.img}" class="w-full h-full object-cover opacity-40">
-          <div class="absolute inset-0 bg-background/20"></div>
+          <img src="${bannerData.img || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2'}" 
+               class="w-full h-full object-cover opacity-30 grayscale">
+          <div class="absolute inset-0 bg-background/40"></div>
         </div>
         <div class="relative z-10 p-12 text-center w-full">
-          <p class="text-on-surface-variant tracking-[0.5em] uppercase text-xs font-bold">No Live Match Currently</p>
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-outline-variant mb-4">
+             <span class="text-[10px] font-bold tracking-[0.3em] text-on-surface-variant uppercase">Standby Mode</span>
+          </div>
+          <h3 class="text-2xl font-headline font-bold text-on-surface-variant tracking-widest uppercase">No Live Match Currently</h3>
         </div>`;
     }
   });
