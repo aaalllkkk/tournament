@@ -566,6 +566,30 @@
         </div>
       </div>
 
+            <div id="liveBannerControls" style="display:none;" class="md:col-span-2 surface-container-high p-6 rounded-[2rem] border border-primary/20 shadow-xl mt-6">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="material-symbols-outlined text-primary">tv_gen</span>
+          <h3 class="font-headline font-bold text-lg text-secondary uppercase tracking-widest">Dashboard Live Banner</h3>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div class="space-y-2">
+            <label class="text-[10px] uppercase font-bold text-on-surface-variant ml-2">Background Image URL</label>
+            <input id="liveImg" class="admin-input w-full" placeholder="https://link-gambar.jpg">
+          </div>
+          <div class="space-y-2">
+            <label class="text-[10px] uppercase font-bold text-on-surface-variant ml-2">Match Title / Status</label>
+            <input id="liveStatus" class="admin-input w-full" placeholder="GRAND FINAL LIVE">
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <input id="liveTeamA" class="admin-input" placeholder="Home Team">
+          <input id="liveTeamB" class="admin-input" placeholder="Away Team">
+          <button onclick="updateLiveBanner()" class="admin-btn h-full flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined">publish</span> Update Banner
+          </button>
+        </div>
+      </div>
+
       <div id="knockout" class="section p-6 md:p-12">
         <div class="max-w-7xl mx-auto">
           <header class="mb-8 flex justify-between items-end">
@@ -780,7 +804,7 @@
     });
 
     const toggleAdminUI = () => {
-      ["adminTeamControls", "matchControls", "scorerControls", "newsControls", "knockoutControls"].forEach(id => {
+      ["adminTeamControls", "matchControls", "scorerControls", "newsControls", "knockoutControls", "liveBannerControls"].forEach(id => {
         if (document.getElementById(id)) document.getElementById(id).style.display = isAdmin ? "block" : "none";
       });
     };
@@ -854,6 +878,27 @@
     onSnapshot(collection(db, "news"), snap => {
       news = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderNews();
+    });
+
+    onSnapshot(doc(db, "settings", "liveBanner"), (docSnap) => {
+      const container = document.getElementById("dashboardFeaturedMatch");
+      if (docSnap.exists() && container) {
+        const data = docSnap.data();
+        container.innerHTML = `
+          <div class="absolute inset-0 w-full h-full">
+            <img src="${data.img}" class="w-full h-full object-cover" alt="Live Match">
+            <div class="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent"></div>
+          </div>
+          <div class="relative z-10 p-8 md:p-12 w-full">
+            <div class="flex items-center gap-3 mb-4">
+              <span class="liveDot"></span>
+              <span class="text-primary font-bold tracking-[0.3em] text-xs uppercase">${data.status}</span>
+            </div>
+            <h2 class="text-5xl md:text-8xl font-black font-headline italic tracking-tighter mb-4">
+              ${data.teamA} <span class="text-outline-variant text-3xl md:text-5xl not-italic mx-2">VS</span> ${data.teamB}
+            </h2>
+          </div>`;
+      }
     });
 
     onSnapshot(doc(db, "config", "standings"), snap => {
@@ -1114,6 +1159,22 @@
                     <span class="col-span-2 text-right font-headline font-bold ${i===0 ? 'text-secondary':''}">${t.pts}</span>
                 </div>`;
       }).join("");
+    };
+
+        window.updateLiveBanner = async () => {
+      if (!isAdmin) return;
+      const bannerData = {
+        img: document.getElementById('liveImg').value,
+        status: document.getElementById('liveStatus').value,
+        teamA: document.getElementById('liveTeamA').value,
+        teamB: document.getElementById('liveTeamB').value
+      };
+      try {
+        await setDoc(doc(db, "settings", "liveBanner"), bannerData);
+        alert("Banner Berhasil Diperbarui!");
+      } catch (e) {
+        alert("Gagal update banner: " + e.message);
+      }
     };
 
     const renderDashboardHero = () => {
