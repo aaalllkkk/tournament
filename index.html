@@ -1371,7 +1371,7 @@ const initSlideshow = (urls) => {
       const t2 = resolveTeam(m.team2);
 
       // Calculate the real probability
-      const prob = calculateWinProbability(t1.stars, t2.stars);
+      const prob = calculateWinProbability(t1.stars, t2.stars, m.s1, m.s2);
 
       contentContainer.innerHTML = `
         <div class="flex-1 w-full pt-20">
