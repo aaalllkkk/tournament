@@ -1171,9 +1171,28 @@ const getStarIcons = (rating) => {
       await updateDoc(doc(db, "matches", id), { [side]: num });
     };
 
-    const toggleLive = async (id, state) => {
-      if (isAdmin) await updateDoc(doc(db, "matches", id), { live: state });
-    };
+    const toggleLive = async (id, newState) => {
+    const matchRef = doc(db, "matches", id);
+    const updateData = { live: newState };
+
+    // Jika newState adalah true (Go Live), kita set tanggalnya otomatis
+    if (newState === true) {
+        const now = new Date();
+        const day = String(now.getDate()).padStart(2, '0');
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const month = months[now.getMonth()];
+        const year = now.getFullYear();
+        
+        // Format: "07 Apr 2024"
+        updateData.date = `${day} ${month} ${year}`;
+    }
+
+    try {
+        await updateDoc(matchRef, updateData);
+    } catch (e) {
+        console.error("Error updating live status:", e);
+    }
+};
     
     const deleteMatch = async (id) => {
       if (isAdmin && confirm("Delete?")) await deleteDoc(doc(db, "matches", id));
@@ -1870,7 +1889,12 @@ const initSlideshow = (urls) => {
       if (action === 'generateLeague')  await generateLeague(); 
       else if (action === 'resetMatches') await hardReset();
       else if (action === 'toggleFolder') toggleFolder(parseInt(btn.dataset.mw));
-      else if (action === 'toggleLive') await toggleLive(btn.dataset.id, btn.dataset.state === 'true');
+      else if (action === 'toggleLive') {
+      const id = target.dataset.id;
+    // Kita ubah string "true"/"false" dari dataset menjadi Boolean asli
+    const newState = target.dataset.state === 'true'; 
+    await toggleLive(id, newState);
+}
       else if (action === 'deleteMatch') await deleteMatch(btn.dataset.id);
       else if (action === 'addMatch') await addMatch();
       else if (action === 'addNews') await addNews();
