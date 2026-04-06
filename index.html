@@ -1722,7 +1722,6 @@ const initSlideshow = (urls) => {
       else if (action === 'saveCutoffs') await saveCutoffs();
       else if (action === 'exportBackup') exportBackup();
 });
-    });
 
     document.addEventListener('change', async (e) => {
       const target = e.target.closest('[data-action]');
