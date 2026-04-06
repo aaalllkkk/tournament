@@ -77,6 +77,41 @@
       background: linear-gradient(135deg, #8eff71 0%, #2ff801 100%);
     }
 
+    /* --- Custom Scrollbar Theme --- */
+
+/* 1. Ukuran Scrollbar */
+::-webkit-scrollbar {
+  width: 8px; /* Lebar untuk scroll vertical */
+  height: 8px; /* Tinggi untuk scroll horizontal (Active Pitches) */
+}
+
+/* 2. Track (Latar belakang scrollbar) */
+::-webkit-scrollbar-track {
+  background: #070e1c; /* Sama dengan warna background web */
+}
+
+/* 3. Thumb (Bagian yang digeser) */
+::-webkit-scrollbar-thumb {
+  background: #1c263a; /* Warna surface-container-highest */
+  border-radius: 10px;
+  border: 2px solid #070e1c; /* Memberi efek jarak (padding) */
+}
+
+/* 4. Hover effect pada Thumb */
+::-webkit-scrollbar-thumb:hover {
+  background: #8eff71; /* Berubah jadi warna Primary (Neon Green) saat disentuh */
+}
+
+/* Khusus untuk bagian "Active Pitches" yang horizontal agar tidak terlihat kaku */
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Sembunyikan scrollbar default jika kamu pakai class no-scrollbar */
+}
+
+/* Gaya scrollbar tipis untuk elemen box tertentu */
+.custom-scroll-thin::-webkit-scrollbar {
+  width: 4px;
+}
+
     .text-glow-primary {
       text-shadow: 0 0 15px rgba(142, 255, 113, 0.4);
     }
