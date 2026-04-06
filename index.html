@@ -774,7 +774,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, setDoc, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     const firebaseConfig = {
@@ -863,93 +863,67 @@
 
   try {
     const matchesRef = collection(db, "matches");
-    
-    // 1. Kumpulkan semua pasangan pertandingan yang mungkin (Pool)
     let pool = [];
+
+    // 1. Buat semua kemungkinan pasangan
     for (let i = 0; i < teams.length; i++) {
       for (let j = 0; j < teams.length; j++) {
         if (i === j) continue;
-        if (!isHomeAway && i > j) continue; // Jika Single Round, hindari duplikasi timA vs timB & timB vs timA
+        if (!isHomeAway && i > j) continue;
         pool.push({ t1: teams[i].name, t2: teams[j].name });
       }
     }
 
-    let Matchweek = 1;
-    let totalMatches = 0;
+    let currentMW = 1;
+    let totalCreated = 0;
 
-    // 2. Logika Pemisahan Matchweek
+    // 2. Bagi ke dalam Matchweek (Satu tim satu kali main per pekan)
     while (pool.length > 0) {
-      let usedTeamsInThisWeek = new Set();
+      let usedInWeek = new Set();
       let i = 0;
 
-      // Coba isi pertandingan ke dalam Matchweek saat ini
       while (i < pool.length) {
-        const match = pool[i];
-
-        // Syarat: tim1 dan tim2 belum punya jadwal di Matchweek ini
-        if (!usedTeamsInThisWeek.has(match.t1) && !usedTeamsInThisWeek.has(match.t2)) {
-          
-          // Kirim ke Firestore
+        const m = pool[i];
+        if (!usedInWeek.has(m.t1) && !usedInWeek.has(m.t2)) {
           await addDoc(matchesRef, {
-            team1: match.t1,
-            team2: match.t2,
-            Matchweek: Matchweek,
-            date: "TBD",
+            team1: m.t1,
+            team2: m.t2,
             s1: null,
             s2: null,
-            y1: 0,
-            y2: 0,
-            live: false 
+            date: "TBD",
+            live: false,
+            type: "league",
+            Matchweek: currentMW // Field Matchweek
           });
-
-          // Tandai tim sudah terpakai di minggu ini
-          usedTeamsInThisWeek.add(match.t1);
-          usedTeamsInThisWeek.add(match.t2);
           
-          // Hapus pertandingan ini dari daftar tunggu (pool)
+          usedInWeek.add(m.t1);
+          usedInWeek.add(m.t2);
           pool.splice(i, 1);
-          totalMatches++;
+          totalCreated++;
         } else {
-          // Jika tim sudah main di minggu ini, lewati dan cari pasangan lain
           i++;
         }
       }
-
-      // Jika sudah tidak ada lagi tim yang bisa dipasangkan di minggu ini, lanjut ke minggu depan
-      matchweek++;
-      
-      // Safety break (mencegah loop tak terhingga jika tim ganjil/logika macet)
-      if(matchweek > 100) break;
+      currentMW++;
+      if(currentMW > 100) break; // Safety break
     }
 
-    alert(`Berhasil! ${totalMatches} pertandingan dibuat dalam ${Matchweek - 1} Matchweek.`);
+    alert(`Berhasil! ${totalCreated} pertandingan dibuat dalam ${currentMW - 1} Matchweek.`);
   } catch (e) {
-    alert("Gagal generate: " + e.message);
+    alert("Error: " + e.message);
   }
 };
 
-    const resetMatches = async () => {
-  // Keamanan berlapis karena ini menghapus database
-  const confirm1 = confirm("PERINGATAN: Ini akan menghapus SEMUA jadwal pertandingan dan data skor!");
-  if (!confirm1) return;
-  
-  const confirm2 = prompt("Ketik 'RESET' untuk mengonfirmasi penghapusan permanen:");
-  if (confirm2 !== "RESET") return alert("Reset dibatalkan. Kata kunci salah.");
+    const hardReset = async () => {
+  if (!confirm("Hapus SEMUA jadwal pertandingan?")) return;
+  const code = prompt("Ketik 'RESET' untuk konfirmasi:");
+  if (code !== "RESET") return alert("Dibatalkan.");
 
   try {
-    // 1. Ambil semua dokumen di koleksi matches
     const snap = await getDocs(collection(db, "matches"));
-    
-    // 2. Hapus satu per satu
-    const promises = snap.docs.map(d => deleteDoc(doc(db, "matches", d.id)));
-    await Promise.all(promises);
-
-    // 3. (Opsional) Reset juga koleksi pencetak gol jika ada
-    const scorerSnap = await getDocs(collection(db, "scorers"));
-    const scorerPromises = scorerSnap.docs.map(d => deleteDoc(doc(db, "scorers", d.id)));
-    await Promise.all(scorerPromises);
-
-    alert("Sistem berhasil dibersihkan! Semua data pertandingan telah dihapus.");
+    const batch = snap.docs.map(d => deleteDoc(doc(db, "matches", d.id)));
+    await Promise.all(batch);
+    alert("Semua pertandingan berhasil dihapus!");
   } catch (e) {
     alert("Gagal reset: " + e.message);
   }
@@ -1738,8 +1712,8 @@ const initSlideshow = (urls) => {
       else if (action === 'openTab') openTab(btn.dataset.tab, btn);
       else if (action === 'addTeam') await addTeam();
       else if (action === 'deleteTeam') await deleteTeam(btn.dataset.id);
-      else if (action === 'generateLeague')  await generateLeague(); 
-      else if (action === 'resetMatches') await resetMatches();
+      if (action === 'generateLeague')  await generateLeague(); 
+      else if (action === 'resetMatches') await hardReset();
       else if (action === 'toggleFolder') toggleFolder(parseInt(btn.dataset.mw));
       else if (action === 'toggleLive') await toggleLive(btn.dataset.id, btn.dataset.state === 'true');
       else if (action === 'deleteMatch') await deleteMatch(btn.dataset.id);
