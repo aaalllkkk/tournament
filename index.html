@@ -567,28 +567,22 @@
       </div>
 
             <div id="liveBannerControls" style="display:none;" class="md:col-span-2 surface-container-high p-6 rounded-[2rem] border border-primary/20 shadow-xl mt-6">
-        <div class="flex items-center gap-3 mb-6">
-          <span class="material-symbols-outlined text-primary">tv_gen</span>
-          <h3 class="font-headline font-bold text-lg text-secondary uppercase tracking-widest">Dashboard Live Banner</h3>
+  <div class="flex items-center gap-3 mb-6">
+    <span class="material-symbols-outlined text-primary">image</span>
+    <h3 class="font-headline font-bold text-lg text-secondary uppercase tracking-widest">Dashboard Headline Image</h3>
+  </div>
+            <div class="flex flex-col md:flex-row gap-4">
+            <div class="flex-grow space-y-2">
+          <label class="text-[10px] uppercase font-bold text-on-surface-variant ml-2">Background Image URL</label>
+          <input id="liveImg" class="admin-input w-full" placeholder="https://link-gambar-lapangan.jpg">
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div class="space-y-2">
-            <label class="text-[10px] uppercase font-bold text-on-surface-variant ml-2">Background Image URL</label>
-            <input id="liveImg" class="admin-input w-full" placeholder="https://link-gambar.jpg">
-          </div>
-          <div class="space-y-2">
-            <label class="text-[10px] uppercase font-bold text-on-surface-variant ml-2">Match Title / Status</label>
-            <input id="liveStatus" class="admin-input w-full" placeholder="GRAND FINAL LIVE">
-          </div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <input id="liveTeamA" class="admin-input" placeholder="Home Team">
-          <input id="liveTeamB" class="admin-input" placeholder="Away Team">
-          <button onclick="updateLiveBanner()" class="admin-btn h-full flex items-center justify-center gap-2">
-            <span class="material-symbols-outlined">publish</span> Update Banner
+        <div class="flex items-end">
+          <button onclick="updateLiveBanner()" class="admin-btn h-[52px] px-8 flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined">save</span> Simpan Gambar
           </button>
         </div>
       </div>
+    </div>
 
       <div id="knockout" class="section p-6 md:p-12">
         <div class="max-w-7xl mx-auto">
@@ -880,26 +874,47 @@
       renderNews();
     });
 
-    onSnapshot(doc(db, "settings", "liveBanner"), (docSnap) => {
-      const container = document.getElementById("dashboardFeaturedMatch");
-      if (docSnap.exists() && container) {
-        const data = docSnap.data();
-        container.innerHTML = `
-          <div class="absolute inset-0 w-full h-full">
-            <img src="${data.img}" class="w-full h-full object-cover" alt="Live Match">
-            <div class="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent"></div>
+   // Listener untuk menggabungkan Gambar Admin + Data Match Live
+onSnapshot(doc(db, "settings", "liveBanner"), (bannerSnap) => {
+  const bannerData = bannerSnap.exists() ? bannerSnap.data() : { img: '' };
+  
+  // Ambil match yang statusnya Live
+  const q = query(collection(db, "matches"), where("status", "==", "Live"), limit(1));
+  
+  onSnapshot(q, (matchSnap) => {
+    const container = document.getElementById("dashboardFeaturedMatch");
+    if (!container) return;
+
+    if (!matchSnap.empty) {
+      const match = matchSnap.docs[0].data();
+      container.innerHTML = `
+        <div class="absolute inset-0 w-full h-full">
+          <img src="${bannerData.img || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2'}" 
+               class="w-full h-full object-cover" alt="Featured">
+          <div class="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent"></div>
+        </div>
+        <div class="relative z-10 p-8 md:p-12 w-full">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="liveDot"></span>
+            <span class="text-primary font-bold tracking-[0.3em] text-xs uppercase">MATCH LIVE SEKARANG</span>
           </div>
-          <div class="relative z-10 p-8 md:p-12 w-full">
-            <div class="flex items-center gap-3 mb-4">
-              <span class="liveDot"></span>
-              <span class="text-primary font-bold tracking-[0.3em] text-xs uppercase">${data.status}</span>
-            </div>
-            <h2 class="text-5xl md:text-8xl font-black font-headline italic tracking-tighter mb-4">
-              ${data.teamA} <span class="text-outline-variant text-3xl md:text-5xl not-italic mx-2">VS</span> ${data.teamB}
-            </h2>
-          </div>`;
-      }
-    });
+          <h2 class="text-5xl md:text-8xl font-black font-headline italic tracking-tighter mb-4">
+            ${match.teamA} <span class="text-outline-variant text-3xl md:text-5xl not-italic mx-4">${match.scoreA} - ${match.scoreB}</span> ${match.teamB}
+          </h2>
+        </div>
+      `;
+    } else {
+      // Jika tidak ada match live, tampilkan gambar saja dengan teks default
+      container.innerHTML = `
+        <div class="absolute inset-0 w-full h-full">
+          <img src="${bannerData.img}" class="w-full h-full object-cover opacity-50">
+        </div>
+        <div class="relative z-10 p-12 text-center w-full">
+          <p class="text-on-surface-variant tracking-[0.5em] uppercase text-xs">Belum Ada Pertandingan Live</p>
+        </div>`;
+    }
+  });
+});
 
     onSnapshot(doc(db, "config", "standings"), snap => {
       if (snap.exists()) {
@@ -1161,19 +1176,17 @@
       }).join("");
     };
 
-        window.updateLiveBanner = async () => {
+           window.updateLiveBanner = async () => {
       if (!isAdmin) return;
-      const bannerData = {
-        img: document.getElementById('liveImg').value,
-        status: document.getElementById('liveStatus').value,
-        teamA: document.getElementById('liveTeamA').value,
-        teamB: document.getElementById('liveTeamB').value
-      };
+      const imgUrl = document.getElementById('liveImg').value;
+      if (!imgUrl) return alert("Masukkan URL gambar terlebih dahulu!");
+    
       try {
-        await setDoc(doc(db, "settings", "liveBanner"), bannerData);
-        alert("Banner Berhasil Diperbarui!");
+        await setDoc(doc(db, "settings", "liveBanner"), { img: imgUrl });
+        alert("Gambar Dashboard Berhasil Diperbarui!");
       } catch (e) {
-        alert("Gagal update banner: " + e.message);
+        console.error(e);
+        alert("Gagal menyimpan gambar.");
       }
     };
 
