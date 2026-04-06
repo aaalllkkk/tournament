@@ -874,48 +874,6 @@
       renderNews();
     });
 
-    // SATU-SATUNYA Listener untuk Dashboard Headline (Gabungan Gambar + Live Match)
-onSnapshot(doc(db, "settings", "liveBanner"), (bannerSnap) => {
-  const bannerData = bannerSnap.exists() ? bannerSnap.data() : { img: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2' };
-  
-  // Mencari 1 pertandingan yang statusnya 'Live'
-  const qLive = query(collection(db, "matches"), where("status", "==", "Live"), limit(1));
-  
-  onSnapshot(qLive, (matchSnap) => {
-    const container = document.getElementById("dashboardFeaturedMatch");
-    if (!container) return;
-
-    if (!matchSnap.empty) {
-      // JIKA ADA MATCH LIVE: Tampilkan Gambar + Skor
-      const match = matchSnap.docs[0].data();
-      container.innerHTML = `
-        <div class="absolute inset-0 w-full h-full">
-          <img src="${bannerData.img}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1508098682722-e99c43a406b2'" alt="Live Match">
-          <div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"></div>
-        </div>
-        <div class="relative z-10 p-8 md:p-12 w-full">
-          <div class="flex items-center gap-3 mb-4">
-            <span class="liveDot"></span>
-            <span class="text-primary font-bold tracking-[0.3em] text-xs uppercase italic">On-Air: Live Match</span>
-          </div>
-          <h2 class="text-5xl md:text-8xl font-black font-headline italic tracking-tighter mb-4 text-white">
-            ${match.teamA} <span class="text-outline-variant text-3xl md:text-5xl not-italic mx-2">${match.scoreA} - ${match.scoreB}</span> ${match.teamB}
-          </h2>
-        </div>`;
-    } else {
-      // JIKA TIDAK ADA MATCH LIVE: Tampilkan Gambar Saja (Standby)
-      container.innerHTML = `
-        <div class="absolute inset-0 w-full h-full">
-          <img src="${bannerData.img}" class="w-full h-full object-cover opacity-50 grayscale" onerror="this.src='https://images.unsplash.com/photo-1508098682722-e99c43a406b2'">
-          <div class="absolute inset-0 bg-background/20"></div>
-        </div>
-        <div class="relative z-10 p-12 text-center w-full">
-          <p class="text-on-surface-variant tracking-[0.5em] uppercase text-xs font-bold">No Live Match Currently</p>
-        </div>`;
-    }
-  });
-});
-
     onSnapshot(doc(db, "config", "standings"), snap => {
       if (snap.exists()) {
         championsCutoff = snap.data().championsCutoff || 4;
@@ -1254,12 +1212,46 @@ onSnapshot(doc(db, "settings", "liveBanner"), (bannerSnap) => {
             </div>
         </div>`;
 };
-    // Memantau perubahan gambar dari Admin dan Render ulang Hero Dashboard
+
 onSnapshot(doc(db, "settings", "liveBanner"), (bannerSnap) => {
-    const bannerData = bannerSnap.exists() ? bannerSnap.data() : { img: '' };
-    
-    // Panggil fungsi render dengan data terbaru
-    renderDashboardHero(bannerData);
+  const bannerData = bannerSnap.exists() ? bannerSnap.data() : { img: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2' };
+  
+  // Mencari 1 pertandingan yang statusnya 'Live'
+  const qLive = query(collection(db, "matches"), where("status", "==", "Live"), limit(1));
+  
+  onSnapshot(qLive, (matchSnap) => {
+    const container = document.getElementById("dashboardFeaturedMatch");
+    if (!container) return;
+
+    if (!matchSnap.empty) {
+      // JIKA ADA MATCH LIVE: Tampilkan Gambar + Skor
+      const match = matchSnap.docs[0].data();
+      container.innerHTML = `
+        <div class="absolute inset-0 w-full h-full">
+          <img src="${bannerData.img}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1508098682722-e99c43a406b2'" alt="Live Match">
+          <div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"></div>
+        </div>
+        <div class="relative z-10 p-8 md:p-12 w-full">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="liveDot"></span>
+            <span class="text-primary font-bold tracking-[0.3em] text-xs uppercase italic">On-Air: Live Match</span>
+          </div>
+          <h2 class="text-5xl md:text-8xl font-black font-headline italic tracking-tighter mb-4 text-white">
+            ${match.teamA} <span class="text-outline-variant text-3xl md:text-5xl not-italic mx-2">${match.scoreA} - ${match.scoreB}</span> ${match.teamB}
+          </h2>
+        </div>`;
+    } else {
+      // JIKA TIDAK ADA MATCH LIVE: Tampilkan Gambar Saja (Standby)
+      container.innerHTML = `
+        <div class="absolute inset-0 w-full h-full">
+          <img src="${bannerData.img}" class="w-full h-full object-cover opacity-50 grayscale" onerror="this.src='https://images.unsplash.com/photo-1508098682722-e99c43a406b2'">
+          <div class="absolute inset-0 bg-background/20"></div>
+        </div>
+        <div class="relative z-10 p-12 text-center w-full">
+          <p class="text-on-surface-variant tracking-[0.5em] uppercase text-xs font-bold">No Live Match Currently</p>
+        </div>`;
+    }
+  });
 });
 
     const renderLiveMatches = () => {
