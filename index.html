@@ -824,6 +824,10 @@ if (!targetEl || !targetEl.classList?.contains("tab")) {
 if (targetEl) {
   targetEl.classList.add("active");
 }
+      // SET ACTIVE MOBILE TAB
+if (e && e.currentTarget && e.currentTarget.classList.contains("mobile-tab")) {
+  e.currentTarget.classList.add("text-[#ffd709]");
+}
     };
 
     window.toggleFolder = (mw) => {
