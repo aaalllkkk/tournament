@@ -749,6 +749,7 @@
     let championsCutoff = 4;
     let playoffCutoff = 8;
     let currentLink = null;
+    let currentBannerData = { img: '' }; // Untuk menyimpan data gambar dari Firestore
 
     // --- UTILS ---
     const normalizeKey = (str) => (str || "").toString().trim().toLowerCase();
@@ -1148,66 +1149,53 @@
       }
     };
 
-    const renderDashboardHero = (bannerData) => {
+    const renderDashboardHero = () => {
     const box = document.getElementById("dashboardFeaturedMatch");
     if (!box) return;
 
-    // Gunakan bannerData dari Firebase, jika kosong gunakan default Unsplash
-    const imageUrl = (bannerData && bannerData.img) ? bannerData.img : 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2';
+    const imageUrl = currentBannerData.img || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2';
     
-    // Cari match live atau yang akan datang
-    const m = matches.find(m => m.status === 'Live') || 
-              matches.filter(m => m.scoreA === null).sort((a, b) => a.date - b.date)[0];
+    // Sesuaikan dengan properti asli: m.live dan m.s1
+    const m = matches.find(m => m.live === true) || 
+              matches.filter(m => m.s1 === null).sort((a, b) => a.date - b.date)[0];
 
     if (!m) {
         box.innerHTML = `
-            <div class="absolute inset-0 z-0">
-                <img src="${imageUrl}" class="w-full h-full object-cover opacity-40 grayscale">
-            </div>
+            <div class="absolute inset-0 z-0"><img src="${imageUrl}" class="w-full h-full object-cover opacity-40 grayscale"></div>
             <div class="relative z-10 flex items-center justify-center h-full">
-                <h2 class="font-headline text-4xl font-bold p-8 text-white uppercase tracking-widest">Welcome to Liga King</h2>
+                <h2 class="font-headline text-4xl font-bold p-8 text-white">WELCOME TO LIGA KING</h2>
             </div>`;
         return;
     }
 
-    // Ambil data logo tim
-    const t1 = typeof resolveTeam === 'function' ? resolveTeam(m.teamA) : { name: m.teamA, logo: '' };
-    const t2 = typeof resolveTeam === 'function' ? resolveTeam(m.teamB) : { name: m.teamB, logo: '' };
+    const t1 = resolveTeam(m.team1);
+    const t2 = resolveTeam(m.team2);
 
     box.innerHTML = `
         <div class="absolute inset-0 z-0 bg-surface-container">
-            <img src="${imageUrl}" class="w-full h-full object-cover opacity-60" onerror="this.src='https://images.unsplash.com/photo-1508098682722-e99c43a406b2'">
+            <img src="${imageUrl}" class="w-full h-full object-cover opacity-60">
             <div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"></div>
         </div>
         <div class="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-8 pb-12 flex flex-col md:flex-row justify-between items-end gap-8 pt-20">
             <div class="flex-1 w-full">
                 <div class="flex items-center gap-3 mb-4">
-                    ${m.status === 'Live' ? 
-                        `<span class="px-3 py-1 bg-error rounded-full text-xs font-bold flex items-center gap-1 text-white animate-pulse">● LIVE</span>` : 
-                        `<span class="px-3 py-1 bg-primary text-[#064200] rounded-full text-xs font-bold">UPCOMING</span>`}
+                    ${m.live ? `<span class="px-3 py-1 bg-error rounded-full text-xs font-bold flex items-center gap-1 text-white animate-pulse">● LIVE</span>` : 
+                               `<span class="px-3 py-1 bg-primary text-[#064200] rounded-full text-xs font-bold">UPCOMING</span>`}
                     <span class="text-secondary font-bold tracking-widest text-sm uppercase italic">Elite Arena Stadium</span>
                 </div>
                 <div class="flex items-center gap-8 md:gap-16">
                     <div class="text-center">
-                        <img src="${t1.logo}" class="w-20 h-20 md:w-32 md:h-32 object-contain mb-4 filter drop-shadow-2xl">
+                        <img src="${t1.logo}" class="w-20 h-20 md:w-32 md:h-32 object-contain mb-4">
                         <h2 class="font-headline text-2xl md:text-4xl font-bold text-white">${t1.name}</h2>
                     </div>
                     <div class="flex flex-col items-center">
-                        ${m.status === 'Live' ? 
-                            `<span class="font-headline text-5xl md:text-8xl font-black text-error italic">${m.scoreA} - ${m.scoreB}</span>` : 
-                            `<span class="font-headline text-3xl md:text-5xl font-black text-on-surface-variant opacity-50 italic">VS</span>`}
+                        ${m.live || m.s1 !== null ? `<span class="font-headline text-5xl md:text-8xl font-black text-error italic">${m.s1} - ${m.s2}</span>` : 
+                                                     `<span class="font-headline text-3xl md:text-5xl font-black text-on-surface-variant opacity-50 italic">VS</span>`}
                     </div>
                     <div class="text-center">
-                        <img src="${t2.logo}" class="w-20 h-20 md:w-32 md:h-32 object-contain mb-4 filter drop-shadow-2xl">
+                        <img src="${t2.logo}" class="w-20 h-20 md:w-32 md:h-32 object-contain mb-4">
                         <h2 class="font-headline text-2xl md:text-4xl font-bold text-white">${t2.name}</h2>
                     </div>
-                </div>
-            </div>
-            <div class="glass-card p-6 rounded-[2rem] w-full md:w-80 mb-2 border border-outline-variant/20 shadow-xl hidden lg:block bg-background/20 backdrop-blur-md">
-                <h3 class="font-headline text-sm font-bold text-tertiary mb-4 uppercase tracking-widest italic text-secondary">Match Insight</h3>
-                <div class="space-y-4 text-xs">
-                    <div class="flex justify-between items-center text-white"><span>WIN PROBABILITY</span><span class="font-bold">60% - 40%</span></div>
-                    <div class="w-full h-1.5 bg-surface-container rounded-full overflow-hidden flex"><div class="bg-primary h-full" style="width: 60%"></div><div class="bg-tertiary h-full" style="width: 40%"></div></div>
                 </div>
             </div>
         </div>`;
@@ -1250,6 +1238,7 @@ onSnapshot(doc(db, "settings", "liveBanner"), (bannerSnap) => {
         <div class="relative z-10 p-12 text-center w-full">
           <p class="text-on-surface-variant tracking-[0.5em] uppercase text-xs font-bold">No Live Match Currently</p>
         </div>`;
+      renderDashboardHero();
     }
   });
 });
