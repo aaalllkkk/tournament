@@ -51,6 +51,7 @@
   </script>
 
   <style>
+    
     /* Base Styles */
     body {
       font-family: 'Manrope', sans-serif;
@@ -111,6 +112,44 @@
 .custom-scroll-thin::-webkit-scrollbar {
   width: 4px;
 }
+
+    /* Styling Dropdown agar konsisten di Viewer maupun Admin */
+select[data-action="filterMatches"],
+#matchweekFilter,
+#teamFilter {
+    background-color: #1c263a !important; /* Warna biru gelap Liga King */
+    color: #8eff71 !important; /* Warna teks Neon Green agar terbaca jelas */
+    border: 1px solid rgba(65, 72, 88, 0.4) !important; /* outline-variant */
+    border-radius: 0.75rem;
+    padding: 0.6rem 2.5rem 0.6rem 1rem;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    appearance: none; /* Hapus panah default browser */
+    
+    /* Tambahkan panah kustom berwarna Neon Green */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238eff71'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 1rem center !important;
+    background-size: 1rem !important;
+}
+
+/* Styling saat dropdown diklik (List Option) */
+select[data-action="filterMatches"] option {
+    background-color: #0b1323; /* Warna gelap solid agar tidak putih */
+    color: #e2e8fc;
+    padding: 12px;
+}
+
+/* Hilangkan outline biru saat fokus */
+select[data-action="filterMatches"]:focus {
+    outline: none;
+    border-color: #8eff71 !important;
+    box-shadow: 0 0 0 2px rgba(142, 255, 113, 0.1);
+}
+    
 
     .text-glow-primary {
       text-shadow: 0 0 15px rgba(142, 255, 113, 0.4);
