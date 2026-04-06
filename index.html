@@ -874,43 +874,49 @@
       renderNews();
     });
 
-    // SATU-SATUNYA Listener untuk Dashboard Headline (Gabungan Gambar + Live Match)
+    // Listener Tunggal untuk Dashboard Headline (Gambar + Data Live)
 onSnapshot(doc(db, "settings", "liveBanner"), (bannerSnap) => {
-  const bannerData = bannerSnap.exists() ? bannerSnap.data() : { img: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2' };
+  const bannerData = bannerSnap.exists() ? bannerSnap.data() : { img: '' };
   
-  // Mencari 1 pertandingan yang statusnya 'Live'
+  // Ambil data pertandingan yang sedang LIVE
   const qLive = query(collection(db, "matches"), where("status", "==", "Live"), limit(1));
   
   onSnapshot(qLive, (matchSnap) => {
     const container = document.getElementById("dashboardFeaturedMatch");
     if (!container) return;
 
+    // Jika ada pertandingan LIVE
     if (!matchSnap.empty) {
-      // JIKA ADA MATCH LIVE: Tampilkan Gambar + Skor
       const match = matchSnap.docs[0].data();
       container.innerHTML = `
         <div class="absolute inset-0 w-full h-full">
-          <img src="${bannerData.img}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1508098682722-e99c43a406b2'" alt="Live Match">
-          <div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"></div>
+          <img src="${bannerData.img || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2'}" 
+               class="w-full h-full object-cover" 
+               onerror="this.src='https://images.unsplash.com/photo-1508098682722-e99c43a406b2'"
+               alt="Live Match">
+          <div class="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent"></div>
         </div>
         <div class="relative z-10 p-8 md:p-12 w-full">
           <div class="flex items-center gap-3 mb-4">
             <span class="liveDot"></span>
-            <span class="text-primary font-bold tracking-[0.3em] text-xs uppercase italic">On-Air: Live Match</span>
+            <span class="text-primary font-bold tracking-[0.3em] text-xs uppercase italic">On-Air: Pertandingan Langsung</span>
           </div>
           <h2 class="text-5xl md:text-8xl font-black font-headline italic tracking-tighter mb-4 text-white">
-            ${match.teamA} <span class="text-outline-variant text-3xl md:text-5xl not-italic mx-2">${match.scoreA} - ${match.scoreB}</span> ${match.teamB}
+            ${match.teamA} <span class="text-outline-variant text-3xl md:text-5xl not-italic mx-4">${match.scoreA} - ${match.scoreB}</span> ${match.teamB}
           </h2>
         </div>`;
-    } else {
-      // JIKA TIDAK ADA MATCH LIVE: Tampilkan Gambar Saja (Standby)
+    } 
+    // Jika TIDAK ADA pertandingan LIVE (Tampilan Standby)
+    else {
       container.innerHTML = `
         <div class="absolute inset-0 w-full h-full">
-          <img src="${bannerData.img}" class="w-full h-full object-cover opacity-50 grayscale" onerror="this.src='https://images.unsplash.com/photo-1508098682722-e99c43a406b2'">
+          <img src="${bannerData.img || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2'}" 
+               class="w-full h-full object-cover opacity-40 grayscale"
+               onerror="this.src='https://images.unsplash.com/photo-1508098682722-e99c43a406b2'">
           <div class="absolute inset-0 bg-background/20"></div>
         </div>
         <div class="relative z-10 p-12 text-center w-full">
-          <p class="text-on-surface-variant tracking-[0.5em] uppercase text-xs font-bold">No Live Match Currently</p>
+          <p class="text-on-surface-variant tracking-[0.5em] uppercase text-xs font-bold italic">Menunggu Pertandingan Selanjutnya</p>
         </div>`;
     }
   });
@@ -1177,18 +1183,19 @@ onSnapshot(doc(db, "settings", "liveBanner"), (bannerSnap) => {
     };
 
            window.updateLiveBanner = async () => {
-      if (!isAdmin) return;
-      const imgUrl = document.getElementById('liveImg').value;
-      if (!imgUrl) return alert("Masukkan URL gambar terlebih dahulu!");
-    
-      try {
-        await setDoc(doc(db, "settings", "liveBanner"), { img: imgUrl });
-        alert("Gambar Dashboard Berhasil Diperbarui!");
-      } catch (e) {
-        console.error(e);
-        alert("Gagal menyimpan gambar.");
-      }
-    };
+  if (!isAdmin) return;
+  const imgUrl = document.getElementById('liveImg').value.trim();
+  if (!imgUrl) return alert("Masukkan URL gambar!");
+
+  try {
+    // Simpan ke document 'liveBanner' di dalam collection 'settings'
+    await setDoc(doc(db, "settings", "liveBanner"), { img: imgUrl });
+    alert("Gambar Headline Berhasil Diperbarui!");
+  } catch (e) {
+    console.error(e);
+    alert("Gagal update: " + e.message);
+  }
+};
 
     const renderDashboardHero = () => {
       const box = document.getElementById("dashboardFeaturedMatch");
