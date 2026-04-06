@@ -1653,42 +1653,41 @@ const initSlideshow = (urls) => {
 
       if (document.getElementById("topScorerHero") && sorted.length > 0) {
     const leader = sorted[0];
-    
-    // LOGIKA FOTO: Cek apakah ada field 'poster', jika tidak pakai 'image' biasa
-    // Jika keduanya tidak ada, baru pakai link imgur default
     const heroImage = leader.poster || leader.image || 'https://i.imgur.com/xnTuRnl.png';
     
-    // Cek apakah menggunakan poster (biasanya PNG transparan) atau image biasa (cover)
-    // Jika pakai poster, kita beri background gradient agar lebih dramatis
+    // Penyesuaian class agar poster tidak menutupi teks dan posisinya pas
     const imgClass = leader.poster 
-        ? "absolute bottom-0 right-0 h-[120%] w-auto object-contain z-10 drop-shadow-[0_35px_35px_rgba(0,0,0,0.6)] transition-transform duration-500 group-hover:scale-105" 
+        ? "absolute bottom-0 -right-5 h-[110%] w-auto object-contain z-10 drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)] transition-transform duration-700 group-hover:scale-105 group-hover:-translate-x-2" 
         : "absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105";
 
     document.getElementById("topScorerHero").innerHTML = `
-        ${leader.poster ? '<div class="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent opacity-50"></div>' : ''}
+        ${leader.poster ? '<div class="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-40 z-0"></div>' : ''}
         
-        <div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent z-10"></div>
+        <div class="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent z-20"></div>
+        <div class="absolute inset-0 bg-gradient-to-r from-background/80 via-transparent to-transparent z-20"></div>
         
-        <img src="${heroImage}" class="${imgClass}">
+        <img src="${heroImage}" class="${imgClass}" style="pointer-events: none;">
         
-        <div class="absolute bottom-0 left-0 p-10 z-20 w-full">
-            <div class="flex items-center gap-3 mb-2">
-                <span class="bg-secondary text-on-secondary px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest font-headline">Rank #1</span>
-                <span class="text-primary text-xs font-bold font-headline uppercase tracking-widest">Golden Boot Leader</span>
+        <div class="absolute bottom-0 left-0 p-8 md:p-12 z-30 w-full">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="bg-secondary text-on-secondary px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] font-headline shadow-lg shadow-secondary/20">Rank #1</span>
+                <span class="text-primary text-[10px] font-bold font-headline uppercase tracking-[0.2em]">Golden Boot Leader</span>
             </div>
-            <h2 class="text-6xl font-black font-headline tracking-tighter text-on-surface uppercase leading-none mt-2 drop-shadow-2xl italic">
+            
+            <h2 class="text-5xl md:text-7xl font-black font-headline tracking-tighter text-white uppercase leading-[0.9] mt-2 drop-shadow-2xl italic">
                 ${leader.player}
             </h2>
-            <div class="flex flex-col md:flex-row md:items-end justify-between mt-6 gap-6">
-                <div class="flex gap-12 bg-black/40 p-5 rounded-[2rem] backdrop-blur-md w-max border border-white/5">
-                    <div>
-                        <p class="text-on-surface-variant text-[10px] uppercase font-label tracking-widest opacity-70">Team</p>
-                        <p class="text-xl font-bold font-body truncate max-w-[150px]">${leader.team}</p>
+            
+            <div class="flex flex-col md:flex-row md:items-end justify-between mt-8 gap-6">
+                <div class="flex gap-10 bg-[#070e1c]/60 p-6 rounded-[2.5rem] backdrop-blur-xl border border-white/10 w-max shadow-2xl">
+                    <div class="min-w-[100px]">
+                        <p class="text-on-surface-variant text-[9px] uppercase font-label tracking-[0.2em] mb-1 opacity-60">Representing</p>
+                        <p class="text-lg font-bold font-body text-white uppercase tracking-tight">${leader.team}</p>
                     </div>
-                    <div class="w-px h-10 bg-white/10"></div>
+                    <div class="w-px h-10 bg-white/10 self-center"></div>
                     <div>
-                        <p class="text-on-surface-variant text-[10px] uppercase font-label tracking-widest opacity-70">Goals Scored</p>
-                        <p class="text-4xl font-black font-headline text-primary leading-none">${leader.goals}</p>
+                        <p class="text-on-surface-variant text-[9px] uppercase font-label tracking-[0.2em] mb-1 opacity-60">Goals</p>
+                        <p class="text-5xl font-black font-headline text-primary leading-none tabular-nums">${leader.goals}</p>
                     </div>
                 </div>
             </div>
