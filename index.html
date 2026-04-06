@@ -337,7 +337,12 @@
     /* STYLES UNTUK SLIDESHOW FADE IN/OUT */
     #dashboardFeaturedMatch {
       position: relative;
-      /* Memastikan container stabil */
+      width: 100%;
+      min-height: 450px;
+      overflow: hidden;
+      background-color: #070e1c;
+      /* Memastikan konten dimulai setelah header jika header bersifat sticky/fixed */
+      margin-top: 0; 
     }
 
     .headline-background {
@@ -352,13 +357,15 @@
       inset: 0;
       width: 100%;
       height: 100%;
-      object-fit: cover; /* Memastikan gambar penuh tanpa batas */
+      /* FIX: object-position top agar bagian atas gambar tidak hilang di balik header */
+      object-fit: cover;
+      object-position: center top; 
       opacity: 0;
-      transition: opacity 2s ease-in-out; /* Efek memudar pelan */
+      transition: opacity 2s ease-in-out;
     }
 
     .headline-image.active {
-      opacity: 0.5; /* Transparansi gambar agar teks terbaca */
+      opacity: 0.6; /* Transparansi gambar agar teks terbaca */
     }
     
     .headline-overlay {
@@ -1186,20 +1193,19 @@
     
     // --- ACTIONS UNTUK ADMIN BANNER ---
    window.updateLiveBanner = async () => {
-  const img1 = document.getElementById('liveImg1').value.trim();
-  const img2 = document.getElementById('liveImg2').value.trim();
-  const img3 = document.getElementById('liveImg3').value.trim();
-  const img4 = document.getElementById('liveImg4').value.trim();
-  const img5 = document.getElementById('liveImg5').value.trim();
-  const img6 = document.getElementById('liveImg6').value.trim();
-  const img7 = document.getElementById('liveImg7').value.trim();
-  const img8 = document.getElementById('liveImg8').value.trim();
+  const dataToSave = {};
+  // Loop untuk mengambil nilai dari 8 input secara otomatis
+  for (let i = 1; i <= 8; i++) {
+    const val = document.getElementById(`liveImg${i}`).value.trim();
+    dataToSave[`img${i}`] = val;
+  }
   
   try {
-    // Menyimpan ke koleksi 'settings' dokumen 'liveBanner'
-    await setDoc(doc(db, "settings", "liveBanner"), { img1, img2, img3, img4, img5, img6, img7, img8 });
-    alert("Slideshow diperbarui!");
-  } catch (e) { alert("Gagal menyimpan: " + e.message); }
+    await setDoc(doc(db, "settings", "liveBanner"), dataToSave);
+    alert("8 Gambar berhasil disimpan!");
+  } catch (e) { 
+    alert("Gagal: " + e.message); 
+  }
 };
     
     // --- LOGIKA SLIDESHOW FADE (JASCRIPT) ---
@@ -1281,25 +1287,23 @@ const initSlideshow = (urls) => {
     
     // --- DATA LISTENERS ---
     onSnapshot(doc(db, "settings", "liveBanner"), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        const urls = [data.img1, data.img2, data.img3].filter(u => u && u !== "");
-        // Isi input admin agar sinkron
-        if (isAdmin) {
-          document.getElementById('liveImg1').value = data.img1 || "";
-          document.getElementById('liveImg2').value = data.img2 || "";
-          document.getElementById('liveImg3').value = data.img3 || "";
-          document.getElementById('liveImg4').value = data.img4 || "";
-          document.getElementById('liveImg5').value = data.img5 || "";
-          document.getElementById('liveImg6').value = data.img6 || "";
-          document.getElementById('liveImg7').value = data.img7 || "";
-          document.getElementById('liveImg8').value = data.img8 || "";
-        }
-        initSlideshow(urls);
-      } else {
-        initSlideshow([]);
+  if (snap.exists()) {
+    const data = snap.data();
+    const urls = [];
+    
+    for (let i = 1; i <= 8; i++) {
+      const url = data[`img${i}`];
+      if (url && url !== "") {
+        urls.push(url);
+        // Isi otomatis kolom input di admin jika element-nya ada
+        const inputEl = document.getElementById(`liveImg${i}`);
+        if (inputEl) inputEl.value = url;
       }
-    });
+    }
+    
+    initSlideshow(urls);
+  }
+});
 
     onSnapshot(collection(db, "teams"), snap => {
       teams = snap.docs.map(d => ({ id: d.id, ...d.data() }));
