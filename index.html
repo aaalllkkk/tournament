@@ -1261,35 +1261,63 @@ const getStarIcons = (rating) => {
     const isTeamLive = (teamName) => matches.some(m => m.live && (m.team1 === teamName || m.team2 === teamName));
 
     const renderStandings = () => {
-      const data = calculateStandings();
-      document.getElementById("standingsTable").innerHTML = data.map((t, i) => {
-        const textClass = i === 0 ? "text-primary" : i === 1 ? "text-on-surface" : i === 2 ? "text-secondary" : "text-on-surface-variant";
-        const bgGradient = i < championsCutoff ? "bg-gradient-to-r from-primary/5 to-transparent" : i >= (data.length - playoffCutoff) ? "bg-gradient-to-r from-error/5 to-transparent" : "";
-        let divider = i === championsCutoff ? `<tr class="cutoffLineGreen"><td colspan="10"></td></tr>` : i === (data.length - playoffCutoff) && playoffCutoff > 0 ? `<tr class="cutoffLineBlue"><td colspan="10"></td></tr>` : "";
+  const data = calculateStandings();
+  const standingsTable = document.getElementById("standingsTable");
+  if (!standingsTable) return;
 
-        return divider + `
-                <tr class="group hover:bg-surface-container-highest transition-colors ${bgGradient}">
-                    <td class="py-5 px-6 font-headline font-black text-lg ${textClass}">${(i+1).toString().padStart(2, '0')}</td>
-                    <td class="py-5 px-6">
-                        <div class="flex items-center gap-4">
-                            <div class="w-10 h-10 rounded-[0.8rem] bg-surface-container-highest flex items-center justify-center p-1 border border-outline-variant/10 relative">
-                                ${isTeamLive(t.team) ? `<div class="absolute -top-1 -right-1"><span class="liveDot"></span></div>` : ""}
-                                <img src="${resolveTeam(t.team).logo}" class="w-full h-full object-contain">
-                            </div>
-                            <span class="font-headline font-bold text-on-surface whitespace-nowrap">${t.team}</span>
-                        </div>
-                    </td>
-                    <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.p}</td>
-                    <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.w}</td>
-                    <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.d}</td>
-                    <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.l}</td>
-                    <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.gf}</td>
-                    <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.ga}</td>
-                    <td class="py-5 px-4 text-center font-bold ${t.gf-t.ga > 0 ? 'text-primary' : t.gf-t.ga < 0 ? 'text-error' : 'text-on-surface-variant'}">${t.gf-t.ga > 0 ? '+'+(t.gf-t.ga) : t.gf-t.ga}</td>
-                    <td class="py-5 px-6 text-center font-black text-xl ${textClass}">${t.pts}</td>
-                </tr>`;
-      }).join("");
-    };
+  standingsTable.innerHTML = data.map((t, i) => {
+    const rank = i + 1;
+    const textClass = i === 0 ? "text-primary" : i === 1 ? "text-on-surface" : i === 2 ? "text-secondary" : "text-on-surface-variant";
+    
+    // --- LOGIKA WARNA BARU ---
+    let bgGradient = "";
+    let divider = "";
+
+    // 1. Zona Champions (Top) - Biasanya Hijau/Biru
+    if (i < championsCutoff) {
+      bgGradient = "bg-gradient-to-r from-primary/10 to-transparent";
+      // Garis pemisah setelah zona Champions berakhir
+      if (rank === championsCutoff) {
+        divider = `<tr class="border-b-2 border-primary/30"><td colspan="11" class="py-1"></td></tr>`;
+      }
+    } 
+    // 2. Zona Playoff (Tengah) - Biasanya Kuning/Emas
+    else if (i < playoffCutoff) {
+      bgGradient = "bg-gradient-to-r from-warning/10 to-transparent"; // Pastikan ada warna 'warning' di tailwind
+      if (rank === playoffCutoff) {
+        divider = `<tr class="border-b-2 border-warning/30"><td colspan="11" class="py-1"></td></tr>`;
+      }
+    }
+    // 3. Zona Merah (Relegasi - Opsional)
+    // Misalnya 1 tim terbawah selalu merah
+    else if (i >= data.length - 1) {
+      bgGradient = "bg-gradient-to-r from-error/5 to-transparent";
+    }
+
+    return divider + `
+      <tr class="group hover:bg-surface-container-highest transition-colors ${bgGradient}">
+        <td class="py-5 px-6 font-headline font-black text-lg ${textClass}">${rank.toString().padStart(2, '0')}</td>
+        <td class="py-5 px-6">
+          <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-[0.8rem] bg-surface-container-highest flex items-center justify-center p-1 border border-outline-variant/10 relative">
+              ${isTeamLive(t.team) ? `<div class="absolute -top-1 -right-1"><span class="liveDot"></span></div>` : ""}
+              <img src="${resolveTeam(t.team).logo}" class="w-full h-full object-contain">
+            </div>
+            <span class="font-headline font-bold text-on-surface whitespace-nowrap">${t.team}</span>
+          </div>
+        </td>
+        <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.p}</td>
+        <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.w}</td>
+        <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.d}</td>
+        <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.l}</td>
+        <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.gf}</td>
+        <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.ga}</td>
+        <td class="py-5 px-4 text-center font-bold ${t.gf-t.ga > 0 ? 'text-primary' : t.gf-t.ga < 0 ? 'text-error' : 'text-on-surface-variant'}">${t.gf-t.ga > 0 ? '+'+(t.gf-t.ga) : t.gf-t.ga}</td>
+        <td class="py-5 px-6 text-center font-black text-xl ${textClass}">${t.pts}</td>
+      </tr>`;
+  }).join("");
+};
+  
 
     const renderDashboardStandings = () => {
       document.getElementById("dashboardStandings").innerHTML = calculateStandings().slice(0, 5).map((t, i) => {
