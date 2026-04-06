@@ -854,6 +854,75 @@
       renderTeams();
     });
 
+     // --- Generate League ---
+    const generateLeague = async () => {
+  // 1. Validasi Tim
+  if (teams.length < 2) return alert("Minimal harus ada 2 tim untuk membuat liga!");
+  
+  const isHomeAway = confirm("Gunakan sistem Home & Away? (Setiap tim bertemu 2x). Klik Cancel untuk Single Round.");
+  
+  if (!confirm(`Generate jadwal untuk ${teams.length} tim?`)) return;
+
+  try {
+    const matchesRef = collection(db, "matches");
+    let count = 0;
+
+    // 2. Algoritma Generate
+    for (let i = 0; i < teams.length; i++) {
+      for (let j = 0; j < teams.length; j++) {
+        // Jangan biarkan tim melawan dirinya sendiri
+        if (i === j) continue;
+
+        // Jika Single Round, kita hanya ambil pertemuan satu arah (i < j)
+        // Jika Home-Away, kita ambil semua pertemuan (i != j)
+        if (!isHomeAway && i > j) continue;
+
+        await addDoc(matchesRef, {
+          team1: teams[i].name,
+          team2: teams[j].name,
+          s1: null,
+          s2: null,
+          date: "TBD",
+          live: false,
+          type: "league"
+        });
+        count++;
+      }
+    }
+
+    alert(`Berhasil! ${count} pertandingan ${isHomeAway ? '(Home & Away)' : '(Single Round)'} telah dibuat.`);
+  } catch (e) {
+    alert("Gagal generate: " + e.message);
+  }
+};
+
+    const hardReset = async () => {
+  // Keamanan berlapis karena ini menghapus database
+  const confirm1 = confirm("PERINGATAN: Ini akan menghapus SEMUA jadwal pertandingan dan data skor!");
+  if (!confirm1) return;
+  
+  const confirm2 = prompt("Ketik 'RESET' untuk mengonfirmasi penghapusan permanen:");
+  if (confirm2 !== "RESET") return alert("Reset dibatalkan. Kata kunci salah.");
+
+  try {
+    // 1. Ambil semua dokumen di koleksi matches
+    const snap = await getDocs(collection(db, "matches"));
+    
+    // 2. Hapus satu per satu
+    const promises = snap.docs.map(d => deleteDoc(doc(db, "matches", d.id)));
+    await Promise.all(promises);
+
+    // 3. (Opsional) Reset juga koleksi pencetak gol jika ada
+    const scorerSnap = await getDocs(collection(db, "scorers"));
+    const scorerPromises = scorerSnap.docs.map(d => deleteDoc(doc(db, "scorers", d.id)));
+    await Promise.all(scorerPromises);
+
+    alert("Sistem berhasil dibersihkan! Semua data pertandingan telah dihapus.");
+  } catch (e) {
+    alert("Gagal reset: " + e.message);
+  }
+};
+
     const toggleAdminUI = () => {
       ["adminTeamControls", "matchControls", "scorerControls", "newsControls", "knockoutControls", "liveBannerControls"].forEach(id => {
         if (document.getElementById(id)) document.getElementById(id).style.display = isAdmin ? "block" : "none";
@@ -1639,8 +1708,8 @@ const initSlideshow = (urls) => {
       else if (action === 'openTab') openTab(btn.dataset.tab, btn);
       else if (action === 'addTeam') await addTeam();
       else if (action === 'deleteTeam') await deleteTeam(btn.dataset.id);
-      else if (action === 'generateLeague') generateLeague();
-      else if (action === 'resetMatches') resetMatches();
+      else if (action === 'generateLeague')  await generateLeague(); 
+      else if (action === 'resetMatches') await hardReset();
       else if (action === 'toggleFolder') toggleFolder(parseInt(btn.dataset.mw));
       else if (action === 'toggleLive') await toggleLive(btn.dataset.id, btn.dataset.state === 'true');
       else if (action === 'deleteMatch') await deleteMatch(btn.dataset.id);
@@ -1651,9 +1720,10 @@ const initSlideshow = (urls) => {
       else if (action === 'createNode') await createNode();
       else if (action === 'deleteNode') await deleteNode(btn.dataset.id);
       else if (action === 'login') await login();
-      else if (action === 'logout') logout();
+      else if (action === 'logout') logout(); 
       else if (action === 'saveCutoffs') await saveCutoffs();
       else if (action === 'exportBackup') exportBackup();
+});
     });
 
     document.addEventListener('change', async (e) => {
