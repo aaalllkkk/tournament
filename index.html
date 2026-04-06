@@ -1877,35 +1877,48 @@ const initSlideshow = (urls) => {
 
     // --- EVENT DELEGATION HUB (MENGGANTIKAN SEMUA ONCLICK/ONCHANGE) ---
     document.addEventListener('click', async (e) => {
-      const btn = e.target.closest('[data-action]');
-      if (!btn) return;
-      
-      const action = btn.dataset.action;
+    // Kita gunakan satu variabel saja, yaitu 'btn'
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    
+    const action = btn.dataset.action;
 
-      if (action === 'toggleSidebar') toggleSidebar();
-      else if (action === 'openTab') openTab(btn.dataset.tab, btn);
-      else if (action === 'addTeam') await addTeam();
-      else if (action === 'deleteTeam') await deleteTeam(btn.dataset.id);
-      if (action === 'generateLeague')  await generateLeague(); 
-      else if (action === 'resetMatches') await hardReset();
-      else if (action === 'toggleFolder') toggleFolder(parseInt(btn.dataset.mw));
-      else if (action === 'toggleLive') {
-      const id = target.dataset.id;
-    // Kita ubah string "true"/"false" dari dataset menjadi Boolean asli
-    const newState = target.dataset.state === 'true'; 
-    await toggleLive(id, newState);
-}
-      else if (action === 'deleteMatch') await deleteMatch(btn.dataset.id);
-      else if (action === 'addMatch') await addMatch();
-      else if (action === 'addNews') await addNews();
-      else if (action === 'addScorer') await addScorer();
-      else if (action === 'deleteScorer') await deleteScorer(btn.dataset.id);
-      else if (action === 'createNode') await createNode();
-      else if (action === 'deleteNode') await deleteNode(btn.dataset.id);
-      else if (action === 'login') await login();
-      else if (action === 'logout') logout(); 
-      else if (action === 'saveCutoffs') await saveCutoffs();
-      else if (action === 'exportBackup') exportBackup();
+    // Navigasi & UI
+    if (action === 'toggleSidebar') toggleSidebar();
+    else if (action === 'openTab') openTab(btn.dataset.tab, btn);
+    else if (action === 'toggleFolder') toggleFolder(parseInt(btn.dataset.mw));
+    
+    // Auth
+    else if (action === 'login') await login();
+    else if (action === 'logout') logout(); 
+    
+    // Teams
+    else if (action === 'addTeam') await addTeam();
+    else if (action === 'deleteTeam') await deleteTeam(btn.dataset.id);
+    
+    // Matches & League
+    else if (action === 'generateLeague') await generateLeague(); 
+    else if (action === 'resetMatches') await hardReset();
+    else if (action === 'deleteMatch') await deleteMatch(btn.dataset.id);
+    else if (action === 'addMatch') await addMatch();
+    
+    // LIVE System (Otomatis Tanggal)
+    else if (action === 'toggleLive') {
+        const id = btn.dataset.id;
+        const newState = btn.dataset.state === 'true'; 
+        await toggleLive(id, newState);
+    }
+    
+    // Scorers & News
+    else if (action === 'addNews') await addNews();
+    else if (action === 'addScorer') await addScorer();
+    else if (action === 'deleteScorer') await deleteScorer(btn.dataset.id);
+    
+    // Knockout & Others
+    else if (action === 'createNode') await createNode();
+    else if (action === 'deleteNode') await deleteNode(btn.dataset.id);
+    else if (action === 'saveCutoffs') await saveCutoffs();
+    else if (action === 'exportBackup') exportBackup();
 });
 
     document.addEventListener('change', async (e) => {
