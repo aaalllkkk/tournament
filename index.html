@@ -874,6 +874,27 @@
       renderNews();
     });
 
+    onSnapshot(doc(db, "settings", "liveBanner"), (docSnap) => {
+  const container = document.getElementById("dashboardFeaturedMatch");
+  if (docSnap.exists() && container) {
+    const data = docSnap.data();
+    container.innerHTML = `
+      <div class="absolute inset-0 w-full h-full">
+        <img src="${data.img}" class="w-full h-full object-cover" alt="Live Match">
+        <div class="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent"></div>
+      </div>
+      <div class="relative z-10 p-8 md:p-12 w-full">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="liveDot"></span>
+          <span class="text-primary font-bold tracking-[0.3em] text-xs uppercase">${data.status}</span>
+        </div>
+        <h2 class="text-5xl md:text-8xl font-black font-headline italic tracking-tighter mb-4">
+          ${data.teamA} <span class="text-outline-variant text-3xl md:text-5xl not-italic mx-2">VS</span> ${data.teamB}
+        </h2>
+      </div>`;
+  }
+});
+
    // Listener untuk menggabungkan Gambar Admin + Data Match Live
 onSnapshot(doc(db, "settings", "liveBanner"), (bannerSnap) => {
   const bannerData = bannerSnap.exists() ? bannerSnap.data() : { img: '' };
