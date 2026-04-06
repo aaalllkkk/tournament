@@ -856,41 +856,73 @@
 
      // --- Generate League ---
     const generateLeague = async () => {
-  // 1. Validasi Tim
-  if (teams.length < 2) return alert("Minimal harus ada 2 tim untuk membuat liga!");
+  if (teams.length < 2) return alert("Minimal harus ada 2 tim!");
   
-  const isHomeAway = confirm("Gunakan sistem Home & Away? (Setiap tim bertemu 2x). Klik Cancel untuk Single Round.");
-  
+  const isHomeAway = confirm("Gunakan sistem Home & Away? (Setiap tim bertemu 2x)");
   if (!confirm(`Generate jadwal untuk ${teams.length} tim?`)) return;
 
   try {
     const matchesRef = collection(db, "matches");
-    let count = 0;
-
-    // 2. Algoritma Generate
+    
+    // 1. Kumpulkan semua pasangan pertandingan yang mungkin (Pool)
+    let pool = [];
     for (let i = 0; i < teams.length; i++) {
       for (let j = 0; j < teams.length; j++) {
-        // Jangan biarkan tim melawan dirinya sendiri
         if (i === j) continue;
-
-        // Jika Single Round, kita hanya ambil pertemuan satu arah (i < j)
-        // Jika Home-Away, kita ambil semua pertemuan (i != j)
-        if (!isHomeAway && i > j) continue;
-
-        await addDoc(matchesRef, {
-          team1: teams[i].name,
-          team2: teams[j].name,
-          s1: null,
-          s2: null,
-          date: "TBD",
-          live: false,
-          type: "league"
-        });
-        count++;
+        if (!isHomeAway && i > j) continue; // Jika Single Round, hindari duplikasi timA vs timB & timB vs timA
+        pool.push({ t1: teams[i].name, t2: teams[j].name });
       }
     }
 
-    alert(`Berhasil! ${count} pertandingan ${isHomeAway ? '(Home & Away)' : '(Single Round)'} telah dibuat.`);
+    let matchweek = 1;
+    let totalMatches = 0;
+
+    // 2. Logika Pemisahan Matchweek
+    while (pool.length > 0) {
+      let usedTeamsInThisWeek = new Set();
+      let i = 0;
+
+      // Coba isi pertandingan ke dalam Matchweek saat ini
+      while (i < pool.length) {
+        const match = pool[i];
+
+        // Syarat: tim1 dan tim2 belum punya jadwal di Matchweek ini
+        if (!usedTeamsInThisWeek.has(match.t1) && !usedTeamsInThisWeek.has(match.t2)) {
+          
+          // Kirim ke Firestore
+          await addDoc(matchesRef, {
+            team1: match.t1,
+            team2: match.t2,
+            Matchweek: Matchweek,
+            date: "TBD",
+            s1: null,
+            s2: null,
+            y1: 0,
+            y2: 0,
+            live: false 
+          });
+
+          // Tandai tim sudah terpakai di minggu ini
+          usedTeamsInThisWeek.add(match.t1);
+          usedTeamsInThisWeek.add(match.t2);
+          
+          // Hapus pertandingan ini dari daftar tunggu (pool)
+          pool.splice(i, 1);
+          totalMatches++;
+        } else {
+          // Jika tim sudah main di minggu ini, lewati dan cari pasangan lain
+          i++;
+        }
+      }
+
+      // Jika sudah tidak ada lagi tim yang bisa dipasangkan di minggu ini, lanjut ke minggu depan
+      matchweek++;
+      
+      // Safety break (mencegah loop tak terhingga jika tim ganjil/logika macet)
+      if(matchweek > 100) break;
+    }
+
+    alert(`Berhasil! ${totalMatches} pertandingan dibuat dalam ${matchweek - 1} Matchweek.`);
   } catch (e) {
     alert("Gagal generate: " + e.message);
   }
