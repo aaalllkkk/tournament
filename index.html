@@ -1888,7 +1888,7 @@ const initSlideshow = (urls) => {
       if (!player || !team) return alert("Fill in player name and team!");
 
       // Save to Firebase (including assists)
-      await addDoc(collection(db, "scorers"), { player, image, team, goals, assists });
+      await addDoc(collection(db, "scorers"), { player, image, poster, team, goals, assists });
 
       // Clear input fields after saving
       ["playerName", "playerImage", "scorerPoster", "playerGoals", "playerAssists"].forEach(id => document.getElementById(id).value = "");
