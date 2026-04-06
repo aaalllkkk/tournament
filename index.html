@@ -1882,6 +1882,9 @@ const initSlideshow = (urls) => {
     // --- EVENT DELEGATION HUB (MENGGANTIKAN SEMUA ONCLICK/ONCHANGE) ---
     document.addEventListener('click', async (e) => {
       const btn = e.target.closest('[data-action]');
+      const id = target.dataset.id;
+      const isLive = target.dataset.live === 'true';
+      const date = target.dataset.date; // Pastikan simpan date di attribute data-date
       if (!btn) return;
       
       const action = btn.dataset.action;
@@ -1893,13 +1896,7 @@ const initSlideshow = (urls) => {
       if (action === 'generateLeague')  await generateLeague(); 
       else if (action === 'resetMatches') await hardReset();
       else if (action === 'toggleFolder') toggleFolder(parseInt(btn.dataset.mw));
-      // Contoh jika tombol live diklik
-      if (action === 'toggleLive') {
-        const id = target.dataset.id;
-        const isLive = target.dataset.live === 'true';
-        const date = target.dataset.date; // Pastikan simpan date di attribute data-date
-        await toggleLive(id, isLive, date);
-      }
+      if (action === 'toggleLive')  await toggleLive(id, isLive, date);
       else if (action === 'deleteMatch') await deleteMatch(btn.dataset.id);
       else if (action === 'addMatch') await addMatch();
       else if (action === 'addNews') await addNews();
