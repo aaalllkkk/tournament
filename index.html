@@ -344,9 +344,6 @@
       </button>
       <span class="text-2xl font-black italic tracking-tighter text-[#8eff71]">LIGA KING</span>
       <nav class="hidden lg:flex items-center gap-6 ml-8 text-sm">
-        <a class="text-[#ffd709] border-b-2 border-[#ffd709] pb-1" href="#" onclick="openTab('dashboard',event)">Overview</a>
-        <a class="text-[#a4abbe] hover:text-[#8eff71] transition-colors" href="#" onclick="openTab('schedule',event)">Fixtures</a>
-        <a class="text-[#a4abbe] hover:text-[#8eff71] transition-colors" href="#" onclick="openTab('scorers',event)">Stats</a>
       </nav>
     </div>
     <div class="flex items-center gap-4">
@@ -355,7 +352,7 @@
         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#a4abbe] text-lg">search</span>
       </div>
       <button class="p-2 text-[#a4abbe] hover:bg-[#1c263a] rounded-lg transition-all active:scale-95"><span class="material-symbols-outlined">notifications</span></button>
-      <button class="p-2 text-[#a4abbe] hover:bg-[#1c263a] rounded-lg transition-all active:scale-95 hidden md:block"><span class="material-symbols-outlined">settings</span></button>
+      <button class="p-2 text-[#a4abbe] hover:bg-[#1c263a] rounded-lg transition-all active:scale-95 hidden md:block" onclick="openTab('admin')"><span class="material-symbols-outlined">settings</span></button>
       <img alt="User profile" class="w-10 h-10 rounded-full border-2 border-[#8eff71]/30 hidden md:block" src="https://i.imgur.com/xnTuRnl.png" />
     </div>
   </header>
@@ -389,9 +386,6 @@
         </div>
         <div class="tab flex items-center gap-3 px-4 py-3 rounded-lg text-[#a4abbe] hover:bg-[#161f32] hover:text-[#8eff71] transition-all duration-300 cursor-pointer" onclick="openTab('scorers',event)">
           <span class="material-symbols-outlined pointer-events-none">sports_soccer</span><span class="pointer-events-none">Top Scorers</span>
-        </div>
-        <div class="tab flex items-center gap-3 px-4 py-3 rounded-lg text-[#a4abbe] hover:bg-[#161f32] hover:text-[#8eff71] transition-all duration-300 cursor-pointer" onclick="openTab('admin',event)">
-          <span class="material-symbols-outlined pointer-events-none">admin_panel_settings</span><span class="pointer-events-none">Admin Tools</span>
         </div>
       </nav>
     </aside>
@@ -807,7 +801,7 @@
 });
 
       // RESET MOBILE ICON
-      document.querySelectorAll(".mobile-tab, nav a").forEach(t => {
+      document.querySelectorAll(".mobile-tab,").forEach(t => {
         t.classList.remove("text-[#ffd709]");
       });
 
