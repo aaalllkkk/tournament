@@ -1562,7 +1562,6 @@ const initSlideshow = (urls) => {
     onSnapshot(collection(db, "matches"), snap => {
       matches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderMatches();
-      renderDashboardHero();
     });
 
     const renderLiveMatches = () => {
