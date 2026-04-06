@@ -896,7 +896,7 @@
   }
 };
 
-    const hardReset = async () => {
+    const resetMatches = async () => {
   // Keamanan berlapis karena ini menghapus database
   const confirm1 = confirm("PERINGATAN: Ini akan menghapus SEMUA jadwal pertandingan dan data skor!");
   if (!confirm1) return;
@@ -1692,8 +1692,6 @@ const initSlideshow = (urls) => {
       if (isAdmin && confirm("Delete scorer?")) await deleteDoc(doc(db, "scorers", id));
     };
 
-    const generateLeague = () => alert("League generation requires server logic. Not implemented in client.");
-    const resetMatches = () => alert("Reset requires batch deletion. Not implemented in client.");
     const exportBackup = () => alert("Backup logic to be implemented.");
     const importBackup = (e) => alert("Import logic to be implemented.");
 
@@ -1709,7 +1707,7 @@ const initSlideshow = (urls) => {
       else if (action === 'addTeam') await addTeam();
       else if (action === 'deleteTeam') await deleteTeam(btn.dataset.id);
       else if (action === 'generateLeague')  await generateLeague(); 
-      else if (action === 'resetMatches') await hardReset();
+      else if (action === 'resetMatches') await resetMatches();
       else if (action === 'toggleFolder') toggleFolder(parseInt(btn.dataset.mw));
       else if (action === 'toggleLive') await toggleLive(btn.dataset.id, btn.dataset.state === 'true');
       else if (action === 'deleteMatch') await deleteMatch(btn.dataset.id);
