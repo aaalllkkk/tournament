@@ -1171,9 +1171,27 @@ const getStarIcons = (rating) => {
       await updateDoc(doc(db, "matches", id), { [side]: num });
     };
 
-    const toggleLive = async (id, state) => {
-      if (isAdmin) await updateDoc(doc(db, "matches", id), { live: state });
-    };
+    const toggleLive = async (matchId, currentLiveStatus, currentDate) => {
+  const matchRef = doc(db, "matches", matchId);
+  const newLiveStatus = !currentLiveStatus;
+  
+  // Data yang akan diupdate
+  const updateData = {
+    live: newLiveStatus
+  };
+
+  // LOGIKA OTOMATIS: 
+  // Jika diubah ke LIVE dan tanggalnya masih "TBD", isi dengan tanggal hari ini.
+  if (newLiveStatus === true && (currentDate === "TBD" || !currentDate)) {
+    updateData.date = getTodayDate();
+  }
+
+  try {
+    await updateDoc(matchRef, updateData);
+  } catch (e) {
+    console.error("Gagal update live status:", e);
+  }
+};
     
     const deleteMatch = async (id) => {
       if (isAdmin && confirm("Delete?")) await deleteDoc(doc(db, "matches", id));
@@ -1224,6 +1242,11 @@ const getStarIcons = (rating) => {
       document.getElementById("filterTeam2").innerHTML = '<option value="">Vs Team</option>' + filterOpts.substring(34);
     };
 
+    const getTodayDate = () => {
+  const options = { day: '2-digit', month: 'short', year: 'numeric' };
+  return new Date().toLocaleDateString('en-GB', options); // Hasil: 07 Apr 2024
+};
+    
     const renderMatches = () => {
       const container = document.getElementById("matchContainer");
       if (!container) return;
@@ -1870,7 +1893,13 @@ const initSlideshow = (urls) => {
       if (action === 'generateLeague')  await generateLeague(); 
       else if (action === 'resetMatches') await hardReset();
       else if (action === 'toggleFolder') toggleFolder(parseInt(btn.dataset.mw));
-      else if (action === 'toggleLive') await toggleLive(btn.dataset.id, btn.dataset.state === 'true');
+      // Contoh jika tombol live diklik
+      if (action === 'toggleLive') {
+        const id = target.dataset.id;
+        const isLive = target.dataset.live === 'true';
+        const date = target.dataset.date; // Pastikan simpan date di attribute data-date
+        await toggleLive(id, isLive, date);
+      }
       else if (action === 'deleteMatch') await deleteMatch(btn.dataset.id);
       else if (action === 'addMatch') await addMatch();
       else if (action === 'addNews') await addNews();
