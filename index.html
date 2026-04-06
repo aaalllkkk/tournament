@@ -730,6 +730,7 @@ select[data-action="filterMatches"]:focus {
                 <h4 class="font-headline font-bold text-secondary mb-4 uppercase tracking-widest text-xs">Add Scorer Database</h4>
                 <input id="playerName" class="admin-input mb-2 text-sm py-2" placeholder="Player Name">
                 <input id="playerImage" class="admin-input mb-2 text-sm py-2" placeholder="Image URL">
+                <input id="scorerPoster" class="admin-input mb-2 text-sm py-2" placeholder="Poster URL">
                 <div class="flex gap-2 mb-4">
                   <select id="playerTeam" class="admin-input mb-0 flex-1 text-sm py-2"></select>
                   <input id="playerGoals" type="number" class="admin-input mb-0 w-20 text-sm py-2" placeholder="GLS">
@@ -1651,23 +1652,48 @@ const initSlideshow = (urls) => {
       }
 
       if (document.getElementById("topScorerHero") && sorted.length > 0) {
-        document.getElementById("topScorerHero").innerHTML = `
-                <div class="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent z-10"></div>
-                <img src="${sorted[0].image || 'https://i.imgur.com/xnTuRnl.png'}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
-                <div class="absolute bottom-0 left-0 p-10 z-20 w-full">
-                    <div class="flex items-center gap-3 mb-2">
-                        <span class="bg-secondary text-on-secondary px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest font-headline">Rank #1</span>
-                        <span class="text-primary text-xs font-bold font-headline uppercase tracking-widest">Golden Boot Leader</span>
+    const leader = sorted[0];
+    
+    // LOGIKA FOTO: Cek apakah ada field 'poster', jika tidak pakai 'image' biasa
+    // Jika keduanya tidak ada, baru pakai link imgur default
+    const heroImage = leader.poster || leader.image || 'https://i.imgur.com/xnTuRnl.png';
+    
+    // Cek apakah menggunakan poster (biasanya PNG transparan) atau image biasa (cover)
+    // Jika pakai poster, kita beri background gradient agar lebih dramatis
+    const imgClass = leader.poster 
+        ? "absolute bottom-0 right-0 h-[120%] w-auto object-contain z-10 drop-shadow-[0_35px_35px_rgba(0,0,0,0.6)] transition-transform duration-500 group-hover:scale-105" 
+        : "absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105";
+
+    document.getElementById("topScorerHero").innerHTML = `
+        ${leader.poster ? '<div class="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent opacity-50"></div>' : ''}
+        
+        <div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent z-10"></div>
+        
+        <img src="${heroImage}" class="${imgClass}">
+        
+        <div class="absolute bottom-0 left-0 p-10 z-20 w-full">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="bg-secondary text-on-secondary px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest font-headline">Rank #1</span>
+                <span class="text-primary text-xs font-bold font-headline uppercase tracking-widest">Golden Boot Leader</span>
+            </div>
+            <h2 class="text-6xl font-black font-headline tracking-tighter text-on-surface uppercase leading-none mt-2 drop-shadow-2xl italic">
+                ${leader.player}
+            </h2>
+            <div class="flex flex-col md:flex-row md:items-end justify-between mt-6 gap-6">
+                <div class="flex gap-12 bg-black/40 p-5 rounded-[2rem] backdrop-blur-md w-max border border-white/5">
+                    <div>
+                        <p class="text-on-surface-variant text-[10px] uppercase font-label tracking-widest opacity-70">Team</p>
+                        <p class="text-xl font-bold font-body truncate max-w-[150px]">${leader.team}</p>
                     </div>
-                    <h2 class="text-6xl font-black font-headline tracking-tighter text-on-surface uppercase leading-none mt-2 shadow-black drop-shadow-lg">${sorted[0].player}</h2>
-                    <div class="flex flex-col md:flex-row md:items-end justify-between mt-6 gap-6">
-                        <div class="flex gap-12 bg-black/40 p-5 rounded-[2rem] backdrop-blur-md w-max">
-                            <div><p class="text-on-surface-variant text-xs uppercase font-label tracking-widest">Team</p><p class="text-xl font-bold font-body truncate max-w-[150px]">${sorted[0].team}</p></div>
-                            <div><p class="text-on-surface-variant text-xs uppercase font-label tracking-widest">Goals</p><p class="text-4xl font-black font-headline text-primary leading-none">${sorted[0].goals}</p></div>
-                        </div>
+                    <div class="w-px h-10 bg-white/10"></div>
+                    <div>
+                        <p class="text-on-surface-variant text-[10px] uppercase font-label tracking-widest opacity-70">Goals Scored</p>
+                        <p class="text-4xl font-black font-headline text-primary leading-none">${leader.goals}</p>
                     </div>
-                </div>`;
-      }
+                </div>
+            </div>
+        </div>`;
+}
 
       // Special section to display the Assist Leaderboard
       const sortedAssists = [...sorted].sort((a, b) => (b.assists || 0) - (a.assists || 0));
@@ -1854,6 +1880,7 @@ const initSlideshow = (urls) => {
       if (!isAdmin) return;
       const player = document.getElementById("playerName").value.trim();
       const image = document.getElementById("playerImage").value.trim();
+      const poster = document.getElementById("scorerPoster").value.trim();
       const team = document.getElementById("playerTeam").value;
       const goals = parseInt(document.getElementById("playerGoals").value) || 0;
       const assists = parseInt(document.getElementById("playerAssists").value) || 0; // New field
@@ -1864,7 +1891,7 @@ const initSlideshow = (urls) => {
       await addDoc(collection(db, "scorers"), { player, image, team, goals, assists });
 
       // Clear input fields after saving
-      ["playerName", "playerImage", "playerGoals", "playerAssists"].forEach(id => document.getElementById(id).value = "");
+      ["playerName", "playerImage", "scorerPoster", "playerGoals", "playerAssists"].forEach(id => document.getElementById(id).value = "");
     };
 
     const deleteScorer = async (id) => {
