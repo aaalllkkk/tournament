@@ -874,47 +874,49 @@
       renderNews();
     });
 
-    // Listener untuk Dashboard Headline
+    // Listener Tunggal untuk Dashboard Headline
 onSnapshot(doc(db, "settings", "liveBanner"), (bannerSnap) => {
-  console.log("Data Banner dari Firestore:", bannerSnap.data()); // CEK DI CONSOLE BROWSER
+  const bannerData = bannerSnap.exists() ? bannerSnap.data() : { img: '' };
+  const imageUrl = bannerData.img || 'https://ichef.bbci.co.uk/ace/standard/2560/cpsprodpb/0fce/live/19d35320-165f-11f1-b1a8-d97a7a8b24a4.jpg';
   
-  const bannerData = bannerSnap.exists() ? bannerSnap.data() : { img: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2' };
-  
-  // Mencari match status 'Live'
+  // Mencari pertandingan yang statusnya 'Live'
   const qLive = query(collection(db, "matches"), where("status", "==", "Live"), limit(1));
   
   onSnapshot(qLive, (matchSnap) => {
     const container = document.getElementById("dashboardFeaturedMatch");
     if (!container) return;
 
-    let content = "";
     if (!matchSnap.empty) {
+      // SITUASI A: ADA MATCH LIVE (Tampilkan Skor + Gambar)
       const match = matchSnap.docs[0].data();
-      content = `
+      container.innerHTML = `
         <div class="absolute inset-0 w-full h-full">
-          <img src="${bannerData.img}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1508098682722-e99c43a406b2'">
-          <div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"></div>
+          <img src="${imageUrl}" class="w-full h-full object-cover" alt="Live">
+          <div class="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent"></div>
         </div>
         <div class="relative z-10 p-8 md:p-12 w-full">
           <div class="flex items-center gap-3 mb-4">
             <span class="liveDot"></span>
-            <span class="text-primary font-bold tracking-[0.3em] text-xs uppercase italic">On-Air: Live Match</span>
+            <span class="text-primary font-bold tracking-[0.3em] text-xs uppercase italic">Match sedang berlangsung</span>
           </div>
           <h2 class="text-5xl md:text-8xl font-black font-headline italic tracking-tighter mb-4 text-white">
             ${match.teamA} <span class="text-outline-variant text-3xl md:text-5xl not-italic mx-2">${match.scoreA} - ${match.scoreB}</span> ${match.teamB}
           </h2>
         </div>`;
     } else {
-      content = `
+      // SITUASI B: TIDAK ADA MATCH LIVE (Tetap tampilkan gambar, tapi teks standby)
+      container.innerHTML = `
         <div class="absolute inset-0 w-full h-full">
-          <img src="${bannerData.img}" class="w-full h-full object-cover opacity-30 grayscale" onerror="this.src='https://images.unsplash.com/photo-1508098682722-e99c43a406b2'">
-          <div class="absolute inset-0 bg-background/20"></div>
+          <img src="${imageUrl}" class="w-full h-full object-cover" alt="Standby">
+          <div class="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
         </div>
-        <div class="relative z-10 p-12 text-center w-full">
-          <p class="text-on-surface-variant tracking-[0.5em] uppercase text-xs font-bold">No Live Match Currently</p>
+        <div class="relative z-10 p-12 w-full">
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-outline-variant mb-4 bg-background/50 backdrop-blur">
+             <span class="text-[10px] font-bold tracking-[0.3em] text-on-surface-variant uppercase italic">Tournament Standby</span>
+          </div>
+          <h3 class="text-3xl md:text-5xl font-headline font-black text-white tracking-widest uppercase italic">Elite Series Dashboard</h3>
         </div>`;
     }
-    container.innerHTML = content;
   });
 });
 
