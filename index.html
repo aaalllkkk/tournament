@@ -1651,51 +1651,50 @@ const initSlideshow = (urls) => {
                 </div>`).join("");
       }
 
-     if (document.getElementById("topScorerHero") && sorted.length > 0) {
-    const leader = sorted[0];
-    const heroImage = leader.poster || leader.image || 'https://i.imgur.com/xnTuRnl.png';
+    if (document.getElementById("topScorerHero") && sorted.length > 0) {
+      const leader = sorted[0];
     
-    // PERBAIKAN POSISI:
-    // right-[20%] akan menarik gambar sejauh 20% dari sisi kanan (geser ke kiri)
-    // h-[120%] membuat gambar tinggi melewati batas atas container
+    // LOGIKA FOTO: Cek apakah ada field 'poster', jika tidak pakai 'image' biasa
+    // Jika keduanya tidak ada, baru pakai link imgur default
+
+    const heroImage = leader.poster || leader.image || 'https://i.imgur.com/xnTuRnl.png';
+
+    // Cek apakah menggunakan poster (biasanya PNG transparan) atau image biasa (cover)
+    // Jika pakai poster, kita beri background gradient agar lebih dramatis
     const imgClass = leader.poster 
-        ? "absolute bottom-0 right-[0%] md:right-[0%] h-[100%] w-auto object-contain z-10 drop-shadow-[0_25px_50px_rgba(0,0,0,0.8)] transition-all duration-700 group-hover:scale-110 group-hover:-translate-x-5" 
+        ? "absolute bottom-0 right-10 h-[120%] w-auto object-contain z-10 drop-shadow-[0_35px_35px_rgba(0,0,0,0.6)] transition-transform duration-500 group-hover:scale-105" 
         : "absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105";
 
     document.getElementById("topScorerHero").innerHTML = `
-        ${leader.poster ? '<div class="absolute top-1/2 right-[5%] w-64 h-64 bg-primary/20 blur-[100px] rounded-full z-0"></div>' : ''}
-        
-        <div class="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent z-20"></div>
-        <div class="absolute inset-0 bg-gradient-to-r from-background via-transparent to-transparent z-20"></div>
-        
-        <img src="${heroImage}" class="${imgClass}" style="pointer-events: none; transform-origin: bottom center;">
-        
-        <div class="absolute bottom-0 left-0 p-10 z-30 w-full">
+        ${leader.poster ? '<div class="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent opacity-50"></div>' : ''}
+        <div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent z-10"></div>
+        <img src="${heroImage}" class="${imgClass}">
+        <div class="absolute bottom-0 left-0 p-10 z-20 w-full">
             <div class="flex items-center gap-3 mb-2">
-                <span class="bg-secondary text-on-secondary px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest font-headline shadow-lg">Rank #1</span>
-                <span class="text-primary text-[10px] font-bold font-headline uppercase tracking-widest">Golden Boot Leader</span>
+                <span class="bg-secondary text-on-secondary px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest font-headline">Rank #1</span>
+                <span class="text-primary text-xs font-bold font-headline uppercase tracking-widest">Golden Boot Leader</span>
             </div>
-            
-            <h2 class="text-6xl md:text-8xl font-black font-headline tracking-tighter text-white uppercase leading-[0.8] mt-2 drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] italic">
+
+            <h2 class="text-6xl font-black font-headline tracking-tighter text-on-surface uppercase leading-none mt-2 drop-shadow-2xl italic">
                 ${leader.player}
             </h2>
-            
-            <div class="flex flex-col md:flex-row md:items-end justify-between mt-8 gap-6">
-                <div class="flex gap-10 bg-black/60 p-6 rounded-[2.5rem] backdrop-blur-md border border-white/10 w-max">
+            <div class="flex flex-col md:flex-row md:items-end justify-between mt-6 gap-6">
+                <div class="flex gap-12 bg-black/40 p-5 rounded-[2rem] backdrop-blur-md w-max border border-white/5">
                     <div>
-                        <p class="text-on-surface-variant text-[9px] uppercase font-label tracking-widest opacity-60">Team</p>
-                        <p class="text-xl font-bold font-body text-white uppercase">${leader.team}</p>
+                        <p class="text-on-surface-variant text-[10px] uppercase font-label tracking-widest opacity-70">Team</p>
+                        <p class="text-xl font-bold font-body truncate max-w-[150px]">${leader.team}</p>
                     </div>
-                    <div class="w-px h-10 bg-white/20 self-center"></div>
+                    <div class="w-px h-10 bg-white/10"></div>
                     <div>
-                        <p class="text-on-surface-variant text-[9px] uppercase font-label tracking-widest opacity-60">Goals</p>
-                        <p class="text-5xl font-black font-headline text-primary leading-none">${leader.goals}</p>
+                        <p class="text-on-surface-variant text-[10px] uppercase font-label tracking-widest opacity-70">Goals Scored</p>
+                        <p class="text-4xl font-black font-headline text-primary leading-none">${leader.goals}</p>
                     </div>
                 </div>
             </div>
         </div>`;
-}
 
+}
+      
       // Special section to display the Assist Leaderboard
       const sortedAssists = [...sorted].sort((a, b) => (b.assists || 0) - (a.assists || 0));
       const assistTable = document.getElementById("assistTable");
