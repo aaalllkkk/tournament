@@ -1054,8 +1054,10 @@ const getStarIcons = (rating) => {
     const addTeam = async () => {
       const name = document.getElementById("teamName").value.trim();
       const logo = document.getElementById("teamLogo").value.trim();
+      const stars = parseFloat(document.getElementById('teamStars').value) || 3.0;
+      
       if (!name || !isAdmin) return;
-      await addDoc(collection(db, "teams"), { name, logo, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, y: 0 });
+      await addDoc(collection(db, "teams"), { name, logo, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, y: 0, stars: stars });
       document.getElementById("teamName").value = "";
       document.getElementById("teamLogo").value = "";
     };
@@ -1721,12 +1723,11 @@ const initSlideshow = (urls) => {
       const team = document.getElementById("playerTeam").value;
       const goals = parseInt(document.getElementById("playerGoals").value) || 0;
       const assists = parseInt(document.getElementById("playerAssists").value) || 0; // New field
-      const stars = parseFloat(document.getElementById('teamStars').value) || 3.0;
 
       if (!player || !team) return alert("Fill in player name and team!");
 
       // Save to Firebase (including assists)
-      await addDoc(collection(db, "scorers"), { player, image, team, goals, assists, stars });
+      await addDoc(collection(db, "scorers"), { player, image, team, goals, assists });
 
       // Clear input fields after saving
       ["playerName", "playerImage", "playerGoals", "playerAssists"].forEach(id => document.getElementById(id).value = "");
