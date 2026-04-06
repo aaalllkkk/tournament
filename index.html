@@ -849,7 +849,7 @@ if (e && e.currentTarget && e.currentTarget.classList.contains("mobile-tab")) {
 
     onSnapshot(collection(db, "scorers"), snap => {
       scorers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      ();
+      renderScorers();
     });
 
     onSnapshot(collection(db, "news"), snap => {
