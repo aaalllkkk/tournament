@@ -333,6 +333,50 @@
     #sidebarOverlay.active {
       display: block;
     }
+
+    /* STYLES UNTUK SLIDESHOW FADE IN/OUT */
+    #dashboardFeaturedMatch {
+      position: relative;
+      /* Memastikan container stabil */
+    }
+
+    .headline-background {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      /* Di belakang teks */
+    }
+
+    .headline-image {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-cover: cover;
+      opacity: 0;
+      /* Default sembunyi */
+      transition: opacity 2s ease-in-out;
+      /* Efek pelan 2 detik */
+    }
+
+    .headline-image.active {
+      opacity: 0.6;
+      /* Opacity saat muncul, disesuaikan dengan desain gelap kamu */
+    }
+
+    .headline-content {
+      position: relative;
+      z-index: 10;
+      /* Di atas gambar */
+      width: 100%;
+      max-w-7xl mx-auto;
+      px-6 md:px-8 pb-12;
+      display: flex;
+      flex-direction: flex-col md:row;
+      justify-between;
+      items-end;
+      gap-8;
+    }
   </style>
 </head>
 
@@ -395,7 +439,14 @@
 
     <main class="flex-1 lg:ml-64 w-full flex flex-col min-h-screen">
       <div id="dashboard" class="section active">
-        <section class="relative w-full aspect-[21/9] min-h-[400px] flex items-end overflow-hidden" id="dashboardFeaturedMatch"></section>
+        <section class="relative w-full aspect-[21/9] min-h-[400px] flex items-end overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)]" id="dashboardFeaturedMatch">
+          <div class="headline-background" id="headlineBackground">
+            </div>
+          <div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent z-5"></div>
+          <div class="headline-content" id="headlineContent">
+            </div>
+        </section>
+
         <section class="max-w-7xl mx-auto w-full px-6 md:px-8 py-12 grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div class="lg:col-span-4 space-y-6">
             <div class="surface-container-high rounded-2xl p-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
@@ -566,23 +617,23 @@
         </div>
       </div>
 
-            <div id="liveBannerControls" style="display:none;" class="md:col-span-2 surface-container-high p-6 rounded-[2rem] border border-primary/20 shadow-xl mt-6">
-  <div class="flex items-center gap-3 mb-6">
-    <span class="material-symbols-outlined text-primary">image</span>
-    <h3 class="font-headline font-bold text-lg text-secondary uppercase tracking-widest">Dashboard Headline Image</h3>
-  </div>
-            <div class="flex flex-col md:flex-row gap-4">
-            <div class="flex-grow space-y-2">
-          <label class="text-[10px] uppercase font-bold text-on-surface-variant ml-2">Background Image URL</label>
-          <input id="liveImg" class="admin-input w-full" placeholder="https://link-gambar-lapangan.jpg">
+      <div id="liveBannerControls" style="display:none;" class="md:col-span-2 surface-container-high p-6 rounded-[2rem] border border-primary/20 shadow-xl mt-6 max-w-7xl mx-auto w-full px-6">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="material-symbols-outlined text-primary">image</span>
+          <h3 class="font-headline font-bold text-lg text-secondary uppercase tracking-widest">Dashboard Headline Image</h3>
         </div>
-        <div class="flex items-end">
-          <button onclick="updateLiveBanner()" class="admin-btn h-[52px] px-8 flex items-center justify-center gap-2">
-            <span class="material-symbols-outlined">save</span> Simpan Gambar
-          </button>
+        <div class="flex flex-col md:flex-row gap-4">
+          <div class="flex-grow space-y-2">
+            <label class="text-[10px] uppercase font-bold text-on-surface-variant ml-2">Background Image URL</label>
+            <input id="liveImg" class="admin-input w-full" placeholder="https://link-gambar-lapangan.jpg">
+          </div>
+          <div class="flex items-end">
+            <button onclick="updateLiveBanner()" class="admin-btn h-[52px] px-8 flex items-center justify-center gap-2">
+              <span class="material-symbols-outlined">save</span> Simpan Gambar
+            </button>
+          </div>
         </div>
       </div>
-    </div>
 
       <div id="knockout" class="section p-6 md:p-12">
         <div class="max-w-7xl mx-auto">
@@ -749,7 +800,11 @@
     let championsCutoff = 4;
     let playoffCutoff = 8;
     let currentLink = null;
-    let currentBannerData = { img: '' }; // Untuk menyimpan data gambar dari Firestore
+    
+    // Variabel Global untuk Slideshow
+    let slideshowInterval = null;
+    let currentSlideIndex = 0;
+    let currentBannerData = { img: '' }; // Untuk menyimpan gambar dari Admin
 
     // --- UTILS ---
     const normalizeKey = (str) => (str || "").toString().trim().toLowerCase();
@@ -862,7 +917,7 @@
       renderLiveMatches();
       renderStandings();
       renderDashboardStandings();
-      renderDashboardHero();
+      renderDashboardHeroContent(); // Hanya update teks, bukan gambar
     });
 
     onSnapshot(collection(db, "scorers"), snap => {
@@ -1134,81 +1189,133 @@
                 </div>`;
       }).join("");
     };
-
-           window.updateLiveBanner = async () => {
+    
+    // --- ACTIONS UNTUK ADMIN BANNER ---
+    window.updateLiveBanner = async () => {
       if (!isAdmin) return;
-      const imgUrl = document.getElementById('liveImg').value;
+      const imgUrl = document.getElementById('liveImg').value.trim();
       if (!imgUrl) return alert("Masukkan URL gambar terlebih dahulu!");
     
       try {
         await setDoc(doc(db, "settings", "liveBanner"), { img: imgUrl });
         alert("Gambar Dashboard Berhasil Diperbarui!");
+        // Input dibersihkan agar tidak bingung
+        document.getElementById('liveImg').value = "";
       } catch (e) {
         console.error(e);
         alert("Gagal menyimpan gambar.");
       }
     };
-
-    const renderDashboardHero = () => {
-    const box = document.getElementById("dashboardFeaturedMatch");
-    if (!box) return;
-
-    const imageUrl = currentBannerData.img || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2';
     
-    // Sesuaikan dengan properti asli: m.live dan m.s1
-    const m = matches.find(m => m.live === true) || 
-              matches.filter(m => m.s1 === null).sort((a, b) => a.date - b.date)[0];
+    // --- LOGIKA SLIDESHOW FADE (JASCRIPT) ---
+    
+    // Fungsi untuk menginisialisasi slideshow
+    const initSlideshow = (adminImgUrl) => {
+      const bgContainer = document.getElementById("headlineBackground");
+      if (!bgContainer) return;
+      
+      // Berhenti jika sudah ada slideshow berjalan
+      if (slideshowInterval) clearInterval(slideshowInterval);
+      
+      // Daftar gambar default (bisa kamu ganti linknya di sini)
+      const slideshowImages = [
+        "https://images.unsplash.com/photo-1508098682722-e99c43a406b2", // Lapangan Sore
+        "https://images.unsplash.com/photo-1574629810360-7efbbe195018", // Stadion Malam
+        "https://images.unsplash.com/photo-1518605368461-1e1e38ce8058"  // Tekstur Rumput
+      ];
+      
+      // Jika admin memasukkan gambar, taruh di paling depan
+      if (adminImgUrl) {
+        slideshowImages.unshift(adminImgUrl);
+      }
+      
+      // Render elemen gambar ke DOM
+      bgContainer.innerHTML = slideshowImages.map((src, index) => `
+        <img src="${src}" class="headline-image ${index === 0 ? 'active' : ''}" alt="Slideshow ${index}">
+      `).join("");
+      
+      const images = bgContainer.querySelectorAll(".headline-image");
+      if (images.length <= 1) return; // Tidak perlu cycle kalau cuma 1 gambar
+      
+      currentSlideIndex = 0;
+      
+      // Jalankan interval untuk mengganti gambar (7 detik)
+      slideshowInterval = setInterval(() => {
+        // Hapus kelas active dari gambar saat ini
+        images[currentSlideIndex].classList.remove("active");
+        
+        // Hitung index berikutnya
+        currentSlideIndex = (currentSlideIndex + 1) % images.length;
+        
+        // Tambahkan kelas active ke gambar baru (ini memicu transisi CSS)
+        images[currentSlideIndex].classList.add("active");
+        
+      }, 7000); // 7000ms = 7 detik
+    };
+    
+    // Fungsi terpisah untuk mengupdate konten teks (Timi, Skor)
+    const renderDashboardHeroContent = () => {
+      const contentContainer = document.getElementById("headlineContent");
+      if (!contentContainer) return;
+      
+      // Cari match live atau yang akan datang
+      const m = matches.find(m => m.live) || matches.filter(m => m.s1 === null).sort((a, b) => getMW(a) - getMW(b))[0];
 
-    if (!m) {
-        box.innerHTML = `
-            <div class="absolute inset-0 z-0"><img src="${imageUrl}" class="w-full h-full object-cover opacity-40 grayscale"></div>
-            <div class="relative z-10 flex items-center justify-center h-full">
-                <h2 class="font-headline text-4xl font-bold p-8 text-white">WELCOME TO LIGA KING</h2>
-            </div>`;
+      if (!m) {
+        contentContainer.innerHTML = `
+          <div class="relative z-10 flex items-center justify-center h-full w-full pt-10">
+            <h2 class="font-headline text-4xl font-bold p-8 text-white uppercase tracking-widest text-glow-primary">Welcome to Liga King</h2>
+          </div>`;
         return;
-    }
+      }
 
-    const t1 = resolveTeam(m.team1);
-    const t2 = resolveTeam(m.team2);
+      const t1 = resolveTeam(m.team1);
+      const t2 = resolveTeam(m.team2);
 
-    box.innerHTML = `
-        <div class="absolute inset-0 z-0 bg-surface-container">
-            <img src="${imageUrl}" class="w-full h-full object-cover opacity-60">
-            <div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"></div>
-        </div>
-        <div class="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-8 pb-12 flex flex-col md:flex-row justify-between items-end gap-8 pt-20">
-            <div class="flex-1 w-full">
-                <div class="flex items-center gap-3 mb-4">
-                    ${m.live ? `<span class="px-3 py-1 bg-error rounded-full text-xs font-bold flex items-center gap-1 text-white animate-pulse">● LIVE</span>` : 
-                               `<span class="px-3 py-1 bg-primary text-[#064200] rounded-full text-xs font-bold">UPCOMING</span>`}
-                    <span class="text-secondary font-bold tracking-widest text-sm uppercase italic">Elite Arena Stadium</span>
+      contentContainer.innerHTML = `
+        <div class="flex-1 w-full pt-20">
+            <div class="flex items-center gap-3 mb-4">
+                ${m.live ? `<span class="px-3 py-1 bg-error rounded-full text-xs font-bold flex items-center gap-1 text-white animate-pulse">● LIVE</span>` : `<span class="px-3 py-1 bg-primary text-[#064200] rounded-full text-xs font-bold">UPCOMING</span>`}
+                <span class="text-secondary font-bold font-label tracking-widest text-sm uppercase italic">Matchday ${getMW(m)} • Elite Arena Stadium</span>
+            </div>
+            <div class="flex items-center gap-8 md:gap-16">
+                <div class="text-center flex-1">
+                    <img src="${t1.logo}" class="w-20 h-20 md:w-32 md:h-32 object-contain mb-4 filter drop-shadow-2xl mx-auto">
+                    <h2 class="font-headline text-2xl md:text-4xl font-bold text-white tracking-tight">${t1.name}</h2>
                 </div>
-                <div class="flex items-center gap-8 md:gap-16">
-                    <div class="text-center">
-                        <img src="${t1.logo}" class="w-20 h-20 md:w-32 md:h-32 object-contain mb-4">
-                        <h2 class="font-headline text-2xl md:text-4xl font-bold text-white">${t1.name}</h2>
-                    </div>
-                    <div class="flex flex-col items-center">
-                        ${m.live || m.s1 !== null ? `<span class="font-headline text-5xl md:text-8xl font-black text-error italic">${m.s1} - ${m.s2}</span>` : 
-                                                     `<span class="font-headline text-3xl md:text-5xl font-black text-on-surface-variant opacity-50 italic">VS</span>`}
-                    </div>
-                    <div class="text-center">
-                        <img src="${t2.logo}" class="w-20 h-20 md:w-32 md:h-32 object-contain mb-4">
-                        <h2 class="font-headline text-2xl md:text-4xl font-bold text-white">${t2.name}</h2>
-                    </div>
+                <div class="flex flex-col items-center">
+                    ${m.live || (m.s1!==null) ? `<span class="font-headline text-5xl md:text-8xl font-black text-error italic score-font">${m.s1} - ${m.s2}</span>` 
+                    : `<span class="font-headline text-3xl md:text-5xl font-black text-on-surface-variant opacity-50 italicVS">VS</span>`}
+                    <span class="font-label text-on-surface-variant font-bold mt-2 uppercase text-xs">${safe(m.date, '90\' MINUTES')}</span>
+                </div>
+                <div class="text-center flex-1">
+                    <img src="${t2.logo}" class="w-20 h-20 md:w-32 md:h-32 object-contain mb-4 filter drop-shadow-2xl mx-auto">
+                    <h2 class="font-headline text-2xl md:text-4xl font-bold text-white tracking-tight">${t2.name}</h2>
                 </div>
             </div>
-        </div>`;
-};
-
-// Listener untuk Gambar Banner
-onSnapshot(doc(db, "settings", "liveBanner"), (snap) => {
-    if (snap.exists()) {
-        currentBannerData = snap.data();
-        renderDashboardHero();
-    }
-});
+        </div>
+        <div class="glass-card p-6 rounded-[2rem] w-full md:w-80 mb-2 border border-outline-variant/20 shadow-xl hidden lg:block bg-background/20 backdrop-blur-md">
+            <h3 class="font-headline text-sm font-bold text-tertiary mb-4 uppercase tracking-widest italic text-secondary">Match Insight</h3>
+            <div class="space-y-4 font-label text-xs text-white">
+                <div class="flex justify-between items-center"><span>WIN PROBABILITY</span><span class="font-bold">60% - 40%</span></div>
+                <div class="w-full h-1.5 bg-surface-container rounded-full overflow-hidden flex"><div class="bg-primary h-full" style="width: 60%"></div><div class="bg-tertiary h-full" style="width: 40%"></div></div>
+            </div>
+        </div>
+      `;
+    };
     
+    // --- LISTENER SPESIAL UNTUK GAMBAR SLIDESHOW ---
+    onSnapshot(doc(db, "settings", "liveBanner"), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        // Ketika gambar admin diupdate, re-inisialisasi slideshow agar gambar admin muncul sebagai yang pertama
+        initSlideshow(data.img);
+      } else {
+        // Jika tidak ada data admin, jalankan slideshow default
+        initSlideshow(null);
+      }
+    });
+
     const renderLiveMatches = () => {
       const live = matches.filter(m => m.live);
       document.getElementById("liveMatches").innerHTML = live.length ? live.map(m => `
@@ -1298,7 +1405,7 @@ onSnapshot(doc(db, "settings", "liveBanner"), (snap) => {
       if (document.getElementById("topScorerHero") && sorted.length > 0) {
         document.getElementById("topScorerHero").innerHTML = `
                 <div class="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent z-10"></div>
-                <img src="${sorted[0].image || 'https://i.imgur.com/xnTuRnl.png'}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105">
+                <img src="${sorted[0].image || 'https://i.imgur.com/xnTuRnl.png'}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
                 <div class="absolute bottom-0 left-0 p-10 z-20 w-full">
                     <div class="flex items-center gap-3 mb-2">
                         <span class="bg-secondary text-on-secondary px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest font-headline">Rank #1</span>
