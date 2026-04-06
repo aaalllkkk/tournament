@@ -1265,37 +1265,36 @@ const getStarIcons = (rating) => {
   const standingsTable = document.getElementById("standingsTable");
   if (!standingsTable) return;
 
+  // Pastikan nilai cutoff adalah angka, jika tidak ada default ke 0
+  const cCut = parseInt(championsCutoff) || 0;
+  const pCut = parseInt(playoffCutoff) || 0;
+
   standingsTable.innerHTML = data.map((t, i) => {
     const rank = i + 1;
     const textClass = i === 0 ? "text-primary" : i === 1 ? "text-on-surface" : i === 2 ? "text-secondary" : "text-on-surface-variant";
     
-    // --- LOGIKA WARNA BARU ---
     let bgGradient = "";
-    let divider = "";
+    let borderClass = "";
 
-    // 1. Zona Champions (Top) - Biasanya Hijau/Biru
-    if (i < championsCutoff) {
-      bgGradient = "bg-gradient-to-r from-primary/10 to-transparent";
-      // Garis pemisah setelah zona Champions berakhir
-      if (rank === championsCutoff) {
-        divider = `<tr class="border-b-2 border-primary/30"><td colspan="11" class="py-1"></td></tr>`;
-      }
+    // 1. ZONA CHAMPIONS (Biru)
+    if (i < cCut) {
+      bgGradient = "bg-blue-500/10"; // Menggunakan warna standar agar pasti muncul
+      borderClass = "border-l-4 border-blue-500";
     } 
-    // 2. Zona Playoff (Tengah) - Biasanya Kuning/Emas
-    else if (i < playoffCutoff) {
-      bgGradient = "bg-gradient-to-r from-warning/10 to-transparent"; // Pastikan ada warna 'warning' di tailwind
-      if (rank === playoffCutoff) {
-        divider = `<tr class="border-b-2 border-warning/30"><td colspan="11" class="py-1"></td></tr>`;
-      }
+    // 2. ZONA PLAYOFF (Kuning/Oranye)
+    // Logika: Jika peringkat lebih besar dari Champions tapi masih di bawah atau sama dengan Playoff
+    else if (i < pCut) {
+      bgGradient = "bg-amber-500/10"; 
+      borderClass = "border-l-4 border-amber-500";
     }
-    // 3. Zona Merah (Relegasi - Opsional)
-    // Misalnya 1 tim terbawah selalu merah
-    else if (i >= data.length - 1) {
-      bgGradient = "bg-gradient-to-r from-error/5 to-transparent";
+    // 3. ZONA BAHAYA (Merah) - Otomatis 3 terbawah
+    else if (i >= data.length - 3 && data.length > 5) {
+      bgGradient = "bg-red-500/5";
+      borderClass = "border-l-4 border-red-500/30";
     }
 
-    return divider + `
-      <tr class="group hover:bg-surface-container-highest transition-colors ${bgGradient}">
+    return `
+      <tr class="group hover:bg-surface-container-highest transition-colors ${bgGradient} ${borderClass}">
         <td class="py-5 px-6 font-headline font-black text-lg ${textClass}">${rank.toString().padStart(2, '0')}</td>
         <td class="py-5 px-6">
           <div class="flex items-center gap-4">
