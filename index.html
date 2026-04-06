@@ -519,6 +519,11 @@
                 <div class="flex gap-3 flex-col sm:flex-row">
                   <input id="teamName" class="admin-input mb-0" placeholder="Club Name">
                   <input id="teamLogo" class="admin-input mb-0" placeholder="Logo URL">
+                  <div class="mt-2">
+                  <label class="text-[10px] font-bold uppercase opacity-50">Team Strength (Stars)</label>
+                  <input id="teamStars" type="number" step="0.5" min="0.5" max="5" value="3.0" 
+                         class="admin-input" placeholder="e.g. 4.5">
+                </div>
                   <button class="admin-btn" data-action="addTeam">Register</button>
                 </div>
               </div>
@@ -815,6 +820,26 @@
       const team = teams.find(t => normalizeKey(t.name) === normalizeKey(name));
       return team ? { ...team, disqualified: false } : { name, logo: "https://i.imgur.com/xnTuRnl.png", disqualified: true };
     };
+    
+    // Function to calculate % based on stars
+const calculateWinProbability = (homeStars, awayStars) => {
+  const hS = parseFloat(homeStars) || 3.0;
+  const aS = parseFloat(awayStars) || 3.0;
+  const baseProb = 50;
+  const starDiff = hS - aS;
+  
+  // 15% shift per 1 full star + 5% Home Advantage
+  let homeWinProb = baseProb + (starDiff * 15) + 5;
+  homeWinProb = Math.min(Math.max(Math.round(homeWinProb), 5), 95);
+  return { home: homeWinProb, away: 100 - homeWinProb };
+};
+
+// Function to show star icons (optional but looks cool)
+const getStarIcons = (rating) => {
+  const r = parseFloat(rating) || 0;
+  const full = Math.floor(r);
+  return '★'.repeat(full) + (r % 1 !== 0 ? '½' : '');
+};
 
     const getMW = (m) => {
       let mw = parseInt(m.Matchweek);
@@ -1328,6 +1353,9 @@ const initSlideshow = (urls) => {
       const t1 = resolveTeam(m.team1);
       const t2 = resolveTeam(m.team2);
 
+      // Calculate the real probability
+      const prob = calculateWinProbability(t1.stars, t2.stars);
+
       contentContainer.innerHTML = `
         <div class="flex-1 w-full pt-20">
             <div class="flex items-center gap-3 mb-4">
@@ -1350,14 +1378,23 @@ const initSlideshow = (urls) => {
                 </div>
             </div>
         </div>
-        <div class="glass-card p-6 rounded-[2rem] w-full md:w-80 mb-2 border border-outline-variant/20 shadow-xl hidden lg:block bg-background/20 backdrop-blur-md">
-            <h3 class="font-headline text-sm font-bold text-tertiary mb-4 uppercase tracking-widest italic text-secondary">Match Insight</h3>
-            <div class="space-y-4 font-label text-xs text-white">
-                <div class="flex justify-between items-center"><span>WIN PROBABILITY</span><span class="font-bold">60% - 40%</span></div>
-                <div class="w-full h-1.5 bg-surface-container rounded-full overflow-hidden flex"><div class="bg-primary h-full" style="width: 60%"></div><div class="bg-tertiary h-full" style="width: 40%"></div></div>
-            </div>
-        </div>
-      `;
+        <div class="glass-card p-6 rounded-[2rem] w-80 hidden lg:block border border-white/10">
+    <h4 class="text-secondary text-[10px] font-bold uppercase mb-4 tracking-widest italic">Match Insights</h4>
+    <div class="space-y-4 text-[10px] font-bold">
+      <div class="flex justify-between">
+        <span>WIN PROBABILITY</span>
+        <span class="text-primary">${prob.home}% - ${prob.away}%</span>
+      </div>
+      <div class="h-1.5 bg-white/10 rounded-full flex overflow-hidden">
+        <div class="bg-primary transition-all duration-1000" style="width: ${prob.home}%"></div>
+        <div class="bg-error transition-all duration-1000" style="width: ${prob.away}%"></div>
+      </div>
+      <div class="flex justify-between text-[8px] opacity-40 uppercase">
+        <span>${t1.name} (${getStarIcons(t1.stars)})</span>
+        <span>${getStarIcons(t2.stars)} ${t2.name}</span>
+      </div>
+    </div>
+  </div>`;
     };
     
     // --- DATA LISTENERS ---
@@ -1684,11 +1721,12 @@ const initSlideshow = (urls) => {
       const team = document.getElementById("playerTeam").value;
       const goals = parseInt(document.getElementById("playerGoals").value) || 0;
       const assists = parseInt(document.getElementById("playerAssists").value) || 0; // New field
+      const stars = parseFloat(document.getElementById('teamStars').value) || 3.0;
 
       if (!player || !team) return alert("Fill in player name and team!");
 
       // Save to Firebase (including assists)
-      await addDoc(collection(db, "scorers"), { player, image, team, goals, assists });
+      await addDoc(collection(db, "scorers"), { player, image, team, goals, assists, stars });
 
       // Clear input fields after saving
       ["playerName", "playerImage", "playerGoals", "playerAssists"].forEach(id => document.getElementById(id).value = "");
