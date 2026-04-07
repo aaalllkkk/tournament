@@ -512,6 +512,10 @@ select[data-action="filterMatches"]:focus {
         <div class="tab flex items-center gap-3 px-4 py-3 rounded-lg text-[#a4abbe] hover:bg-[#161f32] hover:text-[#8eff71] transition-all duration-300 cursor-pointer" data-action="openTab" data-tab="scorers">
           <span class="material-symbols-outlined pointer-events-none">sports_soccer</span><span class="pointer-events-none">Top Scorers</span>
         </div>
+        <div class="tab flex items-center gap-3 px-4 py-3 rounded-lg text-[#a4abbe] hover:bg-[#161f32] hover:text-[#8eff71] transition-all duration-300 cursor-pointer" data-action="openTab" data-tab="halloffame">
+          <span class="material-symbols-outlined pointer-events-none">history_edu</span>
+          <span class="pointer-events-none">Hall of Fame</span>
+        </div>
       </nav>
     </aside>
 
@@ -754,24 +758,16 @@ select[data-action="filterMatches"]:focus {
         </div>
       </div>
 
-      <div class="px-3">
-  <button class="nav-item group w-full flex items-center gap-4 px-5 py-4 rounded-3xl transition-all duration-300 hover:bg-white/5" data-section="halloffame">
-    <div class="w-10 h-10 rounded-2xl bg-secondary/10 flex items-center justify-center group-hover:bg-secondary/20 transition-colors">
-      <span class="material-symbols-outlined text-secondary">history_edu</span>
-    </div>
-    <span class="font-bold text-sm uppercase tracking-[0.2em] text-on-surface-variant group-hover:text-white leading-none">Hall of Fame</span>
-  </button>
-</div>
-      <div id="halloffame" class="section-content hidden p-6 md:p-8">
+      <div id="halloffame" class="tab-content hidden p-6 md:p-8">
   <div class="max-w-7xl mx-auto space-y-8">
     <div class="flex justify-between items-end mb-8">
       <div>
         <h1 class="text-5xl font-black font-headline italic uppercase text-white tracking-tighter">Hall of Fame</h1>
-        <p class="text-primary text-xs font-bold tracking-[0.3em] uppercase mt-2">The Immortals of Liga King</p>
+        <p class="text-[#8eff71] text-xs font-bold tracking-[0.3em] uppercase mt-2 italic font-['Space_Grotesk']">The Immortals of Liga King</p>
       </div>
-      <button data-action="openHofModal" class="admin-only bg-white text-black px-8 py-3 rounded-full font-black text-xs uppercase hover:scale-105 transition-all shadow-xl">Add History</button>
+      <button data-action="openHofModal" class="admin-only bg-[#8eff71] text-[#070e1c] px-8 py-3 rounded-full font-black text-xs uppercase hover:scale-105 transition-all shadow-xl shadow-[#8eff71]/10">Add History</button>
     </div>
-    
+
     <div id="hofGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
       </div>
   </div>
