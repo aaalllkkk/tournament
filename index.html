@@ -513,9 +513,9 @@ select[data-action="filterMatches"]:focus {
           <span class="material-symbols-outlined pointer-events-none">sports_soccer</span><span class="pointer-events-none">Top Scorers</span>
         </div>
         <div class="tab flex items-center gap-3 px-4 py-3 rounded-lg text-[#a4abbe] hover:bg-[#161f32] hover:text-[#8eff71] transition-all duration-300 cursor-pointer" data-action="openTab" data-tab="halloffame">
-          <span class="material-symbols-outlined pointer-events-none">history_edu</span>
-          <span class="pointer-events-none">Hall of Fame</span>
-        </div>
+        <span class="material-symbols-outlined pointer-events-none">history_edu</span>
+        <span class="pointer-events-none">Hall of Fame</span>
+      </div>
       </nav>
     </aside>
 
@@ -991,12 +991,6 @@ const getStarIcons = (rating) => {
       renderTeams();
     });
 
-    // Listener Otomatis untuk Hall of Fame
-onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (snapshot) => {
-    hofData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    renderHof(); // Panggil fungsi gambar ulang
-});
-
      // --- Generate League ---
     const generateLeague = async () => {
   if (teams.length < 2) return alert("Minimal harus ada 2 tim!");
@@ -1144,48 +1138,41 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
       renderScorers();
     });
     
-    // Listener untuk mengambil data Hall of Fame dari Database
+    // 1. Jalankan fungsi ini agar data otomatis ditarik
 onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (snapshot) => {
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
-    // Panggil fungsi render
     const container = document.getElementById('hofGrid');
     if (!container) return;
 
     if (data.length === 0) {
-        container.innerHTML = `<div class="col-span-full text-center py-20 opacity-30 italic text-white text-sm">Belum ada sejarah yang tercatat.</div>`;
+        container.innerHTML = `<div class="col-span-full text-center py-20 opacity-30 italic text-white">Belum ada data history.</div>`;
         return;
     }
 
-    container.innerHTML = data.map(h => {
-        // Buat Bintang
-        let stars = "";
-        for(let i=0; i < (parseInt(h.winnerStars) || 1); i++) {
-            stars += `<span class="material-symbols-outlined text-[14px] text-yellow-400">star</span>`;
-        }
-
-        return `
-        <div class="bg-[#161f32]/40 rounded-[2.5rem] border border-white/5 overflow-hidden flex flex-col shadow-2xl group transition-all hover:border-[#8eff71]/30">
-            <div class="p-6 pb-0 flex justify-between items-center">
-                <span class="text-[10px] font-black text-[#8eff71] tracking-widest uppercase italic">${h.season}</span>
-                <div class="flex gap-0.5">${stars}</div>
+    container.innerHTML = data.map(h => `
+        <div class="bg-[#161f32]/40 rounded-[2.5rem] border border-white/5 overflow-hidden flex flex-col shadow-2xl p-8">
+            <div class="flex justify-between items-center mb-6">
+                <span class="text-[10px] font-black text-[#8eff71] uppercase tracking-widest italic">${h.season}</span>
+                <div class="flex text-yellow-400">${'⭐'.repeat(h.winnerStars || 1)}</div>
             </div>
-            <div class="p-8 flex flex-col items-center">
-                <img src="${h.winnerLogo || 'https://i.imgur.com/xnTuRnl.png'}" class="w-20 h-20 object-contain mb-4 drop-shadow-2xl group-hover:scale-110 transition-all">
-                <h3 class="text-xl font-black text-white uppercase italic text-center leading-none">${h.winnerTeam}</h3>
-                <p class="text-[10px] font-bold text-[#a4abbe] uppercase mt-2">Manager: <span class="text-white">${h.winnerPlayer}</span></p>
+            <div class="flex flex-col items-center mb-6">
+                <img src="${h.winnerLogo || 'https://i.imgur.com/xnTuRnl.png'}" class="w-20 h-20 object-contain mb-4">
+                <h3 class="text-xl font-black text-white uppercase italic font-['Space_Grotesk']">${h.winnerTeam}</h3>
+                <p class="text-[10px] font-bold text-[#a4abbe] uppercase mt-1 italic">Manager: ${h.winnerPlayer}</p>
             </div>
-            ${h.cupWinner ? `
-            <div class="mx-6 p-4 bg-white/5 rounded-2xl mb-4 flex justify-between items-center border border-white/5">
-                <div><p class="text-[8px] font-bold text-[#8eff71] uppercase tracking-widest leading-none">Cup Champion</p><p class="text-xs font-black text-white uppercase mt-1">${h.cupWinner}</p></div>
-                <span class="material-symbols-outlined text-[#8eff71] opacity-40">workspace_premium</span>
-            </div>` : ''}
-            <div class="mt-auto bg-black/40 p-6 border-t border-white/5 flex justify-between items-center">
-                <div><p class="text-[8px] font-bold text-[#a4abbe] uppercase tracking-widest">Golden Boot</p><p class="text-sm font-black text-white uppercase italic">${h.topScorer}</p></div>
-                <div class="text-right"><p class="text-3xl font-black text-[#8eff71] leading-none">${h.goals}</p><p class="text-[8px] font-bold opacity-40">GOALS</p></div>
+            <div class="bg-black/30 p-4 rounded-2xl flex justify-between items-center mt-auto border border-white/5">
+                <div>
+                    <p class="text-[8px] font-bold text-[#a4abbe] uppercase tracking-widest">Golden Boot</p>
+                    <p class="text-xs font-black text-white uppercase italic leading-none mt-1">${h.topScorer}</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-2xl font-black text-[#8eff71] leading-none">${h.goals}</p>
+                    <p class="text-[8px] font-bold opacity-40 uppercase tracking-widest">Goals</p>
+                </div>
             </div>
-        </div>`;
-    }).join("");
+        </div>
+    `).join("");
 });
 
     onSnapshot(collection(db, "news"), snap => {
