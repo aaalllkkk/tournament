@@ -701,25 +701,6 @@ select[data-action="filterMatches"]:focus {
         </div>
       </div>
 
-      <button class="tab-btn flex items-center gap-4 w-full px-6 py-4 rounded-2xl text-on-surface-variant hover:bg-white/5 hover:text-white transition-all font-bold group" data-target="hallOfFameTab">
-    <span class="material-symbols-outlined text-2xl group-hover:text-primary transition-colors">history_edu</span>
-    <span class="uppercase tracking-widest text-xs">Hall of Fame</span>
-</button>
-      <section id="hallOfFameTab" class="tab-content hidden p-6">
-    <div class="max-w-7xl mx-auto">
-        <div class="flex justify-between items-end mb-12">
-            <div>
-                <h1 class="text-5xl font-black font-headline italic uppercase text-white tracking-tighter">Hall of Fame</h1>
-                <p class="text-primary text-xs font-bold tracking-[0.3em] uppercase mt-2">The Immortals of Liga King</p>
-            </div>
-            <button data-action="openHofModal" class="admin-only bg-white text-black px-6 py-2 rounded-full font-black text-xs uppercase hover:scale-105 transition-all">Add History</button>
-        </div>
-
-        <div id="hofGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            </div>
-    </div>
-</section>
-
       <div id="knockout" class="section p-6 md:p-12">
         <div class="max-w-7xl mx-auto">
           <header class="mb-8 flex justify-between items-end">
@@ -772,6 +753,29 @@ select[data-action="filterMatches"]:focus {
           </div>
         </div>
       </div>
+
+      <div class="px-3">
+  <button class="nav-item group w-full flex items-center gap-4 px-5 py-4 rounded-3xl transition-all duration-300 hover:bg-white/5" data-section="halloffame">
+    <div class="w-10 h-10 rounded-2xl bg-secondary/10 flex items-center justify-center group-hover:bg-secondary/20 transition-colors">
+      <span class="material-symbols-outlined text-secondary">history_edu</span>
+    </div>
+    <span class="font-bold text-sm uppercase tracking-[0.2em] text-on-surface-variant group-hover:text-white">Hall of Fame</span>
+  </button>
+</div>
+      <section id="halloffame" class="section-content hidden p-6 md:p-8">
+  <div class="max-w-7xl mx-auto space-y-8">
+    <div class="flex justify-between items-end">
+      <div>
+        <h1 class="text-5xl font-black font-headline italic uppercase text-white tracking-tighter shadow-primary/20 drop-shadow-lg">Hall of Fame</h1>
+        <p class="text-primary text-xs font-bold tracking-[0.3em] uppercase mt-2">The Immortals of Liga King</p>
+      </div>
+      <button data-action="openHofModal" class="admin-only bg-white text-black px-8 py-3 rounded-full font-black text-xs uppercase hover:scale-105 transition-all shadow-xl shadow-white/10">Add History</button>
+    </div>
+
+    <div id="hofGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      </div>
+  </div>
+</section>
 
       <div id="admin" class="section">
         <div class="max-w-md mx-auto mt-20 bg-surface-container-high p-8 md:p-10 rounded-[2rem] shadow-2xl border border-outline-variant/10 relative overflow-hidden">
