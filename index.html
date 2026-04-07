@@ -869,7 +869,7 @@ select[data-action="filterMatches"]:focus {
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, setDoc, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     const firebaseConfig = {
@@ -896,6 +896,7 @@ select[data-action="filterMatches"]:focus {
     let championsCutoff = 4;
     let playoffCutoff = 8;
     let currentLink = null;
+    let hofData = []; // Tempat simpan data Hall of Fame
     
     // Variabel Global untuk Slideshow
     let slideshowInterval = null;
@@ -983,6 +984,12 @@ const getStarIcons = (rating) => {
       renderNodes();
       renderTeams();
     });
+
+    // Listener Otomatis untuk Hall of Fame
+onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (snapshot) => {
+    hofData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    renderHof(); // Panggil fungsi gambar ulang
+});
 
      // --- Generate League ---
     const generateLeague = async () => {
@@ -1336,57 +1343,56 @@ const getStarIcons = (rating) => {
                 </div>`).join("");
     };
 
-    const renderHof = (hofData) => {
+    const renderHof = () => {
     const container = document.getElementById("hofGrid");
-    if (!container) return;
+    if (!container) return; // Mencegah error jika elemen tidak ditemukan
+
+    if (hofData.length === 0) {
+        container.innerHTML = `<p class="text-on-surface-variant italic opacity-50 col-span-full text-center py-10">Belum ada sejarah tercatat...</p>`;
+        return;
+    }
 
     container.innerHTML = hofData.map(h => {
-        // Generate Bintang berdasarkan jumlah juara
-        let stars = "";
-        for(let i=0; i < (h.winnerStars || 1); i++) {
-            stars += `<span class="material-symbols-outlined text-[12px] text-yellow-400">star</span>`;
+        // Logika Bintang
+        let starsHTML = "";
+        const starCount = parseInt(h.winnerStars) || 1;
+        for(let i=0; i < starCount; i++) {
+            starsHTML += `<span class="material-symbols-outlined text-[14px] text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.5)]">star</span>`;
         }
 
         return `
-        <div class="relative bg-surface-container-high rounded-[3rem] overflow-hidden border border-white/5 shadow-2xl group">
-            <div class="p-8 pb-0 flex justify-between items-center">
-                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">${h.season}</span>
-                <div class="flex">${stars}</div>
+        <div class="bg-surface-container-high rounded-[2.5rem] border border-white/5 overflow-hidden flex flex-col shadow-xl group">
+            <div class="p-6 pb-0 flex justify-between items-center">
+                <span class="text-[10px] font-black text-primary tracking-widest uppercase">${h.season}</span>
+                <div class="flex gap-0.5">${starsHTML}</div>
             </div>
 
-            <div class="p-8 pt-4 flex flex-col items-center text-center">
-                <div class="relative mb-4">
-                    <img src="${h.winnerLogo || 'https://via.placeholder.com/100'}" class="w-24 h-24 object-contain drop-shadow-2xl group-hover:scale-110 transition-transform">
-                    <div class="absolute -bottom-2 -right-2 bg-secondary text-on-secondary w-8 h-8 rounded-full flex items-center justify-center shadow-lg">
-                        <span class="material-symbols-outlined text-sm">emoji_events</span>
-                    </div>
-                </div>
-                <h3 class="text-2xl font-black uppercase italic text-white">${h.winnerTeam}</h3>
-                <p class="text-primary text-[10px] font-bold uppercase tracking-widest mt-1 italic">Driven by ${h.winnerPlayer}</p>
+            <div class="p-8 flex flex-col items-center">
+                <img src="${h.winnerLogo || 'https://i.imgur.com/xnTuRnl.png'}" class="w-20 h-20 object-contain mb-4 drop-shadow-2xl transition-transform group-hover:scale-110">
+                <h3 class="text-xl font-black text-white uppercase italic">${h.winnerTeam}</h3>
+                <p class="text-[10px] font-bold text-on-surface-variant uppercase mt-1">Player: ${h.winnerPlayer}</p>
             </div>
 
             ${h.cupWinner ? `
-            <div class="mx-8 p-4 rounded-2xl bg-white/5 border border-white/5 mb-4 flex items-center justify-between">
+            <div class="mx-6 p-4 bg-white/5 rounded-2xl mb-4 flex justify-between items-center border border-white/5">
                 <div>
-                    <p class="text-[8px] uppercase font-bold text-on-surface-variant tracking-widest">Cup Winner</p>
-                    <p class="text-xs font-black uppercase text-white">${h.cupWinner}</p>
+                    <p class="text-[8px] font-bold text-secondary uppercase tracking-widest leading-none">Cup Champion</p>
+                    <p class="text-xs font-black text-white uppercase mt-1">${h.cupWinner}</p>
                 </div>
-                <span class="material-symbols-outlined text-secondary opacity-50">trophy</span>
-            </div>
-            ` : ''}
+                <span class="material-symbols-outlined text-secondary opacity-40">workspace_premium</span>
+            </div>` : ''}
 
-            <div class="bg-black/20 p-6 flex justify-between items-center mt-auto border-t border-white/5">
+            <div class="mt-auto bg-black/20 p-5 border-t border-white/5 flex justify-between items-center">
                 <div>
-                    <p class="text-[8px] uppercase font-bold text-on-surface-variant tracking-widest">Golden Boot</p>
-                    <p class="text-sm font-black uppercase text-white italic">${h.topScorer}</p>
+                    <p class="text-[8px] font-bold text-on-surface-variant uppercase tracking-widest">Top Scorer</p>
+                    <p class="text-sm font-black text-white uppercase italic">${h.topScorer}</p>
                 </div>
                 <div class="text-right">
-                    <p class="text-2xl font-black text-secondary leading-none">${h.goals}</p>
-                    <p class="text-[8px] uppercase font-bold opacity-50">Goals</p>
+                    <p class="text-2xl font-black text-primary leading-none">${h.goals}</p>
+                    <p class="text-[8px] font-bold opacity-40">GOALS</p>
                 </div>
             </div>
-        </div>
-        `;
+        </div>`;
     }).join("");
 };
 
@@ -1967,33 +1973,32 @@ const initSlideshow = (urls) => {
     };
 
     // Fungsi untuk menyimpan data HOF dari Modal
-const saveHofEntry = async () => {
-    const data = {
-        season: document.getElementById('hofSeason').value,
-        winnerTeam: document.getElementById('hofWinnerTeam').value,
-        winnerPlayer: document.getElementById('hofWinnerPlayer').value,
-        winnerLogo: document.getElementById('hofWinnerLogo').value,
-        winnerStars: parseInt(document.getElementById('hofWinnerStars').value) || 1,
-        cupWinner: document.getElementById('hofCupWinner').value,
-        topScorer: document.getElementById('hofTopScorer').value,
-        goals: parseInt(document.getElementById('hofGoals').value) || 0,
-        createdAt: serverTimestamp()
-    };
-
-    if (!data.season || !data.winnerTeam) return alert("Please fill Season and Winner Team!");
+// Gunakan window agar bisa diakses dari HTML jika perlu
+window.saveHofEntry = async () => {
+    const s = document.getElementById('hofSeason').value;
+    const wt = document.getElementById('hofWinnerTeam').value;
+    
+    if(!s || !wt) return alert("Season dan Team Juara wajib diisi!");
 
     try {
-        await addDoc(collection(db, "halloffame"), data);
+        await addDoc(collection(db, "halloffame"), {
+            season: s,
+            winnerTeam: wt,
+            winnerPlayer: document.getElementById('hofWinnerPlayer').value || "-",
+            winnerLogo: document.getElementById('hofWinnerLogo').value || "",
+            winnerStars: parseInt(document.getElementById('hofWinnerStars').value) || 1,
+            cupWinner: document.getElementById('hofCupWinner').value || "",
+            topScorer: document.getElementById('hofTopScorer').value || "-",
+            goals: parseInt(document.getElementById('hofGoals').value) || 0,
+            createdAt: serverTimestamp()
+        });
+        
         document.getElementById('hofModal').classList.add('hidden');
-        // Reset Form
-        document.querySelectorAll('#hofModal input').forEach(input => input.value = "");
+        alert("Sejarah Berhasil Dicatat!");
     } catch (e) {
-        console.error("Error adding HOF: ", e);
+        alert("Error: " + e.message);
     }
 };
-
-// Hubungkan tombol save ke fungsi
-document.getElementById('saveHofBtn').addEventListener('click', saveHofEntry);
 
     const exportBackup = () => alert("Backup logic to be implemented.");
     const importBackup = (e) => alert("Import logic to be implemented.");
