@@ -918,6 +918,29 @@ select[data-action="filterMatches"]:focus {
       return team ? { ...team, disqualified: false } : { name, logo: "https://i.imgur.com/xnTuRnl.png", disqualified: true };
     };
     
+    // Cari fungsi ini di script kamu dan pastikan isinya mencakup hal ini:
+function openTab(tabId) {
+  // 1. Sembunyikan SEMUA elemen yang punya class tab-content
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.add('hidden');
+  });
+
+  // 2. Tampilkan elemen yang ID-nya sesuai dengan data-tab di sidebar
+  const targetTab = document.getElementById(tabId);
+  if (targetTab) {
+    targetTab.classList.remove('hidden');
+    console.log("Membuka tab:", tabId); // Untuk cek di F12 jika masih kosong
+  }
+
+  // 3. Update tampilan tombol sidebar (active state)
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.remove('active', 'text-[#8eff71]', 'bg-[#161f32]');
+  });
+  
+  const activeBtn = document.querySelector(`[data-tab="${tabId}"]`);
+  if (activeBtn) activeBtn.classList.add('active', 'text-[#8eff71]', 'bg-[#161f32]');
+}
+    
     // Function to calculate % based on stars
 const calculateWinProbability = (homeStars, awayStars, s1 = 0, s2 = 0) => {
   const hS = parseFloat(homeStars) || 3.0;
