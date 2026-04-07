@@ -759,23 +759,23 @@ select[data-action="filterMatches"]:focus {
     <div class="w-10 h-10 rounded-2xl bg-secondary/10 flex items-center justify-center group-hover:bg-secondary/20 transition-colors">
       <span class="material-symbols-outlined text-secondary">history_edu</span>
     </div>
-    <span class="font-bold text-sm uppercase tracking-[0.2em] text-on-surface-variant group-hover:text-white">Hall of Fame</span>
+    <span class="font-bold text-sm uppercase tracking-[0.2em] text-on-surface-variant group-hover:text-white leading-none">Hall of Fame</span>
   </button>
 </div>
-      <section id="halloffame" class="section-content hidden p-6 md:p-8">
+      <div id="halloffame" class="section-content hidden p-6 md:p-8">
   <div class="max-w-7xl mx-auto space-y-8">
-    <div class="flex justify-between items-end">
+    <div class="flex justify-between items-end mb-8">
       <div>
-        <h1 class="text-5xl font-black font-headline italic uppercase text-white tracking-tighter shadow-primary/20 drop-shadow-lg">Hall of Fame</h1>
+        <h1 class="text-5xl font-black font-headline italic uppercase text-white tracking-tighter">Hall of Fame</h1>
         <p class="text-primary text-xs font-bold tracking-[0.3em] uppercase mt-2">The Immortals of Liga King</p>
       </div>
-      <button data-action="openHofModal" class="admin-only bg-white text-black px-8 py-3 rounded-full font-black text-xs uppercase hover:scale-105 transition-all shadow-xl shadow-white/10">Add History</button>
+      <button data-action="openHofModal" class="admin-only bg-white text-black px-8 py-3 rounded-full font-black text-xs uppercase hover:scale-105 transition-all shadow-xl">Add History</button>
     </div>
-
+    
     <div id="hofGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
       </div>
   </div>
-</section>
+</div>
 
       <div id="admin" class="section">
         <div class="max-w-md mx-auto mt-20 bg-surface-container-high p-8 md:p-10 rounded-[2rem] shadow-2xl border border-outline-variant/10 relative overflow-hidden">
@@ -2051,9 +2051,10 @@ window.saveHofEntry = async () => {
     else if (action === 'deleteScorer') await deleteScorer(btn.dataset.id);
       
     // Tambahkan baris ini di antara else if lainnya
-    else if (action === 'openHofModal') {
-        document.getElementById('hofModal').classList.remove('hidden');
-    }
+    if (action === 'openHofModal') {
+    const modal = document.getElementById('hofModal');
+    if(modal) modal.classList.remove('hidden');
+}
     
     // Knockout & Others
     else if (action === 'createNode') await createNode();
