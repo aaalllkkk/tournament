@@ -1699,36 +1699,67 @@ const initSlideshow = (urls) => {
     };
 
     const renderNews = () => {
-    // Pastikan array 'news' berisi objek yang punya property 'id'
+    const newsList = document.getElementById("newsList");
+    if (!newsList) return;
+
     const displayNews = news.sort((a, b) => b.time - a.time).slice(0, 3);
-    
-    document.getElementById("newsList").innerHTML = displayNews.map((n, i) => i === 0 ? `
-        <div class="md:col-span-2 relative h-64 rounded-[2rem] overflow-hidden group cursor-pointer border border-outline-variant/10 shadow-lg" 
-             onclick="window.openNewsDetail('${n.id}')">
-            ${n.image ? `<img src="${n.image}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">` : `<div class="w-full h-full bg-surface-container"></div>`}
-            <div class="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
-            <div class="absolute bottom-0 p-8 w-full">
-                <span class="px-3 py-1 bg-primary text-[#064200] text-[10px] font-bold rounded-full mb-3 inline-block font-label uppercase tracking-widest">LATEST UPDATE</span>
-                <h2 class="font-headline text-2xl md:text-3xl font-bold leading-tight max-w-2xl text-white group-hover:text-primary transition-colors">${n.title}</h2>
-                <p class="text-on-surface-variant text-sm mt-2 font-body line-clamp-1">${n.content}</p>
-            </div>
-        </div>` : `
-        <div class="surface-container-high rounded-[2rem] overflow-hidden hover:bg-surface-container-highest transition-all group border border-outline-variant/10 shadow-lg cursor-pointer"
-             onclick="window.openNewsDetail('${n.id}')">
-            <div class="h-40 relative overflow-hidden">
+
+    // 1. Render HTML-nya tanpa onclick dulu
+    newsList.innerHTML = displayNews.map((n, i) => {
+        const isLarge = i === 0;
+        return `
+            <div class="news-card ${isLarge ? 'md:col-span-2 h-64' : 'surface-container-high h-auto'} relative rounded-[2rem] overflow-hidden group cursor-pointer border border-white/10 shadow-lg" 
+                 data-index="${i}">
                 ${n.image ? `<img src="${n.image}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">` : `<div class="w-full h-full bg-surface-container"></div>`}
-                <div class="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span class="material-symbols-outlined text-4xl text-primary">visibility</span>
+                <div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"></div>
+                <div class="absolute bottom-0 p-6 w-full">
+                    <h2 class="${isLarge ? 'text-2xl md:text-3xl' : 'text-lg'} font-headline font-bold text-white group-hover:text-primary transition-colors">${n.title}</h2>
+                    ${isLarge ? `<p class="text-on-surface-variant text-sm mt-2 line-clamp-1">${n.content}</p>` : ''}
                 </div>
-            </div>
-            <div class="p-5">
-                <span class="text-tertiary text-[10px] font-bold font-label uppercase tracking-widest">${new Date(n.time).toLocaleDateString()}</span>
-                <h4 class="font-headline font-bold text-lg mt-1 group-hover:text-tertiary transition-colors leading-tight line-clamp-2">${n.title}</h4>
-            </div>
-        </div>`
-    ).join("") || "<p class='text-on-surface-variant p-4'>No news published yet.</p>";
+            </div>`;
+    }).join("");
+
+    // 2. Berikan fungsi klik ke setiap kartu secara manual
+    document.querySelectorAll('.news-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const index = card.getAttribute('data-index');
+            const selected = displayNews[index];
+            showModal(selected);
+        });
+    });
 };
 
+// 3. Fungsi untuk memunculkan modal
+const showModal = (data) => {
+    const modal = document.getElementById("newsModal");
+    const container = document.getElementById("modalDetailContent");
+
+    container.innerHTML = `
+        ${data.image ? `<img src="${data.image}" class="w-full h-64 object-cover rounded-3xl mb-6 shadow-xl">` : ''}
+        <h2 class="font-headline text-3xl font-black uppercase text-primary mb-4 italic">${data.title}</h2>
+        <div class="text-on-surface-variant leading-relaxed text-lg whitespace-pre-line">
+            ${data.content}
+        </div>
+    `;
+
+    modal.classList.remove("hidden");
+    modal.classList.add("flex"); // Tambahkan flex agar muncul di tengah
+    document.body.style.overflow = "hidden";
+};
+
+// 4. Fungsi Tutup Modal
+const closeModal = () => {
+    const modal = document.getElementById("newsModal");
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+    document.body.style.overflow = "auto";
+};
+
+// Pasang event listener untuk tombol tutup
+document.getElementById("closeModalBtn").onclick = closeModal;
+document.getElementById("closeBackdrop").onclick = closeModal;
+
+    
     const renderScorers = () => {
       const keyword = (document.getElementById("searchScorer")?.value || "").toLowerCase();
       const sorted = [...scorers].filter(s => s.player.toLowerCase().includes(keyword) || s.team.toLowerCase().includes(keyword)).sort((a, b) => b.goals - a.goals);
@@ -2336,14 +2367,13 @@ window.showHofDetail = (id) => {
 </div>
 
   //detail news modal//
-  <div id="newsModal" class="fixed inset-0 z-[999] hidden flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-black/90 backdrop-blur-md" onclick="window.closeNewsModal()"></div>
-    <div class="relative bg-surface-container-high w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-[2rem] border border-outline-variant/20 shadow-2xl p-6 md:p-10">
-        <button class="absolute top-6 right-6 text-on-surface-variant hover:text-primary transition-colors" onclick="window.closeNewsModal()">
+  <div id="newsModal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/90 backdrop-blur-md" id="closeBackdrop"></div>
+    <div class="relative bg-[#161f32] w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-[2rem] border border-white/10 shadow-2xl p-6 md:p-10 text-white">
+        <button class="absolute top-6 right-6 text-gray-400 hover:text-white" id="closeModalBtn">
             <span class="material-symbols-outlined">close</span>
         </button>
-        <div id="modalDetailContent" class="text-on-surface">
-            </div>
+        <div id="modalDetailContent"></div>
     </div>
 </div>
   
