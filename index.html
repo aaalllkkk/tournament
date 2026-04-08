@@ -1402,18 +1402,16 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
   if (!container) return;
 
   if (data.length === 0) {
-    container.innerHTML = `<div class="col-span-full text-center py-20 text-white/30 italic">Belum ada data sejarah.</div>`;
+    container.innerHTML = `<div class="col-span-full text-center py-20 text-white/30 italic font-['Space_Grotesk']">Belum ada data sejarah.</div>`;
     return;
   }
 
   container.innerHTML = data.map(h => {
-    // 1. Logika Bintang
     let stars = "";
     for(let i=0; i < (parseInt(h.winnerStars) || 1); i++) {
       stars += `<span class="material-symbols-outlined text-[14px] text-yellow-400">star</span>`;
     }
 
-    // 2. KEMBALIKAN HTML BARU (Ubah semua bagian setelah return)
     return `
     <div onclick="showHofDetail('${h.id}')" class="cursor-pointer group bg-[#161f32]/40 rounded-[2.5rem] border border-white/5 overflow-hidden flex flex-col shadow-2xl transition-all hover:border-[#8eff71]/30 hover:scale-[1.02] active:scale-95">
       
@@ -1423,24 +1421,28 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
       </div>
 
       <div class="p-8 flex flex-col items-center">
-        <div class="relative mb-4">
-            <img src="${h.winnerLogo || 'https://i.imgur.com/xnTuRnl.png'}" class="w-20 h-20 object-contain drop-shadow-2xl group-hover:rotate-6 transition-transform">
-        </div>
+        <img src="${h.winnerLogo || 'https://i.imgur.com/xnTuRnl.png'}" class="w-20 h-20 object-contain mb-4 drop-shadow-2xl group-hover:rotate-6 transition-transform">
         <h3 class="text-xl font-black text-white uppercase italic text-center leading-none font-['Space_Grotesk']">${h.winnerTeam}</h3>
         <p class="text-[10px] font-bold text-[#a4abbe] uppercase mt-2 font-['Space_Grotesk']">Manager: <span class="text-white">${h.winnerPlayer}</span></p>
       </div>
 
+      ${h.cupWinner && h.cupWinner !== "N/A" ? `
+      <div class="mx-6 p-3 bg-white/5 rounded-2xl mb-4 flex justify-between items-center border border-white/5">
+        <div>
+          <p class="text-[7px] font-bold text-[#8eff71] uppercase tracking-tighter">Cup Winner</p>
+          <p class="text-[10px] font-black text-white uppercase leading-none mt-1">${h.cupWinner}</p>
+        </div>
+        <span class="material-symbols-outlined text-[#8eff71] text-lg opacity-40">workspace_premium</span>
+      </div>` : ''}
+
       <div class="mt-auto bg-black/40 p-6 border-t border-white/5 flex justify-between items-center backdrop-blur-md">
         <div>
           <p class="text-[8px] font-bold text-[#a4abbe] uppercase tracking-widest font-['Space_Grotesk']">Golden Boot</p>
-          <p class="text-sm font-black text-white uppercase italic font-['Space_Grotesk']">${h.topScorer}</p>
+          <p class="text-sm font-black text-white uppercase italic font-['Space_Grotesk'] leading-none mt-1">${h.topScorer}</p>
         </div>
-        <div class="flex items-center gap-2">
-           <div class="text-right">
-             <p class="text-2xl font-black text-[#8eff71] leading-none font-['Space_Grotesk']">${h.goals}</p>
-             <p class="text-[8px] font-bold opacity-40 uppercase">Goals</p>
-           </div>
-           <span class="material-symbols-outlined text-white/20 group-hover:text-[#8eff71] transition-colors">arrow_forward_ios</span>
+        <div class="text-right">
+          <p class="text-2xl font-black text-[#8eff71] leading-none font-['Space_Grotesk']">${h.goals}</p>
+          <p class="text-[8px] font-bold opacity-40 uppercase">Goals</p>
         </div>
       </div>
     </div>`;
@@ -2027,58 +2029,42 @@ const initSlideshow = (urls) => {
 // Gunakan window agar bisa diakses dari HTML jika perlu
 // 1. Update Simpan (Tambahkan Deskripsi & Foto Scorer)
 window.saveHofEntry = async () => {
-    const data = {
-        season: document.getElementById('hofSeason').value,
-        winnerTeam: document.getElementById('hofWinnerTeam').value,
-        winnerPlayer: document.getElementById('hofWinnerPlayer').value,
-        winnerLogo: document.getElementById('hofWinnerLogo').value,
-        winnerStars: parseInt(document.getElementById('hofWinnerStars').value) || 1,
-        cupWinner: document.getElementById('hofCupWinner').value || "N/A",
-        topScorer: document.getElementById('hofTopScorer').value,
-        scorerPhoto: document.getElementById('hofScorerPhoto').value || "", // FOTO TOP SCORER
-        description: document.getElementById('hofDescription').value || "No description available.", // DESKRIPSI
-        goals: parseInt(document.getElementById('hofGoals').value) || 0,
-        createdAt: serverTimestamp()
-    };
-    // ... logic push ke Firestore ...
-};
-
-// 2. Fungsi Tampilkan Detail
-window.showHofDetail = (id) => {
-    // Cari data berdasarkan ID yang diklik
-    const item = hallOfFameData.find(h => h.id === id);
-    if (!item) {
-        console.error("Data tidak ditemukan untuk ID:", id);
+  try {
+    // Ambil semua nilai dari input
+    const season = document.getElementById('hofSeason').value;
+    const winnerTeam = document.getElementById('hofWinnerTeam').value;
+    
+    if (!season || !winnerTeam) {
+        alert("Season dan Nama Tim Juara wajib diisi!");
         return;
     }
 
-    // Isi konten Modal Detail
-    document.getElementById('detailSeasonName').innerText = item.season || "Unknown Season";
-    document.getElementById('detailWinnerTeam').innerText = item.winnerTeam || "Unknown Team";
-    document.getElementById('detailTopScorer').innerText = item.topScorer || "-";
-    document.getElementById('detailGoals').innerText = (item.goals || 0) + " GOALS";
-    document.getElementById('detailCupWinner').innerText = item.cupWinner || "No Cup Info";
-    document.getElementById('detailDescription').innerText = item.description || "No description for this season.";
-    
-    // Render Hero Image Top Scorer
-    const heroContainer = document.getElementById('detailScorerHero');
-    if (heroContainer) {
-        heroContainer.innerHTML = `
-            <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10"></div>
-            <img src="${item.scorerPhoto || 'https://i.imgur.com/xnTuRnl.png'}" 
-                 class="h-[90%] w-auto object-contain relative z-0 drop-shadow-[0_20px_50px_rgba(142,255,113,0.3)]">
-            <div class="absolute bottom-8 left-8 z-20">
-                <span class="bg-[#8eff71] text-black px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Golden Boot Winner</span>
-            </div>
-        `;
-    }
+    const data = {
+      season: season,
+      winnerTeam: winnerTeam,
+      winnerPlayer: document.getElementById('hofWinnerPlayer').value,
+      winnerLogo: document.getElementById('hofWinnerLogo').value,
+      winnerStars: parseInt(document.getElementById('hofWinnerStars').value) || 1,
+      cupWinner: document.getElementById('hofCupWinner').value || "N/A",
+      topScorer: document.getElementById('hofTopScorer').value,
+      goals: parseInt(document.getElementById('hofGoals').value) || 0,
+      scorerPhoto: document.getElementById('hofScorerPhoto').value || "", // Pastikan ID ini ada di HTML
+      description: document.getElementById('hofDescription').value || "", // Pastikan ID ini ada di HTML
+      createdAt: serverTimestamp()
+    };
 
-    // Tampilkan Modal
-    const modal = document.getElementById('hofDetailModal');
-    if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex'); // Pastikan menggunakan flex agar posisi tengah
-    }
+    await addDoc(collection(db, "halloffame"), data);
+    
+    // Tutup Modal & Reset Form
+    document.getElementById('hofModal').classList.add('hidden');
+    // Reset semua input (opsional tapi disarankan)
+    document.querySelectorAll('#hofModal input, #hofModal textarea').forEach(input => input.value = "");
+    
+    alert("History Season Berhasil Disimpan!");
+  } catch (error) {
+    console.error("Error saving history:", error);
+    alert("Gagal menyimpan data: " + error.message);
+  }
 };
 
     const exportBackup = () => alert("Backup logic to be implemented.");
