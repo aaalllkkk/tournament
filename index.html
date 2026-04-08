@@ -905,11 +905,6 @@ select[data-action="filterMatches"]:focus {
     let currentLink = null;
     let hofData = []; // Tempat simpan data Hall of Fame
     let hallOfFameData = []; 
-
-onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (snapshot) => {
-    hallOfFameData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    renderHof(hallOfFameData);
-});
     
     // Variabel Global untuk Slideshow
     let slideshowInterval = null;
@@ -950,6 +945,40 @@ const calculateWinProbability = (homeStars, awayStars, s1 = 0, s2 = 0) => {
   homeWinProb = Math.min(Math.max(Math.round(homeWinProb), 5), 95);
   
   return { home: homeWinProb, away: 100 - homeWinProb };
+};
+
+    //(Setelah Import)
+window.showHofDetail = (id) => {
+    // Ambil data dari variabel global hallOfFameData
+    const item = window.hallOfFameData ? window.hallOfFameData.find(h => h.id === id) : null;
+    
+    if (!item) {
+        console.error("Data tidak ditemukan untuk ID:", id);
+        return;
+    }
+
+    // Isi data ke dalam Modal
+    document.getElementById('detailSeasonName').innerText = item.season;
+    document.getElementById('detailWinnerTeam').innerText = item.winnerTeam;
+    document.getElementById('detailTopScorer').innerText = item.topScorer;
+    document.getElementById('detailGoals').innerText = `${item.goals} GOALS`;
+    document.getElementById('detailCupWinner').innerText = item.cupWinner || "N/A";
+    document.getElementById('detailDescription').innerText = item.description || "No description available for this season.";
+    
+    // Foto Top Scorer
+    const hero = document.getElementById('detailScorerHero');
+    if (hero) {
+        hero.innerHTML = `
+            <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10"></div>
+            <img src="${item.scorerPhoto || 'https://i.imgur.com/xnTuRnl.png'}" 
+                 class="h-[85%] w-auto object-contain relative z-0 drop-shadow-[0_20px_50px_rgba(142,255,113,0.3)]">
+        `;
+    }
+
+    // Tampilkan Modal
+    const modal = document.getElementById('hofDetailModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
 };
 
     
@@ -1149,6 +1178,8 @@ const getStarIcons = (rating) => {
 onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (snapshot) => {
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const container = document.getElementById('hofGrid');
+    window.hallOfFameData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    renderHof(window.hallOfFameData);
     if (!container) return;
 
     if (data.length === 0) {
@@ -1451,43 +1482,7 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
     </div>`;
   }).join("");
 };
-    window.showHofDetail = (id) => {
-    console.log("Membuka detail untuk ID:", id); // Cek di console (F12)
     
-    const item = hallOfFameData.find(h => h.id === id);
-    if (!item) {
-        console.error("Data tidak ditemukan!");
-        return;
-    }
-
-    // Isi teks ke Modal
-    document.getElementById('detailSeasonName').innerText = item.season || "Season Info";
-    document.getElementById('detailWinnerTeam').innerText = item.winnerTeam || "Team Name";
-    document.getElementById('detailTopScorer').innerText = item.topScorer || "-";
-    document.getElementById('detailGoals').innerText = (item.goals || 0) + " GOALS";
-    document.getElementById('detailCupWinner').innerText = item.cupWinner || "N/A";
-    
-    // PERBAIKAN DESKRIPSI: Jika kosong, tampilkan teks default
-    document.getElementById('detailDescription').innerText = item.description || "No special story recorded for this season.";
-    
-    // Foto Top Scorer
-    const heroContainer = document.getElementById('detailScorerHero');
-    if (heroContainer) {
-        heroContainer.innerHTML = `
-            <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10"></div>
-            <img src="${item.scorerPhoto || 'https://i.imgur.com/xnTuRnl.png'}" 
-                 class="h-[85%] w-auto object-contain relative z-0 drop-shadow-[0_20px_50px_rgba(142,255,113,0.3)]">
-        `;
-    }
-
-    // Tampilkan Modal
-    const modal = document.getElementById('hofDetailModal');
-    if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-    }
-};
-
     const calculateStandings = () => {
       let table = teams.reduce((acc, t) => ({ ...acc, [t.name]: { team: t.name, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 } }), {});
       matches.forEach(m => {
@@ -2256,36 +2251,33 @@ window.saveHofEntry = async () => {
         </div>
     </div>
 </div>
-  <div id="hofDetailModal" class="fixed inset-0 z-[110] hidden flex items-center justify-center p-4 bg-background/90 backdrop-blur-md">
-    <div class="bg-surface-container-high w-full max-w-4xl rounded-[3rem] border border-white/10 shadow-2xl overflow-hidden relative">
-        <button onclick="document.getElementById('hofDetailModal').classList.add('hidden')" class="absolute top-6 right-6 z-50 bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full flex items-center justify-center text-white transition-all">
+  <div id="hofDetailModal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
+    <div class="bg-[#161f32] w-full max-w-4xl rounded-[3rem] border border-white/10 shadow-2xl overflow-hidden relative font-['Space_Grotesk']">
+        <button onclick="document.getElementById('hofDetailModal').classList.add('hidden'); document.getElementById('hofDetailModal').classList.remove('flex');" 
+                class="absolute top-6 right-6 z-[100] bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full flex items-center justify-center text-white">
             <span class="material-symbols-outlined">close</span>
         </button>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 h-full max-h-[90vh] overflow-y-auto">
-            <div id="detailScorerHero" class="relative bg-black/40 min-h-[400px] flex items-end justify-center overflow-hidden border-r border-white/5">
-                </div>
-
-            <div class="p-8 lg:p-12 space-y-8">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2">
+            <div id="detailScorerHero" class="relative bg-black/40 min-h-[400px] flex items-end justify-center overflow-hidden border-r border-white/5"></div>
+            <div class="p-8 lg:p-12 space-y-6">
                 <div>
-                    <h4 id="detailSeasonName" class="text-[#8eff71] font-black uppercase tracking-[0.3em] text-xs italic mb-2"></h4>
-                    <h2 id="detailWinnerTeam" class="text-4xl font-black text-white uppercase italic leading-none font-['Space_Grotesk']"></h2>
+                    <h4 id="detailSeasonName" class="text-[#8eff71] font-black uppercase tracking-widest text-xs italic"></h4>
+                    <h2 id="detailWinnerTeam" class="text-4xl font-black text-white uppercase italic leading-none"></h2>
                 </div>
-
-                <div class="space-y-4">
-                    <h5 class="text-white font-bold uppercase text-xs tracking-widest border-b border-white/10 pb-2">Season Story</h5>
-                    <p id="detailDescription" class="text-on-surface-variant text-sm leading-relaxed italic"></p>
+                <div class="space-y-2">
+                    <p class="text-white font-bold text-[10px] uppercase tracking-widest opacity-30">Season Story</p>
+                    <p id="detailDescription" class="text-[#a4abbe] text-sm leading-relaxed italic"></p>
                 </div>
-
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-white/5 p-4 rounded-2xl">
-                        <p class="text-[8px] font-bold text-[#8eff71] uppercase tracking-widest">Golden Boot</p>
-                        <p id="detailTopScorer" class="text-lg font-black text-white uppercase italic mt-1"></p>
-                        <p id="detailGoals" class="text-[10px] text-on-surface-variant font-bold"></p>
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                        <p class="text-[8px] font-bold text-[#8eff71] uppercase">Golden Boot</p>
+                        <p id="detailTopScorer" class="text-lg font-black text-white uppercase italic"></p>
+                        <p id="detailGoals" class="text-[10px] text-white/40 font-bold uppercase"></p>
                     </div>
-                    <div class="bg-white/5 p-4 rounded-2xl">
-                        <p class="text-[8px] font-bold text-secondary uppercase tracking-widest">Cup Winner</p>
-                        <p id="detailCupWinner" class="text-lg font-black text-white uppercase italic mt-1"></p>
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                        <p class="text-[8px] font-bold text-yellow-500 uppercase">Cup Winner</p>
+                        <p id="detailCupWinner" class="text-lg font-black text-white uppercase italic"></p>
                     </div>
                 </div>
             </div>
