@@ -1529,6 +1529,35 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
     alert("Gagal: " + e.message); 
   }
 };
+
+    window.openNewsDetail = (index) => {
+    // Ambil data dari array news yang sudah ada berdasarkan index
+    const sortedNews = news.sort((a, b) => b.time - a.time).slice(0, 3);
+    const selected = sortedNews[index];
+
+    if (!selected) return;
+
+    const modal = document.getElementById("newsModal");
+    const container = document.getElementById("modalDetailContent");
+
+    container.innerHTML = `
+        ${selected.image ? `<img src="${selected.image}" class="w-full h-64 object-cover rounded-3xl mb-6 shadow-xl">` : ''}
+        <h2 class="font-headline text-3xl font-black uppercase italic text-[#8eff71] mb-4">
+            ${selected.title}
+        </h2>
+        <div class="text-gray-300 font-medium leading-relaxed text-lg whitespace-pre-wrap">
+            ${selected.content}
+        </div>
+    `;
+
+    modal.classList.remove("hidden");
+    document.body.style.overflow = "hidden"; // Stop scroll background
+};
+
+window.closeNewsModal = () => {
+    document.getElementById("newsModal").classList.add("hidden");
+    document.body.style.overflow = "auto";
+};
     
     // --- LOGIKA SLIDESHOW FADE (JASCRIPT) ---
     
@@ -1670,75 +1699,34 @@ const initSlideshow = (urls) => {
     };
 
     const renderNews = () => {
-    const newsList = document.getElementById("newsList");
-    // Kita simpan di variabel agar lebih bersih
-    const sortedNews = news.sort((a, b) => b.time - a.time).slice(0, 3);
+    // Pastikan array 'news' berisi objek yang punya property 'id'
+    const displayNews = news.sort((a, b) => b.time - a.time).slice(0, 3);
     
-    newsList.innerHTML = sortedNews.map((n, i) => {
-        // Kita gunakan encodeURIComponent untuk menghindari error tanda kutip di atribut HTML
-        const safeTitle = encodeURIComponent(n.title);
-        const safeContent = encodeURIComponent(n.content);
-        const safeImage = encodeURIComponent(n.image || "");
-
-        if (i === 0) {
-            return `
-                <div class="md:col-span-2 relative h-64 rounded-[2rem] overflow-hidden group cursor-pointer border border-outline-variant/10 shadow-lg" 
-                     onclick="openNewsDetail('${safeTitle}', '${safeContent}', '${safeImage}')">
-                    ${n.image ? `<img src="${n.image}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">` : `<div class="w-full h-full bg-surface-container"></div>`}
-                    <div class="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
-                    <div class="absolute bottom-0 p-8 w-full">
-                        <span class="px-3 py-1 bg-primary text-[#064200] text-[10px] font-bold rounded-full mb-3 inline-block font-label uppercase">LATEST UPDATE</span>
-                        <h2 class="font-headline text-2xl md:text-3xl font-bold leading-tight max-w-2xl text-white group-hover:text-primary transition-colors">${n.title}</h2>
-                        <p class="text-on-surface-variant text-sm mt-2 font-body line-clamp-1">${n.content}</p>
-                    </div>
-                </div>`;
-        } else {
-            return `
-                <div class="surface-container-high rounded-[2rem] overflow-hidden hover:bg-surface-container-highest transition-all group border border-outline-variant/10 shadow-lg cursor-pointer"
-                     onclick="openNewsDetail('${safeTitle}', '${safeContent}', '${safeImage}')">
-                    <div class="h-40 relative overflow-hidden">
-                        ${n.image ? `<img src="${n.image}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">` : `<div class="w-full h-full bg-surface-container"></div>`}
-                        <div class="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <span class="material-symbols-outlined text-4xl text-primary" style="font-variation-settings: 'FILL' 1;">play_circle</span>
-                        </div>
-                    </div>
-                    <div class="p-5">
-                        <span class="text-tertiary text-[10px] font-bold font-label uppercase tracking-widest">${new Date(n.time).toLocaleDateString()}</span>
-                        <h4 class="font-headline font-bold text-lg mt-1 group-hover:text-tertiary transition-colors leading-tight line-clamp-2">${n.title}</h4>
-                    </div>
-                </div>`;
-        }
-    }).join("") || "<p class='text-on-surface-variant p-4'>No news published yet.</p>";
-};
-
-    // 
-window.openNewsDetail = (index) => {
-    // Ambil data dari array news yang sudah ada berdasarkan index
-    const sortedNews = news.sort((a, b) => b.time - a.time).slice(0, 3);
-    const selected = sortedNews[index];
-
-    if (!selected) return;
-
-    const modal = document.getElementById("newsModal");
-    const container = document.getElementById("modalDetailContent");
-
-    container.innerHTML = `
-        ${selected.image ? `<img src="${selected.image}" class="w-full h-64 object-cover rounded-3xl mb-6 shadow-xl">` : ''}
-        <h2 class="font-headline text-3xl font-black uppercase italic text-[#8eff71] mb-4">
-            ${selected.title}
-        </h2>
-        <div class="text-gray-300 font-medium leading-relaxed text-lg whitespace-pre-wrap">
-            ${selected.content}
-        </div>
-    `;
-
-    modal.classList.remove("hidden");
-    document.body.style.overflow = "hidden"; // Stop scroll background
-};
-
-window.closeNewsModal = () => {
-    document.getElementById("newsModal").classList.add("hidden");
-    document.body.style.overflow = "auto";
+    document.getElementById("newsList").innerHTML = displayNews.map((n, i) => i === 0 ? `
+        <div class="md:col-span-2 relative h-64 rounded-[2rem] overflow-hidden group cursor-pointer border border-outline-variant/10 shadow-lg" 
+             onclick="window.openNewsDetail('${n.id}')">
+            ${n.image ? `<img src="${n.image}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">` : `<div class="w-full h-full bg-surface-container"></div>`}
+            <div class="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
+            <div class="absolute bottom-0 p-8 w-full">
+                <span class="px-3 py-1 bg-primary text-[#064200] text-[10px] font-bold rounded-full mb-3 inline-block font-label uppercase tracking-widest">LATEST UPDATE</span>
+                <h2 class="font-headline text-2xl md:text-3xl font-bold leading-tight max-w-2xl text-white group-hover:text-primary transition-colors">${n.title}</h2>
+                <p class="text-on-surface-variant text-sm mt-2 font-body line-clamp-1">${n.content}</p>
+            </div>
+        </div>` : `
+        <div class="surface-container-high rounded-[2rem] overflow-hidden hover:bg-surface-container-highest transition-all group border border-outline-variant/10 shadow-lg cursor-pointer"
+             onclick="window.openNewsDetail('${n.id}')">
+            <div class="h-40 relative overflow-hidden">
+                ${n.image ? `<img src="${n.image}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">` : `<div class="w-full h-full bg-surface-container"></div>`}
+                <div class="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span class="material-symbols-outlined text-4xl text-primary">visibility</span>
+                </div>
+            </div>
+            <div class="p-5">
+                <span class="text-tertiary text-[10px] font-bold font-label uppercase tracking-widest">${new Date(n.time).toLocaleDateString()}</span>
+                <h4 class="font-headline font-bold text-lg mt-1 group-hover:text-tertiary transition-colors leading-tight line-clamp-2">${n.title}</h4>
+            </div>
+        </div>`
+    ).join("") || "<p class='text-on-surface-variant p-4'>No news published yet.</p>";
 };
 
     const renderScorers = () => {
@@ -2348,13 +2336,13 @@ window.showHofDetail = (id) => {
 </div>
 
   //detail news modal//
-  <div id="newsModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-black/90 backdrop-blur-md" onclick="closeNewsModal()"></div>
-    <div class="relative bg-surface-container-high w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-[2.5rem] border border-outline-variant/20 shadow-2xl p-6 md:p-10">
-        <button class="absolute top-6 right-6 text-on-surface-variant hover:text-primary transition-colors" onclick="closeNewsModal()">
+  <div id="newsModal" class="fixed inset-0 z-[999] hidden flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/90 backdrop-blur-md" onclick="window.closeNewsModal()"></div>
+    <div class="relative bg-surface-container-high w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-[2rem] border border-outline-variant/20 shadow-2xl p-6 md:p-10">
+        <button class="absolute top-6 right-6 text-on-surface-variant hover:text-primary transition-colors" onclick="window.closeNewsModal()">
             <span class="material-symbols-outlined">close</span>
         </button>
-        <div id="modalDetailContent">
+        <div id="modalDetailContent" class="text-on-surface">
             </div>
     </div>
 </div>
