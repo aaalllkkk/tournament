@@ -2022,43 +2022,67 @@ window.saveHofEntry = async () => {
     alert("Gagal menyimpan data: " + error.message);
   }
 };
-    window.showHofDetail = (id) => {
-    // Ambil data dari variabel window yang kita isi di snapshot tadi
+    // --- UPDATE LOGIC TAMPILAN DETAIL
+window.showHofDetail = (id) => {
+    // 1. Ambil data dari variabel global (hallOfFameData)
     const item = window.hallOfFameData ? window.hallOfFameData.find(h => h.id === id) : null;
     
     if (!item) {
-        console.error("Data season tidak ditemukan!");
+        console.error("Data season tidak ditemukan untuk ID:", id);
         return;
     }
 
-    // Update isi Modal Detail
+    // 2. Isi Data Utama (Teks)
     document.getElementById('detailSeasonName').innerText = item.season;
     document.getElementById('detailWinnerTeam').innerText = item.winnerTeam;
+    document.getElementById('detailWinnerPlayer').innerText = item.winnerPlayer; // NAMA MANAGER
     document.getElementById('detailTopScorer').innerText = item.topScorer;
-    document.getElementById('detailGoals').innerText = `${item.goals} GOALS`;
-    document.getElementById('detailCupWinner').innerText = item.cupWinner || "N/A";
+    document.getElementById('detailGoals').innerText = `${item.goals} GOALS SCORED`;
+    document.getElementById('detailCupWinner').innerText = item.cupWinner && item.cupWinner !== "N/A" ? item.cupWinner : "No Cup Held";
     
-    // INI PENTING: Mengisi Deskripsi
+    // 3. Isi Deskripsi (Dengan penanganan jika kosong)
     const descEl = document.getElementById('detailDescription');
     if (descEl) {
-        descEl.innerText = item.description || "No description available for this season.";
+        descEl.innerText = item.description || "No special story recorded for this legendary season.";
     }
 
-    // Update Foto Scorer (jika ada)
-    const hero = document.getElementById('detailScorerHero');
-    if (hero) {
-        hero.innerHTML = `
-            <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10"></div>
+    // 4. Update Logo Tim Juara
+    const logoEl = document.getElementById('detailWinnerLogo');
+    if (logoEl) {
+        logoEl.src = item.winnerLogo || 'https://i.imgur.com/xnTuRnl.png'; // Placeholder jika logo kosong
+    }
+
+    // 5. Render Bintang Juara (Baru)
+    const starsContainer = document.getElementById('detailWinnerStars');
+    if (starsContainer) {
+        let starsHtml = "";
+        for(let i=0; i < (parseInt(item.winnerStars) || 1); i++) {
+            starsHtml += `<span class="material-symbols-outlined text-[16px]">star</span>`;
+        }
+        starsContainer.innerHTML = starsHtml;
+    }
+
+    // 6. UPDATE FOTO TOP SCORER (FIT & GLOW - JAWABAN NO 1)
+    const photoContainer = document.getElementById('scorerPhotoContainer');
+    if (photoContainer) {
+        // Kita menggunakan object-contain agar foto selalu fit di area,
+        // dan menambahkan drop-shadow neon hijau agar menyala.
+        photoContainer.innerHTML = `
             <img src="${item.scorerPhoto || 'https://i.imgur.com/xnTuRnl.png'}" 
-                 class="h-[85%] w-auto object-contain relative z-0 drop-shadow-2xl">
+                 class="max-h-full max-w-full object-contain relative z-10 drop-shadow-[0_0_40px_rgba(142,255,113,0.5)] transition-all duration-500 group-hover:scale-105"
+                 alt="Top Scorer ${item.topScorer}">
         `;
     }
 
-    // Munculkan Modal
+    // 7. Tampilkan Modal dengan Animasi Fade In
     const modal = document.getElementById('hofDetailModal');
     if (modal) {
         modal.classList.remove('hidden');
         modal.classList.add('flex');
+        // Trigger animasi opacity (butuh delay sedikit agar CSS transisi berjalan)
+        setTimeout(() => {
+            modal.classList.add('opacity-100');
+        }, 10);
     }
 };
 
@@ -2212,35 +2236,63 @@ window.saveHofEntry = async () => {
         </div>
     </div>
 </div>
-  <div id="hofDetailModal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
-    <div class="bg-[#161f32] w-full max-w-4xl rounded-[3rem] border border-white/10 shadow-2xl overflow-hidden relative font-['Space_Grotesk']">
-        <button onclick="document.getElementById('hofDetailModal').classList.add('hidden'); document.getElementById('hofDetailModal').classList.remove('flex');" 
-                class="absolute top-6 right-6 z-[100] bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full flex items-center justify-center text-white">
+  <div id="hofDetailModal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4 bg-background/90 backdrop-blur-2xl transition-all duration-300 opacity-0 active:opacity-100">
+    <div class="bg-surface-container-high w-full max-w-5xl rounded-[3rem] border border-white/10 shadow-2xl overflow-hidden relative active:scale-100 scale-95 transition-transform duration-300">
+        
+        <button onclick="const m = document.getElementById('hofDetailModal'); m.classList.add('hidden'); m.classList.remove('flex'); m.classList.remove('opacity-100'); m.classList.add('opacity-0');" 
+                class="absolute top-6 right-6 z-50 bg-white/10 hover:bg-white/20 hover:rotate-90 w-12 h-12 rounded-full flex items-center justify-center text-white transition-all">
             <span class="material-symbols-outlined">close</span>
         </button>
-        
-        <div class="grid grid-cols-1 lg:grid-cols-2">
-            <div id="detailScorerHero" class="relative bg-black/40 min-h-[400px] flex items-end justify-center overflow-hidden border-r border-white/5"></div>
-            <div class="p-8 lg:p-12 space-y-6">
-                <div>
-                    <h4 id="detailSeasonName" class="text-[#8eff71] font-black uppercase tracking-widest text-xs italic"></h4>
-                    <h2 id="detailWinnerTeam" class="text-4xl font-black text-white uppercase italic leading-none"></h2>
-                </div>
-                <div class="space-y-2">
-                    <p class="text-white font-bold text-[10px] uppercase tracking-widest opacity-30">Season Story</p>
-                    <p id="detailDescription" class="text-[#a4abbe] text-sm leading-relaxed italic"></p>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
-                        <p class="text-[8px] font-bold text-[#8eff71] uppercase">Golden Boot</p>
-                        <p id="detailTopScorer" class="text-lg font-black text-white uppercase italic"></p>
-                        <p id="detailGoals" class="text-[10px] text-white/40 font-bold uppercase"></p>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 h-full max-h-[90vh] overflow-y-auto custom-scrollbar">
+            
+            <div id="detailScorerHero" class="lg:col-span-6 relative bg-[#0a1120] min-h-[450px] lg:h-full flex items-center justify-center overflow-hidden border-r border-white/5">
+                <span class="material-symbols-outlined absolute text-[250px] opacity-[0.03] text-secondary rotate-[-15deg] z-0 pointer-events-none">sports_soccer</span>
+                
+                <div id="scorerPhotoContainer" class="relative z-10 w-full h-full flex items-center justify-center p-8">
                     </div>
-                    <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
-                        <p class="text-[8px] font-bold text-yellow-500 uppercase">Cup Winner</p>
-                        <p id="detailCupWinner" class="text-lg font-black text-white uppercase italic"></p>
+            </div>
+
+            <div class="lg:col-span-6 p-10 lg:p-14 space-y-10 font-['Space_Grotesk']">
+                
+                <div class="flex items-center gap-6">
+                    <div class="w-24 h-24 rounded-3xl bg-surface-container-highest flex items-center justify-center p-4 border border-white/5 shadow-inner">
+                        <img id="detailWinnerLogo" src="" class="w-full h-full object-contain drop-shadow-xl">
+                    </div>
+                    
+                    <div class="flex-1 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <h4 id="detailSeasonName" class="text-[#8eff71] font-black uppercase tracking-[0.3em] text-xs italic"></h4>
+                            <div id="detailWinnerStars" class="flex gap-1 text-yellow-400"></div>
+                        </div>
+                        <h2 id="detailWinnerTeam" class="text-4xl md:text-5xl font-black text-white uppercase italic leading-none tracking-tighter text-glow-primary"></h2>
+                        <p class="text-on-surface-variant text-[11px] font-bold uppercase tracking-widest pt-1">Manager: <span id="detailWinnerPlayer" class="text-white font-black italic"></span></p>
                     </div>
                 </div>
+
+                <div class="space-y-3 bg-white/5 p-6 rounded-3xl border border-white/5">
+                    <div class="flex items-center gap-2 opacity-30">
+                        <span class="material-symbols-outlined text-sm">history_edu</span>
+                        <h5 class="text-white font-bold uppercase text-[10px] tracking-widest">Season Story</h5>
+                    </div>
+                    <p id="detailDescription" class="text-on-surface-variant text-sm leading-relaxed italic font-light"></p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-5">
+                    <div class="bg-[#1c263a] p-5 rounded-2xl border border-white/5 shadow-lg relative overflow-hidden group">
+                        <span class="material-symbols-outlined absolute -right-3 -bottom-3 text-7xl opacity-[0.05] text-primary group-hover:scale-110 transition-transform">sports_soccer</span>
+                        <p class="text-[9px] font-bold text-primary uppercase tracking-widest mb-1.5 relative z-10">Golden Boot</p>
+                        <p id="detailTopScorer" class="text-xl font-black text-white uppercase italic leading-none relative z-10"></p>
+                        <p id="detailGoals" class="text-[10px] text-on-surface-variant font-bold mt-1 uppercase relative z-10"></p>
+                    </div>
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-lg relative overflow-hidden group">
+                         <span class="material-symbols-outlined absolute -right-3 -bottom-3 text-7xl opacity-[0.05] text-secondary group-hover:scale-110 transition-transform">workspace_premium</span>
+                        <p class="text-[9px] font-bold text-secondary uppercase tracking-widest mb-1.5 relative z-10">Cup Winner</p>
+                        <p id="detailCupWinner" class="text-xl font-black text-white uppercase italic leading-none relative z-10"></p>
+                        <p class="text-[10px] text-on-surface-variant font-bold mt-1 uppercase relative z-10">Champion</p>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
