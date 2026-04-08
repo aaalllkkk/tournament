@@ -1711,31 +1711,32 @@ const initSlideshow = (urls) => {
     }).join("") || "<p class='text-on-surface-variant p-4'>No news published yet.</p>";
 };
 
-    const openNewsDetail = (title, content, image) => {
+    // 
+window.openNewsDetail = (index) => {
+    // Ambil data dari array news yang sudah ada berdasarkan index
+    const sortedNews = news.sort((a, b) => b.time - a.time).slice(0, 3);
+    const selected = sortedNews[index];
+
+    if (!selected) return;
+
     const modal = document.getElementById("newsModal");
     const container = document.getElementById("modalDetailContent");
-    
-    // Decode data kembali ke teks asli
-    const decodedTitle = decodeURIComponent(title);
-    const decodedContent = decodeURIComponent(content);
-    const decodedImage = decodeURIComponent(image);
 
     container.innerHTML = `
-        ${decodedImage ? `<img src="${decodedImage}" class="w-full h-64 object-cover rounded-3xl mb-6 shadow-xl">` : ''}
-        <span class="text-primary text-[10px] font-bold font-label uppercase tracking-widest">Elite News Updates</span>
-        <h2 class="font-headline text-3xl font-black uppercase italic tracking-tighter text-glow-primary mt-2 mb-4 leading-none">
-            ${decodedTitle}
+        ${selected.image ? `<img src="${selected.image}" class="w-full h-64 object-cover rounded-3xl mb-6 shadow-xl">` : ''}
+        <h2 class="font-headline text-3xl font-black uppercase italic text-[#8eff71] mb-4">
+            ${selected.title}
         </h2>
-        <div class="text-on-surface-variant font-medium leading-relaxed text-lg whitespace-pre-line">
-            ${decodedContent}
+        <div class="text-gray-300 font-medium leading-relaxed text-lg whitespace-pre-wrap">
+            ${selected.content}
         </div>
     `;
 
     modal.classList.remove("hidden");
-    document.body.style.overflow = "hidden"; // Mencegah scroll pada background
+    document.body.style.overflow = "hidden"; // Stop scroll background
 };
 
-const closeNewsModal = () => {
+window.closeNewsModal = () => {
     document.getElementById("newsModal").classList.add("hidden");
     document.body.style.overflow = "auto";
 };
