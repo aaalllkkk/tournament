@@ -904,7 +904,12 @@ select[data-action="filterMatches"]:focus {
     let playoffCutoff = 8;
     let currentLink = null;
     let hofData = []; // Tempat simpan data Hall of Fame
-    let hallOfFameData = [];
+    let hallOfFameData = []; 
+
+onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (snapshot) => {
+    hallOfFameData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    renderHof(hallOfFameData);
+});
     
     // Variabel Global untuk Slideshow
     let slideshowInterval = null;
@@ -1144,7 +1149,6 @@ const getStarIcons = (rating) => {
 onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (snapshot) => {
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const container = document.getElementById('hofGrid');
-    hallOfFameData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     if (!container) return;
 
     if (data.length === 0) {
@@ -1189,7 +1193,6 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
             </div>
         </div>`;
     }).join("");
-  renderHof(hallOfFameData);
 });
 
     onSnapshot(collection(db, "news"), snap => {
@@ -1447,6 +1450,42 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
       </div>
     </div>`;
   }).join("");
+};
+    window.showHofDetail = (id) => {
+    console.log("Membuka detail untuk ID:", id); // Cek di console (F12)
+    
+    const item = hallOfFameData.find(h => h.id === id);
+    if (!item) {
+        console.error("Data tidak ditemukan!");
+        return;
+    }
+
+    // Isi teks ke Modal
+    document.getElementById('detailSeasonName').innerText = item.season || "Season Info";
+    document.getElementById('detailWinnerTeam').innerText = item.winnerTeam || "Team Name";
+    document.getElementById('detailTopScorer').innerText = item.topScorer || "-";
+    document.getElementById('detailGoals').innerText = (item.goals || 0) + " GOALS";
+    document.getElementById('detailCupWinner').innerText = item.cupWinner || "N/A";
+    
+    // PERBAIKAN DESKRIPSI: Jika kosong, tampilkan teks default
+    document.getElementById('detailDescription').innerText = item.description || "No special story recorded for this season.";
+    
+    // Foto Top Scorer
+    const heroContainer = document.getElementById('detailScorerHero');
+    if (heroContainer) {
+        heroContainer.innerHTML = `
+            <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10"></div>
+            <img src="${item.scorerPhoto || 'https://i.imgur.com/xnTuRnl.png'}" 
+                 class="h-[85%] w-auto object-contain relative z-0 drop-shadow-[0_20px_50px_rgba(142,255,113,0.3)]">
+        `;
+    }
+
+    // Tampilkan Modal
+    const modal = document.getElementById('hofDetailModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
 };
 
     const calculateStandings = () => {
