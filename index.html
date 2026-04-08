@@ -1702,30 +1702,57 @@ const initSlideshow = (urls) => {
     const newsList = document.getElementById("newsList");
     if (!newsList) return;
 
+    // Ambil 3 berita terbaru
     const displayNews = news.sort((a, b) => b.time - a.time).slice(0, 3);
 
-    // 1. Render HTML-nya tanpa onclick dulu
     newsList.innerHTML = displayNews.map((n, i) => {
         const isLarge = i === 0;
-        return `
-            <div class="news-card ${isLarge ? 'md:col-span-2 h-64' : 'surface-container-high h-auto'} relative rounded-[2rem] overflow-hidden group cursor-pointer border border-white/10 shadow-lg" 
-                 data-index="${i}">
-                ${n.image ? `<img src="${n.image}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">` : `<div class="w-full h-full bg-surface-container"></div>`}
-                <div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"></div>
-                <div class="absolute bottom-0 p-6 w-full">
-                    <h2 class="${isLarge ? 'text-2xl md:text-3xl' : 'text-lg'} font-headline font-bold text-white group-hover:text-primary transition-colors">${n.title}</h2>
-                    ${isLarge ? `<p class="text-on-surface-variant text-sm mt-2 line-clamp-1">${n.content}</p>` : ''}
-                </div>
-            </div>`;
+        
+        if (isLarge) {
+            // Desain Kartu Utama (Besar)
+            return `
+                <div class="news-card md:col-span-2 relative h-[350px] rounded-[2.5rem] overflow-hidden group cursor-pointer border border-white/5 shadow-2xl" data-index="${i}">
+                    ${n.image ? `<img src="${n.image}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">` : `<div class="absolute inset-0 bg-slate-800"></div>`}
+                    
+                    <div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
+                    
+                    <div class="absolute bottom-0 p-8 w-full transform transition-transform duration-500">
+                        <span class="px-4 py-1.5 bg-primary text-[#064200] text-[10px] font-black rounded-full mb-4 inline-block tracking-[0.2em] uppercase shadow-lg shadow-primary/20">Headline News</span>
+                        <h2 class="font-headline text-3xl md:text-4xl font-black leading-none text-white italic uppercase tracking-tighter group-hover:text-primary transition-colors duration-300">
+                            ${n.title}
+                        </h2>
+                        <p class="text-white/70 text-sm mt-3 font-medium line-clamp-2 max-w-xl">
+                            ${n.content}
+                        </p>
+                    </div>
+                </div>`;
+        } else {
+            // Desain Kartu Kecil (Samping)
+            return `
+                <div class="news-card bg-[#161f32]/60 backdrop-blur-md rounded-[2.2rem] overflow-hidden hover:bg-[#1c263a] transition-all duration-500 group border border-white/5 shadow-xl cursor-pointer" data-index="${i}">
+                    <div class="h-44 relative overflow-hidden">
+                        ${n.image ? `<img src="${n.image}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">` : `<div class="w-full h-full bg-slate-800"></div>`}
+                        <div class="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"></div>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+                            <span class="text-tertiary text-[10px] font-black uppercase tracking-widest">${new Date(n.time).toLocaleDateString()}</span>
+                        </div>
+                        <h4 class="font-headline font-bold text-xl text-white group-hover:text-tertiary transition-colors duration-300 leading-[1.1] line-clamp-2 italic uppercase">
+                            ${n.title}
+                        </h4>
+                    </div>
+                </div>`;
+        }
     }).join("");
 
-    // 2. Berikan fungsi klik ke setiap kartu secara manual
+    // Pasang ulang Event Listener
     document.querySelectorAll('.news-card').forEach(card => {
-        card.addEventListener('click', () => {
+        card.onclick = () => {
             const index = card.getAttribute('data-index');
-            const selected = displayNews[index];
-            showModal(selected);
-        });
+            showModal(displayNews[index]);
+        };
     });
 };
 
@@ -1735,15 +1762,29 @@ const showModal = (data) => {
     const container = document.getElementById("modalDetailContent");
 
     container.innerHTML = `
-        ${data.image ? `<img src="${data.image}" class="w-full h-64 object-cover rounded-3xl mb-6 shadow-xl">` : ''}
-        <h2 class="font-headline text-3xl font-black uppercase text-primary mb-4 italic">${data.title}</h2>
-        <div class="text-on-surface-variant leading-relaxed text-lg whitespace-pre-line">
+        <div class="relative group">
+            ${data.image ? `<img src="${data.image}" class="w-full h-80 object-cover rounded-[2rem] mb-8 shadow-2xl border border-white/10">` : ''}
+            <div class="absolute top-4 left-4">
+                 <span class="px-3 py-1 bg-black/50 backdrop-blur-md text-primary text-[10px] font-bold rounded-full border border-primary/30 uppercase tracking-widest">Article Detail</span>
+            </div>
+        </div>
+        
+        <h2 class="font-headline text-4xl font-black uppercase italic tracking-tighter text-white mb-6 leading-[0.9]">
+            <span class="text-primary">/</span> ${data.title}
+        </h2>
+        
+        <div class="prose prose-invert max-w-none text-gray-300 font-medium leading-relaxed text-lg whitespace-pre-line border-l-2 border-primary/20 pl-6 py-2">
             ${data.content}
+        </div>
+        
+        <div class="mt-10 pt-6 border-t border-white/5 flex justify-between items-center text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em]">
+            <span>Elite League Management</span>
+            <span>${new Date(data.time).toLocaleDateString()}</span>
         </div>
     `;
 
     modal.classList.remove("hidden");
-    modal.classList.add("flex"); // Tambahkan flex agar muncul di tengah
+    modal.classList.add("flex");
     document.body.style.overflow = "hidden";
 };
 
