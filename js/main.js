@@ -182,7 +182,7 @@ const getStarIcons = (rating) => {
 };
 
     const toggleAdminUI = () => {
-      ["adminTeamControls", "matchControls", "scorerControls", "newsControls", "knockoutControls", "liveBannerControls"].forEach(id => {
+      ["adminTeamControls", "matchControls", "scorerControls", "newsControls", "knockoutControls", "liveBannerControls", "hofcontrols"].forEach(id => {
         if (document.getElementById(id)) document.getElementById(id).style.display = isAdmin ? "block" : "none";
       });
     };
