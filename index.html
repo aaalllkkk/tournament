@@ -768,42 +768,6 @@ select[data-action="filterMatches"]:focus {
       </div>
       <button data-action="openHofModal" class="admin-only bg-[#8eff71] text-black px-8 py-3 rounded-full font-black text-xs uppercase hover:scale-105 transition-all shadow-lg shadow-[#8eff71]/20">Add History</button>
     </div>
-    <div id="hofDetailModal" class="fixed inset-0 z-[110] hidden flex items-center justify-center p-4 bg-background/90 backdrop-blur-md">
-    <div class="bg-surface-container-high w-full max-w-4xl rounded-[3rem] border border-white/10 shadow-2xl overflow-hidden relative">
-        <button onclick="document.getElementById('hofDetailModal').classList.add('hidden')" class="absolute top-6 right-6 z-50 bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full flex items-center justify-center text-white transition-all">
-            <span class="material-symbols-outlined">close</span>
-        </button>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 h-full max-h-[90vh] overflow-y-auto">
-            <div id="detailScorerHero" class="relative bg-black/40 min-h-[400px] flex items-end justify-center overflow-hidden border-r border-white/5">
-                </div>
-
-            <div class="p-8 lg:p-12 space-y-8">
-                <div>
-                    <h4 id="detailSeasonName" class="text-[#8eff71] font-black uppercase tracking-[0.3em] text-xs italic mb-2"></h4>
-                    <h2 id="detailWinnerTeam" class="text-4xl font-black text-white uppercase italic leading-none font-['Space_Grotesk']"></h2>
-                </div>
-
-                <div class="space-y-4">
-                    <h5 class="text-white font-bold uppercase text-xs tracking-widest border-b border-white/10 pb-2">Season Story</h5>
-                    <p id="detailDescription" class="text-on-surface-variant text-sm leading-relaxed italic"></p>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-white/5 p-4 rounded-2xl">
-                        <p class="text-[8px] font-bold text-[#8eff71] uppercase tracking-widest">Golden Boot</p>
-                        <p id="detailTopScorer" class="text-lg font-black text-white uppercase italic mt-1"></p>
-                        <p id="detailGoals" class="text-[10px] text-on-surface-variant font-bold"></p>
-                    </div>
-                    <div class="bg-white/5 p-4 rounded-2xl">
-                        <p class="text-[8px] font-bold text-secondary uppercase tracking-widest">Cup Winner</p>
-                        <p id="detailCupWinner" class="text-lg font-black text-white uppercase italic mt-1"></p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
     <div id="hofGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
        <p class="text-white/20 italic col-span-full text-center py-10">Menghubungkan ke Database...</p>
@@ -940,6 +904,7 @@ select[data-action="filterMatches"]:focus {
     let playoffCutoff = 8;
     let currentLink = null;
     let hofData = []; // Tempat simpan data Hall of Fame
+    let hallOfFameData = [];
     
     // Variabel Global untuk Slideshow
     let slideshowInterval = null;
@@ -1179,6 +1144,7 @@ const getStarIcons = (rating) => {
 onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (snapshot) => {
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const container = document.getElementById('hofGrid');
+    hallOfFameData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     if (!container) return;
 
     if (data.length === 0) {
@@ -1223,6 +1189,7 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
             </div>
         </div>`;
     }).join("");
+  renderHof(hallOfFameData);
 });
 
     onSnapshot(collection(db, "news"), snap => {
@@ -2078,25 +2045,40 @@ window.saveHofEntry = async () => {
 
 // 2. Fungsi Tampilkan Detail
 window.showHofDetail = (id) => {
+    // Cari data berdasarkan ID yang diklik
     const item = hallOfFameData.find(h => h.id === id);
-    if(!item) return;
+    if (!item) {
+        console.error("Data tidak ditemukan untuk ID:", id);
+        return;
+    }
 
-    document.getElementById('detailSeasonName').innerText = item.season;
-    document.getElementById('detailWinnerTeam').innerText = item.winnerTeam;
-    document.getElementById('detailTopScorer').innerText = item.topScorer;
-    document.getElementById('detailGoals').innerText = item.goals + " GOALS SCORED";
-    document.getElementById('detailCupWinner').innerText = item.cupWinner;
-    document.getElementById('detailDescription').innerText = item.description;
+    // Isi konten Modal Detail
+    document.getElementById('detailSeasonName').innerText = item.season || "Unknown Season";
+    document.getElementById('detailWinnerTeam').innerText = item.winnerTeam || "Unknown Team";
+    document.getElementById('detailTopScorer').innerText = item.topScorer || "-";
+    document.getElementById('detailGoals').innerText = (item.goals || 0) + " GOALS";
+    document.getElementById('detailCupWinner').innerText = item.cupWinner || "No Cup Info";
+    document.getElementById('detailDescription').innerText = item.description || "No description for this season.";
     
-    document.getElementById('detailScorerHero').innerHTML = `
-        <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10"></div>
-        <img src="${item.scorerPhoto || 'https://i.imgur.com/xnTuRnl.png'}" class="h-[90%] w-auto object-contain relative z-0 drop-shadow-[0_20px_50px_rgba(142,255,113,0.3)]">
-        <div class="absolute bottom-8 left-8 z-20">
-            <span class="bg-[#8eff71] text-black px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Golden Boot Winner</span>
-        </div>
-    `;
+    // Render Hero Image Top Scorer
+    const heroContainer = document.getElementById('detailScorerHero');
+    if (heroContainer) {
+        heroContainer.innerHTML = `
+            <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10"></div>
+            <img src="${item.scorerPhoto || 'https://i.imgur.com/xnTuRnl.png'}" 
+                 class="h-[90%] w-auto object-contain relative z-0 drop-shadow-[0_20px_50px_rgba(142,255,113,0.3)]">
+            <div class="absolute bottom-8 left-8 z-20">
+                <span class="bg-[#8eff71] text-black px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Golden Boot Winner</span>
+            </div>
+        `;
+    }
 
-    document.getElementById('hofDetailModal').classList.remove('hidden');
+    // Tampilkan Modal
+    const modal = document.getElementById('hofDetailModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex'); // Pastikan menggunakan flex agar posisi tengah
+    }
 };
 
     const exportBackup = () => alert("Backup logic to be implemented.");
@@ -2245,6 +2227,42 @@ window.showHofDetail = (id) => {
             <div class="flex gap-3 mt-8">
                 <button onclick="document.getElementById('hofModal').classList.add('hidden')" class="flex-1 py-3 rounded-2xl font-bold text-xs uppercase bg-white/5 text-white">Cancel</button>
                 <button id="saveHofBtn" onclick="saveHofEntry()" class="flex-1 py-3 rounded-2xl font-black text-xs uppercase bg-primary text-background hover:scale-105 transition-transform">Save Legend</button>
+            </div>
+        </div>
+    </div>
+</div>
+  <div id="hofDetailModal" class="fixed inset-0 z-[110] hidden flex items-center justify-center p-4 bg-background/90 backdrop-blur-md">
+    <div class="bg-surface-container-high w-full max-w-4xl rounded-[3rem] border border-white/10 shadow-2xl overflow-hidden relative">
+        <button onclick="document.getElementById('hofDetailModal').classList.add('hidden')" class="absolute top-6 right-6 z-50 bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full flex items-center justify-center text-white transition-all">
+            <span class="material-symbols-outlined">close</span>
+        </button>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 h-full max-h-[90vh] overflow-y-auto">
+            <div id="detailScorerHero" class="relative bg-black/40 min-h-[400px] flex items-end justify-center overflow-hidden border-r border-white/5">
+                </div>
+
+            <div class="p-8 lg:p-12 space-y-8">
+                <div>
+                    <h4 id="detailSeasonName" class="text-[#8eff71] font-black uppercase tracking-[0.3em] text-xs italic mb-2"></h4>
+                    <h2 id="detailWinnerTeam" class="text-4xl font-black text-white uppercase italic leading-none font-['Space_Grotesk']"></h2>
+                </div>
+
+                <div class="space-y-4">
+                    <h5 class="text-white font-bold uppercase text-xs tracking-widest border-b border-white/10 pb-2">Season Story</h5>
+                    <p id="detailDescription" class="text-on-surface-variant text-sm leading-relaxed italic"></p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white/5 p-4 rounded-2xl">
+                        <p class="text-[8px] font-bold text-[#8eff71] uppercase tracking-widest">Golden Boot</p>
+                        <p id="detailTopScorer" class="text-lg font-black text-white uppercase italic mt-1"></p>
+                        <p id="detailGoals" class="text-[10px] text-on-surface-variant font-bold"></p>
+                    </div>
+                    <div class="bg-white/5 p-4 rounded-2xl">
+                        <p class="text-[8px] font-bold text-secondary uppercase tracking-widest">Cup Winner</p>
+                        <p id="detailCupWinner" class="text-lg font-black text-white uppercase italic mt-1"></p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
