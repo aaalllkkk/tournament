@@ -1529,35 +1529,6 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
     alert("Gagal: " + e.message); 
   }
 };
-
-    window.openNewsDetail = (index) => {
-    // Ambil data dari array news yang sudah ada berdasarkan index
-    const sortedNews = news.sort((a, b) => b.time - a.time).slice(0, 3);
-    const selected = sortedNews[index];
-
-    if (!selected) return;
-
-    const modal = document.getElementById("newsModal");
-    const container = document.getElementById("modalDetailContent");
-
-    container.innerHTML = `
-        ${selected.image ? `<img src="${selected.image}" class="w-full h-64 object-cover rounded-3xl mb-6 shadow-xl">` : ''}
-        <h2 class="font-headline text-3xl font-black uppercase italic text-[#8eff71] mb-4">
-            ${selected.title}
-        </h2>
-        <div class="text-gray-300 font-medium leading-relaxed text-lg whitespace-pre-wrap">
-            ${selected.content}
-        </div>
-    `;
-
-    modal.classList.remove("hidden");
-    document.body.style.overflow = "hidden"; // Stop scroll background
-};
-
-window.closeNewsModal = () => {
-    document.getElementById("newsModal").classList.add("hidden");
-    document.body.style.overflow = "auto";
-};
     
     // --- LOGIKA SLIDESHOW FADE (JASCRIPT) ---
     
