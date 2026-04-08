@@ -1,3 +1,11 @@
+// file: js/firebase-config.js
+async function getFirebaseConfig() {
+    const response = await fetch('/api/config');
+    return await response.json();
+}
+
+export { getFirebaseConfig };
+
 // File: js/main.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
