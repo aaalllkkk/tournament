@@ -1,11 +1,26 @@
 // File: js/main.js
-
-import { db, auth } from './firebase-config.js';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 // 2. Panggil fitur-fitur Firebase yang dibutuhkan
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, deleteDoc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
+
+async function initApp() {
+    try {
+        const firebaseConfig = await getFirebaseConfig();
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // Baru jalankan fungsi render atau snapshot setelah Firebase siap
+        startWebsite(db); 
+    } catch (error) {
+        console.error("Gagal memuat config:", error);
+    }
+}
+function startWebsite(db) {
 // --- STATE ---
     let isAdmin = false;
     let teams = [];
@@ -1365,3 +1380,4 @@ window.showHofDetail = (id) => {
         drawLines();
       }
     });
+    }
