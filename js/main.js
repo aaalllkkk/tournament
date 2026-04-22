@@ -285,6 +285,14 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
       }
       renderStandings();
     });
+ 
+    onSnapshot(doc(db, "config", "knockout"), snap => {
+      if (snap.exists()) {
+        knockout = snap.data();
+        renderNodes();
+      }
+    });
+
 
     // --- ACTIONS ---
     const addTeam = async () => {
