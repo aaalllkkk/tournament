@@ -199,36 +199,51 @@ const getStarIcons = (rating) => {
     };
 
     const openTab = (id, targetEl) => {
-      if (window.innerWidth < 1024) {
-        document.getElementById('sidebar').classList.add('-translate-x-full');
-        document.getElementById('sidebarOverlay').classList.remove('active');
-      }
+    // 1. Amankan Sidebar (Mobile)
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (window.innerWidth < 1024) {
+        if(sidebar) sidebar.classList.add('-translate-x-full');
+        if(overlay) overlay.classList.remove('active');
+    }
 
-      document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
-      
-      // RESET SIDEBAR ACTIVE
-      document.querySelectorAll(".tab").forEach(tab => {tab.classList.remove("active");});
+    // 2. Validasi: Cek apakah ID ada di HTML sebelum lanjut
+    const targetSection = document.getElementById(id);
+    if (!targetSection) {
+        console.error(`Gagal membuka tab: Element dengan ID "${id}" tidak ditemukan!`);
+        return; // Berhenti di sini agar tidak crash
+    }
 
-      // RESET MOBILE ICON
-      document.querySelectorAll(".mobile-tab").forEach(t => {
-        t.classList.remove("text-[#ffd709]");
-      });
+    // 3. Reset semua section & tab
+    document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
+    document.querySelectorAll(".mobile-tab").forEach(t => t.classList.remove("text-[#ffd709]"));
 
-      document.getElementById(id).classList.add("active");
+    // 4. Aktifkan Section yang dituju
+    targetSection.classList.add("active");
 
-      // Handle correct tab highlighting
-      if (targetEl && targetEl.classList.contains("tab")) {
+    // 5. Highlight Tab Sidebar
+    if (targetEl && targetEl.classList.contains("tab")) {
         targetEl.classList.add("active");
-      } else {
+    } else {
         const matchingTab = Array.from(document.querySelectorAll(".tab")).find(t => t.dataset.tab === id);
         if(matchingTab) matchingTab.classList.add("active");
-      }
-      
-      // SET ACTIVE MOBILE TAB
-      if (targetEl && targetEl.classList.contains("mobile-tab")) {
+    }
+    
+    // 6. Highlight Mobile Tab
+    if (targetEl && targetEl.classList.contains("mobile-tab")) {
         targetEl.classList.add("text-[#ffd709]");
-      }
-    };
+    }
+
+    // --- 7. BARIS KRITIKAL: Render Knockout jika tab dipilih ---
+    if (id === 'knockout') {
+        console.log("Tab Knockout Aktif: Menjalankan render...");
+        setTimeout(() => {
+            if (typeof renderNodes === 'function') renderNodes();
+            if (typeof drawLines === 'function') drawLines();
+        }, 100);
+    }
+};
 
     const toggleFolder = (mw) => {
       collapsed[mw] = !collapsed[mw];
