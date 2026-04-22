@@ -1211,7 +1211,6 @@ async function updateScoreKO(id, side, score) {
 }
 
 // --- FUNGSI UNTUK MENGHUBUNGKAN KOTAK SECARA MANUAL ---
-let currentLink = null; // Variabel penanda kotak pertama yang diklik
 
 async function linkNode(id) {
     if (!currentLink) {
