@@ -705,34 +705,30 @@ select[data-action="filterMatches"]:focus {
         </div>
       </div>
 
-      <div id="knockout" class="section p-6 md:p-12">
-        <div class="max-w-7xl mx-auto">
-          <header class="mb-8 flex justify-between items-end">
-            <h1 class="text-4xl md:text-5xl font-headline font-black uppercase tracking-tighter text-glow-primary">Knockout Stage</h1>
-            <div id="knockoutControls" class="bg-[#1a243a] p-6 rounded-[2rem] border border-white/10 shadow-lg mt-6" style="display:none">
-    <h3 class="font-bold text-xl text-primary uppercase italic mb-4">Knockout Settings</h3>
-    <div class="flex flex-wrap gap-4 items-center">
-        <div class="flex flex-col gap-1">
-            <label class="text-[10px] font-bold text-gray-400 uppercase ml-2">Sistem Turnamen</label>
-            <select id="koType" class="bg-black/40 border-white/10 rounded-xl text-white text-sm p-2 w-48 focus:ring-primary">
-                <option value="single">Single Elimination</option>
-                <option value="double">Double Elimination (Top 4)</option>
-            </select>
+      <div id="knockout" class="tab-content hidden w-full px-4">
+        <div id="knockoutControls" class="bg-[#1a243a]/50 backdrop-blur-md p-6 rounded-3xl border border-white/10 mb-6 w-full shadow-2xl" style="display:none">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-black text-primary uppercase italic tracking-tighter">Tournament Bracket</h2>
+                    <p class="text-[10px] text-white/50 uppercase font-bold tracking-widest">Settings & Generation</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <select id="koType" class="bg-black/40 border-white/10 rounded-xl text-white text-xs p-2.5 w-44 focus:ring-primary">
+                        <option value="single">Single Elimination</option>
+                        <option value="double">Double Elimination</option>
+                    </select>
+                    <button class="bg-primary hover:bg-secondary text-black px-5 py-2.5 rounded-xl font-black text-[11px] uppercase transition-all shadow-lg shadow-primary/20" data-action="generateBracket">Generate</button>
+                    <button class="bg-red-500/20 hover:bg-red-500/40 text-red-400 px-5 py-2.5 rounded-xl font-black text-[11px] uppercase transition-all" data-action="clearKnockout">Reset</button>
+                </div>
+            </div>
         </div>
-        <button class="bg-primary text-black px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:scale-105 transition-transform" data-action="generateBracket">
-            <span class="material-symbols-outlined text-sm">account_tree</span> Generate Bracket
-        </button>
-        <button class="bg-error/20 text-error px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-error/30" data-action="clearKnockout">
-            <span class="material-symbols-outlined text-sm">delete_sweep</span> Reset
-        </button>
-    </div>
-</div>
 
-<div id="knockout-viewport" class="relative overflow-auto p-10 min-h-[600px] bg-black/20 rounded-3xl mt-4">
-    <svg id="connections" class="absolute top-0 left-0 pointer-events-none z-0"></svg>
-    <div id="nodes-container" class="relative z-10"></div>
-</div>
-      </div>
+<div id="knockout-viewport" class="relative w-full overflow-auto bg-[#0f172a] rounded-[2.5rem] border border-white/5 min-h-[70vh] shadow-inner custom-scrollbar">
+            <svg id="connections" class="absolute top-0 left-0 pointer-events-none z-0"></svg>
+            <div id="nodes-container" class="relative z-10 p-20" style="min-width: 2000px; min-height: 1000px;">
+                </div>
+        </div>
+    </div>
 
       <div id="scorers" class="section p-6 md:p-8">
         <div class="max-w-7xl mx-auto space-y-8">
