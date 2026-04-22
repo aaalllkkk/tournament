@@ -182,7 +182,7 @@ const getStarIcons = (rating) => {
 };
 
     const toggleAdminUI = () => {
-      ["adminTeamControls", "matchControls", "scorerControls", "newsControls", "Controls", "liveBannerControls", "hofcontrols"].forEach(id => {
+      ["adminTeamControls", "matchControls", "scorerControls", "newsControls", "knockoutControls", "liveBannerControls", "hofcontrols"].forEach(id => {
         if (document.getElementById(id)) document.getElementById(id).style.display = isAdmin ? "block" : "none";
       });
     };
@@ -267,13 +267,6 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
       renderNews();
     });
 
-    onSnapshot(doc(db, "tournament", "knockout"), (doc) => {
-    if (doc.exists()) {
-        knockout = doc.data();
-        renderNodes(); // Ini sekarang akan bekerja karena fungsi di atas sudah terdaftar
-    }
-});
-
     onSnapshot(doc(db, "config", "standings"), snap => {
       if (snap.exists()) {
         championsCutoff = snap.data().championsCutoff || 4;
@@ -285,14 +278,13 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
       }
       renderStandings();
     });
- 
+
     onSnapshot(doc(db, "config", "knockout"), snap => {
       if (snap.exists()) {
         knockout = snap.data();
         renderNodes();
       }
     });
-
 
     // --- ACTIONS ---
     const addTeam = async () => {
@@ -1010,127 +1002,139 @@ document.getElementById("closeBackdrop").onclick = closeModal;
       }
     };
 
-  // --- SISTEM KNOCKOUT (TARUH DI SINI) ---
-
-// Menggunakan deklarasi 'function' agar bisa diakses dari mana saja (Hoisting)
-function drawLines() {
-    const svg = document.getElementById("connections");
-    if (!svg) return;
-    svg.innerHTML = "";
-    
-    const container = document.getElementById("nodes-container");
-    if (container) {
-        // Sesuaikan ukuran SVG dengan isi container agar garis tidak terpotong
-        svg.setAttribute("width", container.scrollWidth);
-        svg.setAttribute("height", container.scrollHeight);
-    }
-
-    if (!knockout.connections) return;
-
-    knockout.connections.forEach(conn => {
-        const fromEl = document.querySelector(`[data-id="${conn.from}"]`);
-        const toEl = document.querySelector(`[data-id="${conn.to}"]`);
-
-        if (fromEl && toEl) {
-            const containerRect = svg.getBoundingClientRect();
-            const rect1 = fromEl.getBoundingClientRect();
-            const rect2 = toEl.getBoundingClientRect();
-
-            // Titik awal (tengah kanan kotak asal)
-            const x1 = rect1.right - containerRect.left;
-            const y1 = rect1.top + (rect1.height / 2) - containerRect.top;
-
-            // Titik akhir (tengah kiri kotak tujuan)
-            const x2 = rect2.left - containerRect.left;
-            const y2 = rect2.top + (rect2.height / 2) - containerRect.top;
-
-            // Membuat garis siku-siku yang rapi
-            const midX = x1 + (x2 - x1) / 2;
-            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            
-            // Logika garis: Jalan ke kanan -> belok vertikal -> jalan ke kanan lagi
-            path.setAttribute("d", `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`);
-            path.setAttribute("stroke", "#3b82f6"); 
-            path.setAttribute("stroke-width", "2");
-            path.setAttribute("fill", "none");
-            path.style.opacity = "0.4";
-            svg.appendChild(path);
-        }
-    });
-}
-
-function renderNodes() {
-    const container = document.getElementById("nodes-container");
-    if (!container) return;
-    container.innerHTML = "";
-
-    if (!knockout.matches) return;
-
-    Object.entries(knockout.matches).forEach(([id, node]) => {
-        const div = document.createElement("div");
-        div.className = "absolute z-10 group";
-        div.style.left = node.x + "px";
-        div.style.top = node.y + "px";
-        div.dataset.id = id;
-
-        div.innerHTML = `
-            <div class="bg-[#1a243a] border border-white/10 rounded-xl shadow-xl w-[200px] overflow-hidden group hover:border-primary/50 transition-all">
-                <div class="p-2 space-y-1">
-                    <div class="flex items-center justify-between">
-                        <input type="text" value="${node.team1 || ''}" data-action="updateTeamKO" data-id="${id}" data-side="1" 
-                            class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-24 focus:ring-0" placeholder="TEAM 1" ${!isAdmin ? 'readonly' : ''}>
-                        <input type="number" value="${node.s1 ?? ''}" data-action="updateScoreKO" data-id="${id}" data-side="1"
-                            class="bg-black/40 border-none rounded w-8 text-center text-xs font-black text-primary focus:ring-0" ${!isAdmin ? 'readonly' : ''}>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <input type="text" value="${node.team2 || ''}" data-action="updateTeamKO" data-id="${id}" data-side="2"
-                            class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-24 focus:ring-0" placeholder="TEAM 2" ${!isAdmin ? 'readonly' : ''}>
-                        <input type="number" value="${node.s2 ?? ''}" data-action="updateScoreKO" data-id="${id}" data-side="2"
-                            class="bg-black/40 border-none rounded w-8 text-center text-xs font-black text-primary focus:ring-0" ${!isAdmin ? 'readonly' : ''}>
-                    </div>
-                </div>
-                ${isAdmin ? `
-                <div class="flex border-t border-white/5 opacity-0 group-hover:opacity-100 transition-all bg-black/20">
-                    <button class="flex-1 p-1 hover:bg-primary/20 text-[9px] font-bold text-primary" data-action="linkNode" data-id="${id}">LINK</button>
-                    <button class="flex-1 p-1 hover:bg-error/20 text-[9px] font-bold text-error" data-action="deleteNode" data-id="${id}">DEL</button>
-                    <div class="drag-handle flex-none p-1 cursor-move"><span class="material-symbols-outlined text-xs text-white/30">drag_pan</span></div>
-                </div>` : ''}
-            </div>
-        `;
-
-        if (isAdmin) setupDragging(div, node);
-        container.appendChild(div);
-    });
-
-    drawLines();
-}
-
-// Tambahkan fungsi pembantu dragging ini di bawahnya
-function setupDragging(div, node) {
-    const handle = div.querySelector('.drag-handle');
-    if (!handle) return;
-
-    handle.onmousedown = (e) => {
-        let isDragging = true;
-        const startX = e.clientX - node.x;
-        const startY = e.clientY - node.y;
-
-        document.onmousemove = (ev) => {
-            if (!isDragging) return;
-            node.x = ev.clientX - startX;
-            node.y = ev.clientY - startY;
-            div.style.left = node.x + "px";
-            div.style.top = node.y + "px";
-            drawLines();
-        };
-
-        document.onmouseup = async () => {
-            isDragging = false;
-            document.onmousemove = null;
-            await saveKnockout();
-        };
+    // --- KNOCKOUT EDITOR LOGIC ---
+    const createNode = async () => {
+      const id = "m" + Date.now();
+      knockout.matches[id] = { id, x: 100, y: 100, team1: "", team2: "", s1: null, s2: null };
+      await saveKnockout();
     };
-}
+
+    const renderNodes = () => {
+      const container = document.getElementById("knockoutEditor");
+      container.innerHTML = "";
+      Object.values(knockout.matches).forEach(m => {
+        const node = document.createElement("div");
+        node.className = "node";
+        node.style.left = m.x + "px";
+        node.style.top = m.y + "px";
+        node.dataset.id = m.id;
+        node.innerHTML = `
+                    <div class="nodeBody">
+                        <div class="teamRowKO">
+                            ${isAdmin ? `<input value="${m.team1}" placeholder="Team 1" data-action="updateTeamKO" data-side="1" data-id="${m.id}">` : `<span class="font-headline font-bold text-sm truncate w-[100px]">${m.team1 || "TBD"}</span>`}
+                            ${isAdmin ? `<input type="number" value="${m.s1 ?? ""}" class="!w-10 text-center" placeholder="-" data-action="updateScoreKO" data-side="1" data-id="${m.id}">` : `<span class="scoreKO">${m.s1 ?? "-"}</span>`}
+                        </div>
+                        <div class="teamRowKO">
+                            ${isAdmin ? `<input value="${m.team2}" placeholder="Team 2" data-action="updateTeamKO" data-side="2" data-id="${m.id}">` : `<span class="font-headline font-bold text-sm truncate w-[100px]">${m.team2 || "TBD"}</span>`}
+                            ${isAdmin ? `<input type="number" value="${m.s2 ?? ""}" class="!w-10 text-center" placeholder="-" data-action="updateScoreKO" data-side="2" data-id="${m.id}">` : `<span class="scoreKO">${m.s2 ?? "-"}</span>`}
+                        </div>
+                    </div>
+                    ${isAdmin ? `
+                        <button class="deleteBtn absolute -top-3 -right-3" data-action="deleteNode" data-id="${m.id}">X</button>
+                        <div class="ports left"><div class="port inPort winIn" data-type="win"></div><div class="port inPort midIn" data-type="mid"></div><div class="port inPort loseIn" data-type="lose"></div></div>
+                        <div class="ports right"><div class="port outPort winOut" data-type="win"></div><div class="port outPort midOut" data-type="mid"></div><div class="port outPort loseOut" data-type="lose"></div></div>
+                    ` : `<div class="ports left"><div class="port viewerPort"></div></div><div class="ports right"><div class="port viewerPort"></div></div>`}
+                `;
+        container.appendChild(node);
+        if (isAdmin) makeDraggable(node, m);
+        setupConnectionEvents(node);
+      });
+      drawLines();
+    };
+
+    const deleteNode = async (id) => {
+      if (confirm("Delete this Knockout Node?")) {
+        delete knockout.matches[id];
+        knockout.connections = knockout.connections.filter(c => c.from !== id && c.to !== id);
+        await saveKnockout();
+      }
+    };
+
+    const makeDraggable = (node, m) => {
+      let drag = false,
+        ox, oy;
+      node.addEventListener("mousedown", e => {
+        if (!["INPUT", "BUTTON"].includes(e.target.tagName) && !e.target.classList.contains("port")) {
+          drag = true;
+          ox = e.clientX - m.x;
+          oy = e.clientY - m.y;
+        }
+      });
+      window.addEventListener("mousemove", e => {
+        if (drag) {
+          m.x = Math.round((e.clientX - ox) / 20) * 20;
+          m.y = Math.round((e.clientY - oy) / 20) * 20;
+          node.style.left = m.x + "px";
+          node.style.top = m.y + "px";
+          drawLines();
+        }
+      });
+      window.addEventListener("mouseup", () => {
+        if (drag) {
+          drag = false;
+          saveKnockout();
+        }
+      });
+    };
+
+    const setupConnectionEvents = (node) => {
+      const id = node.dataset.id;
+      node.querySelectorAll(".outPort").forEach(p => p.onclick = e => {
+        e.stopPropagation();
+        currentLink = { from: id, type: p.dataset.type };
+        highlightPorts();
+      });
+      node.querySelectorAll(".inPort").forEach(p => p.onclick = e => {
+        e.stopPropagation();
+        if (!currentLink) return;
+        if (!knockout.connections.find(c => c.from === currentLink.from && c.to === id && c.type === p.dataset.type)) {
+          knockout.connections.push({ from: currentLink.from, to: id, type: p.dataset.type });
+        }
+        currentLink = null;
+        clearHighlights();
+        saveKnockout();
+        drawLines();
+      });
+    };
+
+    const highlightPorts = () => document.querySelectorAll(".inPort").forEach(p => p.classList.add("active"));
+    const clearHighlights = () => document.querySelectorAll(".port").forEach(p => p.classList.remove("active"));
+
+    const drawLines = () => {
+      const svg = document.getElementById("connections");
+      svg.innerHTML = "";
+      knockout.connections.forEach(c => {
+        const fNode = document.querySelector(`[data-id='${c.from}']`),
+          tNode = document.querySelector(`[data-id='${c.to}']`);
+        if (!fNode || !tNode) return;
+        const fr = fNode.getBoundingClientRect(),
+          tr = tNode.getBoundingClientRect(),
+          pr = svg.getBoundingClientRect();
+        const x1 = fr.right - pr.left,
+          y1 = fr.top + fr.height / 2 - pr.top;
+        const x2 = tr.left - pr.left,
+          y2 = tr.top + tr.height / 2 - pr.top;
+        const color = c.type === "win" ? "#8eff71" : c.type === "lose" ? "#ff7351" : "#81ecff";
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", `M${x1},${y1} C${x1+50},${y1} ${x2-50},${y2} ${x2},${y2}`);
+        path.setAttribute("stroke", color);
+        path.setAttribute("stroke-width", "3");
+        path.setAttribute("fill", "none");
+        svg.appendChild(path);
+      });
+    };
+
+    const updateTeamKO = (id, side, val) => {
+      knockout.matches[id][side === 1 ? "team1" : "team2"] = val;
+      saveKnockout();
+    };
+    const updateScoreKO = (id, side, val) => {
+      knockout.matches[id][side === 1 ? "s1" : "s2"] = isNaN(parseInt(val)) ? null : parseInt(val);
+      saveKnockout();
+      renderNodes();
+    };
+
+    const saveKnockout = async () => await setDoc(doc(db, "config", "knockout"), knockout);
 
     // --- INIT & SCORERS LOGIC ---
     (function populateMatchweek() {
@@ -1325,17 +1329,9 @@ window.showHofDetail = (id) => {
     
     // Knockout & Others
     else if (action === 'createNode') await createNode();
-    else if (action === 'generateBracket') await generateBracket();
-    else if (action === 'clearKnockout') {
-    if(confirm("Hapus semua data knockout?")) {
-        knockout = { matches: {}, connections: [] };
-        await saveKnockout();
-    }
-}
     else if (action === 'deleteNode') await deleteNode(btn.dataset.id);
     else if (action === 'saveCutoffs') await saveCutoffs();
     else if (action === 'exportBackup') exportBackup();
-        
 });
     
 
@@ -1361,16 +1357,11 @@ window.showHofDetail = (id) => {
       if (target.dataset.action === 'searchScorer') renderScorers();
     });
 
-document.addEventListener('DOMContentLoaded', () => {
-    const connEl = document.getElementById("connections");
-    if (connEl) {
-        connEl.addEventListener('click', () => {
-            if (isAdmin && knockout.connections.length > 0) {
-                if (confirm("Hapus garis terakhir?")) {
-                    knockout.connections.pop();
-                    saveKnockout();
-                }
-            }
-        });
-    }
-});
+    // Handle spesial line-removal click
+    document.getElementById("connections").addEventListener('click', () => {
+      if (isAdmin && knockout.connections.length > 0 && confirm("Remove last link?")) {
+        knockout.connections.pop();
+        saveKnockout();
+        drawLines();
+      }
+    });
