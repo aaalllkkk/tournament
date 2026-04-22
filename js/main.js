@@ -1229,16 +1229,36 @@ async function saveKnockout() {
 }
 
 // Update Nama Tim di Bagan
-async function updateTeamKO(id, side, name) {
-    if (!knockout.matches[id]) return;
-    if (side === 1) knockout.matches[id].team1 = name;
-    else knockout.matches[id].team2 = name;
+async function updateScoreKO(matchId, side, score) {
+    if (!knockout.matches[matchId]) return;
     
-    // Simpan ke Firebase
-    await saveKnockout();
-}
+    const val = score === "" ? null : parseInt(score);
+    if (side === 1) knockout.matches[matchId].s1 = val;
+    else knockout.matches[matchId].s2 = val;
 
-// Update Skor di Bagan
+    // --- LOGIKA AUTO ADVANCE ---
+    const m = knockout.matches[matchId];
+    // Jika kedua skor sudah diisi dan tidak seri
+    if (m.s1 !== null && m.s2 !== null && m.s1 !== m.s2) {
+        const winner = m.s1 > m.s2 ? m.team1 : m.team2;
+        
+        // Cari pertandingan tujuan di connections
+        const connection = knockout.connections.find(c => c.from === matchId);
+        if (connection) {
+            const nextMatchId = connection.to;
+            
+            // Tentukan apakah masuk ke slot atas (team1) atau bawah (team2)
+            // SF0 masuk ke team1 Final, SF1 masuk ke team2 Final
+            if (matchId === "sf0") {
+                knockout.matches[nextMatchId].team1 = winner;
+            } else if (matchId === "sf1") {
+                knockout.matches[nextMatchId].team2 = winner;
+            }
+        }
+    }
+
+    await saveKnockout();
+    renderNodes();
 }
 
 // --- FUNGSI UNTUK MENGHUBUNGKAN KOTAK SECARA MANUAL ---
