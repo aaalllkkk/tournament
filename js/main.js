@@ -1149,6 +1149,43 @@ async function generateBracket() {
     renderNodes();
 }
 
+// Fungsi untuk menyimpan seluruh data Knockout ke Firebase
+async function saveKnockout() {
+    try {
+        // Pastikan kita hanya menyimpan jika user adalah Admin
+        if (!isAdmin) return;
+
+        const koRef = doc(db, "tournament", "knockout");
+        await setDoc(koRef, knockout);
+        console.log("Knockout data saved successfully!");
+    } catch (error) {
+        console.error("Error saving knockout data:", error);
+        alert("Gagal menyimpan perubahan ke database.");
+    }
+}
+
+// Update Nama Tim di Bagan
+async function updateTeamKO(id, side, name) {
+    if (!knockout.matches[id]) return;
+    if (side === 1) knockout.matches[id].team1 = name;
+    else knockout.matches[id].team2 = name;
+    
+    // Simpan ke Firebase
+    await saveKnockout();
+}
+
+// Update Skor di Bagan
+async function updateScoreKO(id, side, score) {
+    if (!knockout.matches[id]) return;
+    const val = score === "" ? null : parseInt(score);
+    
+    if (side === 1) knockout.matches[id].s1 = val;
+    else knockout.matches[id].s2 = val;
+
+    // Simpan ke Firebase
+    await saveKnockout();
+}
+
     // --- INIT & SCORERS LOGIC ---
     (function populateMatchweek() {
       const s = document.getElementById("matchMatchweek");
