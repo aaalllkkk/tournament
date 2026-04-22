@@ -182,7 +182,7 @@ const getStarIcons = (rating) => {
 };
 
     const toggleAdminUI = () => {
-      ["adminTeamControls", "matchControls", "scorerControls", "newsControls", "knockoutControls", "liveBannerControls", "hofcontrols"].forEach(id => {
+      ["adminTeamControls", "matchControls", "scorerControls", "newsControls", "Controls", "liveBannerControls", "hofcontrols"].forEach(id => {
         if (document.getElementById(id)) document.getElementById(id).style.display = isAdmin ? "block" : "none";
       });
     };
@@ -267,6 +267,13 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
       renderNews();
     });
 
+    onSnapshot(doc(db, "tournament", "knockout"), (doc) => {
+    if (doc.exists()) {
+        knockout = doc.data();
+        renderNodes(); // Ini sekarang akan bekerja karena fungsi di atas sudah terdaftar
+    }
+});
+
     onSnapshot(doc(db, "config", "standings"), snap => {
       if (snap.exists()) {
         championsCutoff = snap.data().championsCutoff || 4;
@@ -279,9 +286,9 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
       renderStandings();
     });
 
-    onSnapshot(doc(db, "config", "knockout"), snap => {
+    onSnapshot(doc(db, "config", ""), snap => {
       if (snap.exists()) {
-        knockout = snap.data();
+         = snap.data();
         renderNodes();
       }
     });
@@ -1002,118 +1009,124 @@ document.getElementById("closeBackdrop").onclick = closeModal;
       }
     };
 
-   // --- [BAGIAN BARU] KNOCKOUT SYSTEM LOGIC ---
+  // --- SISTEM KNOCKOUT (TARUH DI SINI) ---
 
-// 1. Fungsi Menggambar Garis (Pastikan ID 'connections' ada di HTML)
-const drawLines = () => {
+// Menggunakan deklarasi 'function' agar bisa diakses dari mana saja (Hoisting)
+function drawLines() {
     const svg = document.getElementById("connections");
-    if (!svg) return; // Pengaman: Jika SVG tidak ada, jangan eksekusi
-    
+    if (!svg) return;
     svg.innerHTML = "";
-    const pr = svg.getBoundingClientRect();
-
-    if (!knockout.connections) knockout.connections = [];
-
-    knockout.connections.forEach(c => {
-        const fNode = document.querySelector(`[data-id='${c.from}']`);
-        const tNode = document.querySelector(`[data-id='${c.to}']`);
-        if (!fNode || !tNode) return;
-
-        const fr = fNode.getBoundingClientRect();
-        const tr = tNode.getBoundingClientRect();
-
-        const x1 = fr.right - pr.left;
-        const y1 = (fr.top + fr.height / 2) - pr.top;
-        const x2 = tr.left - pr.left;
-        const y2 = (tr.top + tr.height / 2) - pr.top;
-        const midX = x1 + (x2 - x1) / 2;
-
-        const color = c.type === "win" ? "#8eff71" : "#ff7171";
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        
-        path.setAttribute("d", `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`);
-        path.setAttribute("stroke", color);
-        path.setAttribute("stroke-width", "2");
-        path.setAttribute("fill", "none");
-        path.style.opacity = "0.4";
-        
-        svg.appendChild(path);
-    });
-};
-
-// 2. Fungsi Render Kotak Pertandingan
-const renderNodes = () => {
-    const container = document.getElementById("nodes-container");
-    if (!container) return; // Pengaman
     
+    const container = document.getElementById("nodes-container");
+    if (container) {
+        // Sesuaikan ukuran SVG dengan isi container agar garis tidak terpotong
+        svg.setAttribute("width", container.scrollWidth);
+        svg.setAttribute("height", container.scrollHeight);
+    }
+
+    if (!knockout.connections) return;
+
+    knockout.connections.forEach(conn => {
+        const fromEl = document.querySelector(`[data-id="${conn.from}"]`);
+        const toEl = document.querySelector(`[data-id="${conn.to}"]`);
+
+        if (fromEl && toEl) {
+            const containerRect = svg.getBoundingClientRect();
+            const rect1 = fromEl.getBoundingClientRect();
+            const rect2 = toEl.getBoundingClientRect();
+
+            // Titik awal (tengah kanan kotak asal)
+            const x1 = rect1.right - containerRect.left;
+            const y1 = rect1.top + (rect1.height / 2) - containerRect.top;
+
+            // Titik akhir (tengah kiri kotak tujuan)
+            const x2 = rect2.left - containerRect.left;
+            const y2 = rect2.top + (rect2.height / 2) - containerRect.top;
+
+            // Membuat garis siku-siku yang rapi
+            const midX = x1 + (x2 - x1) / 2;
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            
+            // Logika garis: Jalan ke kanan -> belok vertikal -> jalan ke kanan lagi
+            path.setAttribute("d", `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`);
+            path.setAttribute("stroke", "#3b82f6"); 
+            path.setAttribute("stroke-width", "2");
+            path.setAttribute("fill", "none");
+            path.style.opacity = "0.4";
+            svg.appendChild(path);
+        }
+    });
+}
+
+function renderNodes() {
+    const container = document.getElementById("nodes-container");
+    if (!container) return;
     container.innerHTML = "";
 
-    if (!knockout.matches) knockout.matches = {};
+    if (!knockout.matches) return;
 
-    Object.values(knockout.matches).forEach(m => {
+    Object.entries(knockout.matches).forEach(([id, node]) => {
         const div = document.createElement("div");
-        div.className = "absolute z-20";
-        div.style.left = `${m.x}px`;
-        div.style.top = `${m.y}px`;
-        div.dataset.id = m.id;
+        div.className = "absolute z-10 group";
+        div.style.left = node.x + "px";
+        div.style.top = node.y + "px";
+        div.dataset.id = id;
 
         div.innerHTML = `
-            <div class="bg-[#1a243a] border border-white/10 rounded-xl shadow-2xl w-[220px] overflow-hidden group">
-                <div class="flex items-center justify-between p-3 border-b border-white/5 bg-white/[0.02]">
-                    <div class="flex items-center gap-2">
-                        <span class="w-1.5 h-1.5 rounded-full ${m.s1 > m.s2 ? 'bg-primary' : 'bg-white/20'}"></span>
-                        <input type="text" value="${m.team1 || ''}" class="bg-transparent border-none p-0 text-xs font-bold text-white w-28 focus:ring-0 uppercase" data-action="updateTeamKO" data-id="${m.id}" data-side="1" ${!isAdmin ? 'readonly' : ''}>
+            <div class="bg-[#1a243a] border border-white/10 rounded-xl shadow-xl w-[200px] overflow-hidden group hover:border-primary/50 transition-all">
+                <div class="p-2 space-y-1">
+                    <div class="flex items-center justify-between">
+                        <input type="text" value="${node.team1 || ''}" data-action="updateTeamKO" data-id="${id}" data-side="1" 
+                            class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-24 focus:ring-0" placeholder="TEAM 1" ${!isAdmin ? 'readonly' : ''}>
+                        <input type="number" value="${node.s1 ?? ''}" data-action="updateScoreKO" data-id="${id}" data-side="1"
+                            class="bg-black/40 border-none rounded w-8 text-center text-xs font-black text-primary focus:ring-0" ${!isAdmin ? 'readonly' : ''}>
                     </div>
-                    <input type="number" value="${m.s1 ?? ''}" class="bg-black/20 border-none rounded-md w-10 text-center text-xs font-black text-primary focus:ring-0" data-action="updateScoreKO" data-id="${m.id}" data-side="1" ${!isAdmin ? 'readonly' : ''}>
-                </div>
-                <div class="flex items-center justify-between p-3">
-                    <div class="flex items-center gap-2">
-                        <span class="w-1.5 h-1.5 rounded-full ${m.s2 > m.s1 ? 'bg-primary' : 'bg-white/20'}"></span>
-                        <input type="text" value="${m.team2 || ''}" class="bg-transparent border-none p-0 text-xs font-bold text-white w-28 focus:ring-0 uppercase" data-action="updateTeamKO" data-id="${m.id}" data-side="2" ${!isAdmin ? 'readonly' : ''}>
+                    <div class="flex items-center justify-between">
+                        <input type="text" value="${node.team2 || ''}" data-action="updateTeamKO" data-id="${id}" data-side="2"
+                            class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-24 focus:ring-0" placeholder="TEAM 2" ${!isAdmin ? 'readonly' : ''}>
+                        <input type="number" value="${node.s2 ?? ''}" data-action="updateScoreKO" data-id="${id}" data-side="2"
+                            class="bg-black/40 border-none rounded w-8 text-center text-xs font-black text-primary focus:ring-0" ${!isAdmin ? 'readonly' : ''}>
                     </div>
-                    <input type="number" value="${m.s2 ?? ''}" class="bg-black/20 border-none rounded-md w-10 text-center text-xs font-black text-primary focus:ring-0" data-action="updateScoreKO" data-id="${m.id}" data-side="2" ${!isAdmin ? 'readonly' : ''}>
                 </div>
                 ${isAdmin ? `
-                <div class="flex border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
-                    <button class="flex-1 p-1.5 hover:bg-primary/20 text-[10px] font-bold text-primary" data-action="linkNode" data-id="${m.id}">LINK</button>
-                    <button class="flex-1 p-1.5 hover:bg-error/20 text-[10px] font-bold text-error" data-action="deleteNode" data-id="${m.id}">DEL</button>
+                <div class="flex border-t border-white/5 opacity-0 group-hover:opacity-100 transition-all bg-black/20">
+                    <button class="flex-1 p-1 hover:bg-primary/20 text-[9px] font-bold text-primary" data-action="linkNode" data-id="${id}">LINK</button>
+                    <button class="flex-1 p-1 hover:bg-error/20 text-[9px] font-bold text-error" data-action="deleteNode" data-id="${id}">DEL</button>
+                    <div class="drag-handle flex-none p-1 cursor-move"><span class="material-symbols-outlined text-xs text-white/30">drag_pan</span></div>
                 </div>` : ''}
             </div>
         `;
 
-        // Logika Drag & Drop Admin
-        if (isAdmin) {
-            setupDraggable(div, m);
-        }
-
+        if (isAdmin) setupDragging(div, node);
         container.appendChild(div);
     });
 
     drawLines();
-};
+}
 
-// Fungsi pembantu untuk Draggable
-function setupDraggable(div, m) {
-    let isDragging = false;
-    div.onmousedown = (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-        isDragging = true;
-        const offsetX = e.clientX - div.offsetLeft;
-        const offsetY = e.clientY - div.offsetTop;
+// Tambahkan fungsi pembantu dragging ini di bawahnya
+function setupDragging(div, node) {
+    const handle = div.querySelector('.drag-handle');
+    if (!handle) return;
+
+    handle.onmousedown = (e) => {
+        let isDragging = true;
+        const startX = e.clientX - node.x;
+        const startY = e.clientY - node.y;
 
         document.onmousemove = (ev) => {
             if (!isDragging) return;
-            m.x = ev.clientX - offsetX;
-            m.y = ev.clientY - offsetY;
-            div.style.left = `${m.x}px`;
-            div.style.top = `${m.y}px`;
+            node.x = ev.clientX - startX;
+            node.y = ev.clientY - startY;
+            div.style.left = node.x + "px";
+            div.style.top = node.y + "px";
             drawLines();
         };
 
         document.onmouseup = async () => {
             isDragging = false;
             document.onmousemove = null;
-            await saveKnockout(); 
+            await saveKnockout();
         };
     };
 }
@@ -1346,3 +1359,17 @@ window.showHofDetail = (id) => {
 
       if (target.dataset.action === 'searchScorer') renderScorers();
     });
+
+document.addEventListener('DOMContentLoaded', () => {
+    const connEl = document.getElementById("connections");
+    if (connEl) {
+        connEl.addEventListener('click', () => {
+            if (isAdmin && knockout.connections.length > 0) {
+                if (confirm("Hapus garis terakhir?")) {
+                    knockout.connections.pop();
+                    saveKnockout();
+                }
+            }
+        });
+    }
+});
