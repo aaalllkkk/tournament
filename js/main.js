@@ -752,12 +752,22 @@ const initSlideshow = (urls) => {
   }
 });
 
-onSnapshot(doc(db, "tournament", "knockout"), (doc) => {
-    if (doc.exists()) {
-        knockout = doc.data();
+onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
+    if (docSnap.exists()) {
+        knockout = docSnap.data();
+        
+        // Proteksi agar tidak undefined
         if (!knockout.matches) knockout.matches = {};
         if (!knockout.connections) knockout.connections = [];
-        renderNodes(); // <--- Pastikan ini dipanggil
+        
+        // Render ulang jika tab knockout sedang terbuka
+        const koSection = document.getElementById("knockout");
+        if (koSection && koSection.style.display !== "none") {
+            renderNodes();
+        }
+    } else {
+        // Jika data benar-benar belum pernah dibuat di database
+        knockout = { matches: {}, connections: [] };
     }
 });
 
@@ -1245,6 +1255,29 @@ async function deleteNode(id) {
     await saveKnockout();
     renderNodes();
 }
+// Nama fungsinya mungkin showSection, switchTab, atau sejenisnya di kodemu
+function showSection(sectionId) {
+    // 1. Sembunyikan semua section
+    document.querySelectorAll('.section').forEach(sec => {
+        sec.style.display = 'none'; 
+        // atau sec.classList.add('hidden'); (tergantung cara kerjamu sebelumnya)
+    });
+
+    // 2. Tampilkan section tujuan
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+        targetSection.style.display = 'block';
+        // atau targetSection.classList.remove('hidden');
+
+        // 3. TAMBAHKAN BLOK INI: Khusus untuk memancing Knockout agar muncul
+        if (sectionId === 'knockout') {
+            setTimeout(() => {
+                renderNodes(); // Gambar kotak pertandingannya
+            }, 100); // Jeda sedikit agar elemen HTML siap dulu
+        }
+    }
+}
+
 
     // --- INIT & SCORERS LOGIC ---
     (function populateMatchweek() {
