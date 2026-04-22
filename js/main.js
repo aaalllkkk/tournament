@@ -1002,15 +1002,17 @@ document.getElementById("closeBackdrop").onclick = closeModal;
       }
     };
 
-   // --- IMPROVED KNOCKOUT SYSTEM ---
+   // --- [BAGIAN BARU] KNOCKOUT SYSTEM LOGIC ---
 
-// Fungsi untuk menggambar garis siku-siku (Orthogonal) yang lebih rapi
+// 1. Fungsi Menggambar Garis (Pastikan ID 'connections' ada di HTML)
 const drawLines = () => {
     const svg = document.getElementById("connections");
-    if (!svg) return;
-    svg.innerHTML = "";
+    if (!svg) return; // Pengaman: Jika SVG tidak ada, jangan eksekusi
     
+    svg.innerHTML = "";
     const pr = svg.getBoundingClientRect();
+
+    if (!knockout.connections) knockout.connections = [];
 
     knockout.connections.forEach(c => {
         const fNode = document.querySelector(`[data-id='${c.from}']`);
@@ -1020,96 +1022,101 @@ const drawLines = () => {
         const fr = fNode.getBoundingClientRect();
         const tr = tNode.getBoundingClientRect();
 
-        // Titik awal (kanan kotak asal)
         const x1 = fr.right - pr.left;
         const y1 = (fr.top + fr.height / 2) - pr.top;
-
-        // Titik akhir (kiri kotak tujuan)
         const x2 = tr.left - pr.left;
         const y2 = (tr.top + tr.height / 2) - pr.top;
-
-        // Hitung titik tengah untuk belokan siku-siku
         const midX = x1 + (x2 - x1) / 2;
 
         const color = c.type === "win" ? "#8eff71" : "#ff7171";
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         
-        // Membuat garis siku-siku (M=Mulai, L=Garis ke)
-        // Jalur: Kanan -> Tengah -> Atas/Bawah -> Tengah -> Kiri Tujuan
         path.setAttribute("d", `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`);
         path.setAttribute("stroke", color);
         path.setAttribute("stroke-width", "2");
         path.setAttribute("fill", "none");
-        path.setAttribute("stroke-dasharray", isAdmin ? "0" : "0"); // Bisa dibuat putus-putus jika diinginkan
         path.style.opacity = "0.4";
         
         svg.appendChild(path);
     });
 };
 
-// Fungsi Generate Bracket Otomatis
-const generateBracket = async () => {
-    const type = document.getElementById("koType").value;
-    const participantTeams = teams.slice(0, 16); // Ambil tim dari peringkat klasemen (misal 16 besar)
+// 2. Fungsi Render Kotak Pertandingan
+const renderNodes = () => {
+    const container = document.getElementById("nodes-container");
+    if (!container) return; // Pengaman
     
-    if (participantTeams.length < 2) return alert("Butuh minimal 2 tim untuk membuat bracket!");
-    if (!confirm(`Generate ${type} elimination untuk ${participantTeams.length} tim?`)) return;
+    container.innerHTML = "";
 
-    let newMatches = {};
-    let newConnections = [];
+    if (!knockout.matches) knockout.matches = {};
 
-    if (type === "single") {
-        // Logika Sederhana Single Elimination (8 besar / 16 besar)
-        const levels = Math.ceil(Math.log2(participantTeams.length));
-        let matchCount = Math.pow(2, levels - 1);
-        let spacingX = 300;
-        let spacingY = 120;
+    Object.values(knockout.matches).forEach(m => {
+        const div = document.createElement("div");
+        div.className = "absolute z-20";
+        div.style.left = `${m.x}px`;
+        div.style.top = `${m.y}px`;
+        div.dataset.id = m.id;
 
-        for (let l = 0; l < levels; l++) {
-            let matchesInLevel = Math.pow(2, levels - 1 - l);
-            for (let i = 0; i < matchesInLevel; i++) {
-                const id = `lvl${l}_m${i}`;
-                newMatches[id] = {
-                    id,
-                    x: 50 + (l * spacingX),
-                    y: 50 + (i * spacingY * Math.pow(2, l)) + ((Math.pow(2, l) - 1) * spacingY / 2),
-                    team1: l === 0 ? (participantTeams[i*2]?.name || "TBD") : "TBD",
-                    team2: l === 0 ? (participantTeams[i*2+1]?.name || "TBD") : "TBD",
-                    s1: null, s2: null
-                };
+        div.innerHTML = `
+            <div class="bg-[#1a243a] border border-white/10 rounded-xl shadow-2xl w-[220px] overflow-hidden group">
+                <div class="flex items-center justify-between p-3 border-b border-white/5 bg-white/[0.02]">
+                    <div class="flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full ${m.s1 > m.s2 ? 'bg-primary' : 'bg-white/20'}"></span>
+                        <input type="text" value="${m.team1 || ''}" class="bg-transparent border-none p-0 text-xs font-bold text-white w-28 focus:ring-0 uppercase" data-action="updateTeamKO" data-id="${m.id}" data-side="1" ${!isAdmin ? 'readonly' : ''}>
+                    </div>
+                    <input type="number" value="${m.s1 ?? ''}" class="bg-black/20 border-none rounded-md w-10 text-center text-xs font-black text-primary focus:ring-0" data-action="updateScoreKO" data-id="${m.id}" data-side="1" ${!isAdmin ? 'readonly' : ''}>
+                </div>
+                <div class="flex items-center justify-between p-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full ${m.s2 > m.s1 ? 'bg-primary' : 'bg-white/20'}"></span>
+                        <input type="text" value="${m.team2 || ''}" class="bg-transparent border-none p-0 text-xs font-bold text-white w-28 focus:ring-0 uppercase" data-action="updateTeamKO" data-id="${m.id}" data-side="2" ${!isAdmin ? 'readonly' : ''}>
+                    </div>
+                    <input type="number" value="${m.s2 ?? ''}" class="bg-black/20 border-none rounded-md w-10 text-center text-xs font-black text-primary focus:ring-0" data-action="updateScoreKO" data-id="${m.id}" data-side="2" ${!isAdmin ? 'readonly' : ''}>
+                </div>
+                ${isAdmin ? `
+                <div class="flex border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
+                    <button class="flex-1 p-1.5 hover:bg-primary/20 text-[10px] font-bold text-primary" data-action="linkNode" data-id="${m.id}">LINK</button>
+                    <button class="flex-1 p-1.5 hover:bg-error/20 text-[10px] font-bold text-error" data-action="deleteNode" data-id="${m.id}">DEL</button>
+                </div>` : ''}
+            </div>
+        `;
 
-                // Hubungkan ke babak berikutnya
-                if (l < levels - 1) {
-                    const nextMatchId = `lvl${l+1}_m${Math.floor(i/2)}`;
-                    newConnections.push({ from: id, to: nextMatchId, type: "win" });
-                }
-            }
+        // Logika Drag & Drop Admin
+        if (isAdmin) {
+            setupDraggable(div, m);
         }
-    } else {
-        // Template Dasar Double Elimination (Sederhana: 4 Tim)
-        alert("Double Elimination template diaktifkan untuk Top 4.");
-        // (Logika koordinat manual untuk Double Elimination agar rapi)
-        newMatches = {
-            "u1": { id:"u1", x:50, y:100, team1:teams[0]?.name||"T1", team2:teams[3]?.name||"T4", s1:null, s2:null },
-            "u2": { id:"u2", x:50, y:250, team1:teams[1]?.name||"T2", team2:teams[2]?.name||"T3", s1:null, s2:null },
-            "u3": { id:"u3", x:400, y:175, team1:"TBD", team2:"TBD", s1:null, s2:null }, // Winner Bracket Final
-            "l1": { id:"l1", x:400, y:400, team1:"TBD", team2:"TBD", s1:null, s2:null }, // Loser Bracket Semi
-            "l2": { id:"l2", x:750, y:300, team1:"TBD", team2:"TBD", s1:null, s2:null }, // Loser Bracket Final
-            "gf": { id:"gf", x:1100, y:200, team1:"TBD", team2:"TBD", s1:null, s2:null }, // Grand Final
-        };
-        newConnections = [
-            { from:"u1", to:"u3", type:"win" }, { from:"u2", to:"u3", type:"win" },
-            { from:"u1", to:"l1", type:"lose" }, { from:"u2", to:"l1", type:"lose" },
-            { from:"l1", to:"l2", type:"win" }, { from:"u3", to:"l2", type:"lose" },
-            { from:"u3", to:"gf", type:"win" }, { from:"l2", to:"gf", type:"win" }
-        ];
-    }
 
-    knockout.matches = newMatches;
-    knockout.connections = newConnections;
-    await saveKnockout();
-    alert("Bracket Berhasil Dibuat!");
+        container.appendChild(div);
+    });
+
+    drawLines();
 };
+
+// Fungsi pembantu untuk Draggable
+function setupDraggable(div, m) {
+    let isDragging = false;
+    div.onmousedown = (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+        isDragging = true;
+        const offsetX = e.clientX - div.offsetLeft;
+        const offsetY = e.clientY - div.offsetTop;
+
+        document.onmousemove = (ev) => {
+            if (!isDragging) return;
+            m.x = ev.clientX - offsetX;
+            m.y = ev.clientY - offsetY;
+            div.style.left = `${m.x}px`;
+            div.style.top = `${m.y}px`;
+            drawLines();
+        };
+
+        document.onmouseup = async () => {
+            isDragging = false;
+            document.onmousemove = null;
+            await saveKnockout(); 
+        };
+    };
+}
 
     // --- INIT & SCORERS LOGIC ---
     (function populateMatchweek() {
@@ -1338,13 +1345,4 @@ window.showHofDetail = (id) => {
       if (!target) return;
 
       if (target.dataset.action === 'searchScorer') renderScorers();
-    });
-
-    // Handle spesial line-removal click
-    document.getElementById("connections").addEventListener('click', () => {
-      if (isAdmin && knockout.connections.length > 0 && confirm("Remove last link?")) {
-        knockout.connections.pop();
-        saveKnockout();
-        drawLines();
-      }
     });
