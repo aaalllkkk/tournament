@@ -238,10 +238,14 @@ select[data-action="filterMatches"]:focus {
     }
 
     /* Knockout Engine Styles */
-    #knockout-viewport::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    #knockout-viewport {
+    height: 80vh;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 30px 30px;
+    background-color: #0f172a;
+    position: relative;
 }
+    
 #knockout-viewport::-webkit-scrollbar-track {
     background: rgba(255, 255, 255, 0.02);
 }
@@ -252,6 +256,21 @@ select[data-action="filterMatches"]:focus {
 #knockout-viewport::-webkit-scrollbar-thumb:hover {
     background: var(--primary-color, #4ade80);
 }
+  #nodes-container {
+    min-width: 3000px; /* Luas agar bracket tidak terjepit */
+    min-height: 2000px;
+    position: relative;
+    z-index: 10;
+}
+
+#connections {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 5;
+    pointer-events: none; /* Agar tidak menghalangi klik pada kotak */
+}
+    
     .node {
       width: 220px;
       background: rgba(22, 31, 50, 0.95);
