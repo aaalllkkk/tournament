@@ -286,13 +286,6 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
       renderStandings();
     });
 
-    onSnapshot(doc(db, "config", ""), snap => {
-      if (snap.exists()) {
-         = snap.data();
-        renderNodes();
-      }
-    });
-
     // --- ACTIONS ---
     const addTeam = async () => {
       const name = document.getElementById("teamName").value.trim();
