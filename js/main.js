@@ -94,6 +94,11 @@ const getStarIcons = (rating) => {
       statusEl.className = isAdmin ? "font-headline font-black text-lg text-primary mt-1" : "font-headline font-black text-lg text-white mt-1";
       document.getElementById("adminTools").style.display = isAdmin ? "block" : "none";
       document.body.classList.toggle("admin", isAdmin);
+    
+    const koControls = document.getElementById("knockoutControls");
+    if (koControls) {
+        koControls.style.display = isAdmin ? "block" : "none";
+    }
 
       if (isAdmin) {
         document.getElementById("championsInput").value = championsCutoff;
