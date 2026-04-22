@@ -279,13 +279,7 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
       renderStandings();
     });
 
-    onSnapshot(doc(db, "config", "knockout"), snap => {
-      if (snap.exists()) {
-        knockout = snap.data();
-        renderNodes();
-      }
-    });
-
+   
     // --- ACTIONS ---
     const addTeam = async () => {
       const name = document.getElementById("teamName").value.trim();
@@ -753,6 +747,15 @@ const initSlideshow = (urls) => {
   }
 });
 
+onSnapshot(doc(db, "tournament", "knockout"), (doc) => {
+    if (doc.exists()) {
+        knockout = doc.data();
+        if (!knockout.matches) knockout.matches = {};
+        if (!knockout.connections) knockout.connections = [];
+        renderNodes(); // <--- Pastikan ini dipanggil
+    }
+});
+
     onSnapshot(collection(db, "teams"), snap => {
       teams = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderStandings();
@@ -1002,139 +1005,149 @@ document.getElementById("closeBackdrop").onclick = closeModal;
       }
     };
 
-    // --- KNOCKOUT EDITOR LOGIC ---
-    const createNode = async () => {
-      const id = "m" + Date.now();
-      knockout.matches[id] = { id, x: 100, y: 100, team1: "", team2: "", s1: null, s2: null };
-      await saveKnockout();
-    };
+    // --- CORE KNOCKOUT FUNCTIONS ---
 
-    const renderNodes = () => {
-      const container = document.getElementById("knockoutEditor");
-      container.innerHTML = "";
-      Object.values(knockout.matches).forEach(m => {
-        const node = document.createElement("div");
-        node.className = "node";
-        node.style.left = m.x + "px";
-        node.style.top = m.y + "px";
-        node.dataset.id = m.id;
-        node.innerHTML = `
-                    <div class="nodeBody">
-                        <div class="teamRowKO">
-                            ${isAdmin ? `<input value="${m.team1}" placeholder="Team 1" data-action="updateTeamKO" data-side="1" data-id="${m.id}">` : `<span class="font-headline font-bold text-sm truncate w-[100px]">${m.team1 || "TBD"}</span>`}
-                            ${isAdmin ? `<input type="number" value="${m.s1 ?? ""}" class="!w-10 text-center" placeholder="-" data-action="updateScoreKO" data-side="1" data-id="${m.id}">` : `<span class="scoreKO">${m.s1 ?? "-"}</span>`}
-                        </div>
-                        <div class="teamRowKO">
-                            ${isAdmin ? `<input value="${m.team2}" placeholder="Team 2" data-action="updateTeamKO" data-side="2" data-id="${m.id}">` : `<span class="font-headline font-bold text-sm truncate w-[100px]">${m.team2 || "TBD"}</span>`}
-                            ${isAdmin ? `<input type="number" value="${m.s2 ?? ""}" class="!w-10 text-center" placeholder="-" data-action="updateScoreKO" data-side="2" data-id="${m.id}">` : `<span class="scoreKO">${m.s2 ?? "-"}</span>`}
-                        </div>
-                    </div>
-                    ${isAdmin ? `
-                        <button class="deleteBtn absolute -top-3 -right-3" data-action="deleteNode" data-id="${m.id}">X</button>
-                        <div class="ports left"><div class="port inPort winIn" data-type="win"></div><div class="port inPort midIn" data-type="mid"></div><div class="port inPort loseIn" data-type="lose"></div></div>
-                        <div class="ports right"><div class="port outPort winOut" data-type="win"></div><div class="port outPort midOut" data-type="mid"></div><div class="port outPort loseOut" data-type="lose"></div></div>
-                    ` : `<div class="ports left"><div class="port viewerPort"></div></div><div class="ports right"><div class="port viewerPort"></div></div>`}
-                `;
-        container.appendChild(node);
-        if (isAdmin) makeDraggable(node, m);
-        setupConnectionEvents(node);
-      });
-      drawLines();
-    };
+function drawLines() {
+    const svg = document.getElementById("connections");
+    const container = document.getElementById("nodes-container");
+    if (!svg || !container) return;
 
-    const deleteNode = async (id) => {
-      if (confirm("Delete this Knockout Node?")) {
-        delete knockout.matches[id];
-        knockout.connections = knockout.connections.filter(c => c.from !== id && c.to !== id);
-        await saveKnockout();
-      }
-    };
+    svg.innerHTML = "";
+    // Sesuaikan ukuran SVG dengan area scroll
+    svg.setAttribute("width", Math.max(container.scrollWidth, 2000));
+    svg.setAttribute("height", Math.max(container.scrollHeight, 1000));
 
-    const makeDraggable = (node, m) => {
-      let drag = false,
-        ox, oy;
-      node.addEventListener("mousedown", e => {
-        if (!["INPUT", "BUTTON"].includes(e.target.tagName) && !e.target.classList.contains("port")) {
-          drag = true;
-          ox = e.clientX - m.x;
-          oy = e.clientY - m.y;
-        }
-      });
-      window.addEventListener("mousemove", e => {
-        if (drag) {
-          m.x = Math.round((e.clientX - ox) / 20) * 20;
-          m.y = Math.round((e.clientY - oy) / 20) * 20;
-          node.style.left = m.x + "px";
-          node.style.top = m.y + "px";
-          drawLines();
-        }
-      });
-      window.addEventListener("mouseup", () => {
-        if (drag) {
-          drag = false;
-          saveKnockout();
-        }
-      });
-    };
+    const pr = svg.getBoundingClientRect();
 
-    const setupConnectionEvents = (node) => {
-      const id = node.dataset.id;
-      node.querySelectorAll(".outPort").forEach(p => p.onclick = e => {
-        e.stopPropagation();
-        currentLink = { from: id, type: p.dataset.type };
-        highlightPorts();
-      });
-      node.querySelectorAll(".inPort").forEach(p => p.onclick = e => {
-        e.stopPropagation();
-        if (!currentLink) return;
-        if (!knockout.connections.find(c => c.from === currentLink.from && c.to === id && c.type === p.dataset.type)) {
-          knockout.connections.push({ from: currentLink.from, to: id, type: p.dataset.type });
-        }
-        currentLink = null;
-        clearHighlights();
-        saveKnockout();
-        drawLines();
-      });
-    };
-
-    const highlightPorts = () => document.querySelectorAll(".inPort").forEach(p => p.classList.add("active"));
-    const clearHighlights = () => document.querySelectorAll(".port").forEach(p => p.classList.remove("active"));
-
-    const drawLines = () => {
-      const svg = document.getElementById("connections");
-      svg.innerHTML = "";
-      knockout.connections.forEach(c => {
-        const fNode = document.querySelector(`[data-id='${c.from}']`),
-          tNode = document.querySelector(`[data-id='${c.to}']`);
+    knockout.connections.forEach(c => {
+        const fNode = document.querySelector(`[data-id='${c.from}']`);
+        const tNode = document.querySelector(`[data-id='${c.to}']`);
         if (!fNode || !tNode) return;
-        const fr = fNode.getBoundingClientRect(),
-          tr = tNode.getBoundingClientRect(),
-          pr = svg.getBoundingClientRect();
-        const x1 = fr.right - pr.left,
-          y1 = fr.top + fr.height / 2 - pr.top;
-        const x2 = tr.left - pr.left,
-          y2 = tr.top + tr.height / 2 - pr.top;
-        const color = c.type === "win" ? "#8eff71" : c.type === "lose" ? "#ff7351" : "#81ecff";
+
+        const fr = fNode.getBoundingClientRect();
+        const tr = tNode.getBoundingClientRect();
+
+        const x1 = (fr.right - pr.left);
+        const y1 = (fr.top + fr.height / 2) - pr.top;
+        const x2 = (tr.left - pr.left);
+        const y2 = (tr.top + tr.height / 2) - pr.top;
+
+        // Logika Garis Siku-siku (Orthogonal)
+        const midX = x1 + (x2 - x1) / 2;
+        const color = c.type === "win" ? "#4ade80" : "#f87171";
+        
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", `M${x1},${y1} C${x1+50},${y1} ${x2-50},${y2} ${x2},${y2}`);
+        path.setAttribute("d", `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`);
         path.setAttribute("stroke", color);
-        path.setAttribute("stroke-width", "3");
+        path.setAttribute("stroke-width", "2");
         path.setAttribute("fill", "none");
+        path.style.opacity = "0.3";
         svg.appendChild(path);
-      });
-    };
+    });
+}
 
-    const updateTeamKO = (id, side, val) => {
-      knockout.matches[id][side === 1 ? "team1" : "team2"] = val;
-      saveKnockout();
-    };
-    const updateScoreKO = (id, side, val) => {
-      knockout.matches[id][side === 1 ? "s1" : "s2"] = isNaN(parseInt(val)) ? null : parseInt(val);
-      saveKnockout();
-      renderNodes();
-    };
+function renderNodes() {
+    const container = document.getElementById("nodes-container");
+    if (!container) return;
+    container.innerHTML = "";
 
-    const saveKnockout = async () => await setDoc(doc(db, "config", "knockout"), knockout);
+    Object.entries(knockout.matches || {}).forEach(([id, m]) => {
+        const div = document.createElement("div");
+        div.className = "absolute z-20 group transition-shadow";
+        div.style.left = `${m.x}px`;
+        div.style.top = `${m.y}px`;
+        div.dataset.id = id;
+
+        div.innerHTML = `
+            <div class="bg-[#1a243a] border border-white/10 rounded-xl shadow-2xl w-[200px] overflow-hidden group-hover:border-primary/50 transition-all">
+                <div class="flex items-center justify-between p-2 border-b border-white/5">
+                    <input type="text" value="${m.team1 || ''}" class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-28 focus:ring-0 uppercase" 
+                        data-action="updateTeamKO" data-id="${id}" data-side="1" ${!isAdmin ? 'readonly' : ''} placeholder="TEAM 1">
+                    <input type="number" value="${m.s1 ?? ''}" class="bg-black/40 border-none rounded w-8 text-center text-xs font-black text-primary focus:ring-0" 
+                        data-action="updateScoreKO" data-id="${id}" data-side="1" ${!isAdmin ? 'readonly' : ''}>
+                </div>
+                <div class="flex items-center justify-between p-2">
+                    <input type="text" value="${m.team2 || ''}" class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-28 focus:ring-0 uppercase" 
+                        data-action="updateTeamKO" data-id="${id}" data-side="2" ${!isAdmin ? 'readonly' : ''} placeholder="TEAM 2">
+                    <input type="number" value="${m.s2 ?? ''}" class="bg-black/40 border-none rounded w-8 text-center text-xs font-black text-primary focus:ring-0" 
+                        data-action="updateScoreKO" data-id="${id}" data-side="2" ${!isAdmin ? 'readonly' : ''}>
+                </div>
+                ${isAdmin ? `
+                <div class="flex border-t border-white/5 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button class="flex-1 py-1 text-[9px] font-bold text-primary hover:bg-primary/10" data-action="linkNode" data-id="${id}">HUBUNGKAN</button>
+                    <button class="flex-1 py-1 text-[9px] font-bold text-error hover:bg-error/10" data-action="deleteNode" data-id="${id}">HAPUS</button>
+                    <div class="drag-handle p-1 cursor-move self-center"><span class="material-symbols-outlined text-xs text-white/20">drag_pan</span></div>
+                </div>` : ''}
+            </div>
+        `;
+
+        if (isAdmin) setupDraggable(div, m);
+        container.appendChild(div);
+    });
+
+    drawLines();
+}
+
+function setupDraggable(div, m) {
+    const handle = div.querySelector('.drag-handle');
+    if (!handle) return;
+    
+    handle.onmousedown = (e) => {
+        let isDragging = true;
+        const offsetX = e.clientX - div.offsetLeft;
+        const offsetY = e.clientY - div.offsetTop;
+
+        document.onmousemove = (ev) => {
+            if (!isDragging) return;
+            m.x = ev.clientX - offsetX;
+            m.y = ev.clientY - offsetY;
+            div.style.left = `${m.x}px`;
+            div.style.top = `${m.y}px`;
+            drawLines();
+        };
+
+        document.onmouseup = async () => {
+            isDragging = false;
+            document.onmousemove = null;
+            await saveKnockout();
+        };
+    };
+}
+
+async function generateBracket() {
+    const type = document.getElementById("koType").value;
+    if (!confirm(`Hapus bracket lama dan buat ${type} elimination baru?`)) return;
+
+    let newMatches = {};
+    let newConnections = [];
+
+    if (type === "single") {
+        // Contoh Template Single Elimination 8 Tim
+        const teamsList = teams.slice(0, 8);
+        for (let i = 0; i < 4; i++) {
+            const id = `qf${i}`;
+            newMatches[id] = { id, x: 50, y: 50 + (i * 120), team1: teamsList[i*2]?.name || "", team2: teamsList[i*2+1]?.name || "", s1: null, s2: null };
+            
+            // Hubungkan ke Semi Final
+            const sfId = `sf${Math.floor(i/2)}`;
+            if (!newMatches[sfId]) newMatches[sfId] = { id: sfId, x: 350, y: 110 + (Math.floor(i/2) * 240), team1: "TBD", team2: "TBD", s1: null, s2: null };
+            newConnections.push({ from: id, to: sfId, type: "win" });
+        }
+    } else {
+        // Template Double Elimination Sederhana (4 Tim)
+        newMatches = {
+            "u1": { id: "u1", x: 50, y: 100, team1: teams[0]?.name || "T1", team2: teams[3]?.name || "T4", s1: null, s2: null },
+            "u2": { id: "u2", x: 50, y: 250, team1: teams[1]?.name || "T2", team2: teams[2]?.name || "T3", s1: null, s2: null },
+            "l1": { id: "l1", x: 350, y: 400, team1: "LOSER U1", team2: "LOSER U2", s1: null, s2: null },
+            "gf": { id: "gf", x: 650, y: 200, team1: "WINNER UB", team2: "WINNER LB", s1: null, s2: null }
+        };
+        newConnections = [{ from: "u1", to: "gf", type: "win" }, { from: "l1", to: "gf", type: "win" }];
+    }
+
+    knockout = { matches: newMatches, connections: newConnections };
+    await saveKnockout();
+    renderNodes();
+}
 
     // --- INIT & SCORERS LOGIC ---
     (function populateMatchweek() {
@@ -1328,6 +1341,13 @@ window.showHofDetail = (id) => {
 }
     
     // Knockout & Others
+    if (action === 'generateBracket') await generateBracket();
+    if (action === 'clearKnockout') {
+    if (confirm("Reset bracket?")) {
+        knockout = { matches: {}, connections: [] };
+        await saveKnockout();
+    }
+}
     else if (action === 'createNode') await createNode();
     else if (action === 'deleteNode') await deleteNode(btn.dataset.id);
     else if (action === 'saveCutoffs') await saveCutoffs();
