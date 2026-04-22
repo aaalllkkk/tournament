@@ -1205,6 +1205,43 @@ async function updateScoreKO(id, side, score) {
     await saveKnockout();
 }
 
+// --- FUNGSI UNTUK MENGHUBUNGKAN KOTAK SECARA MANUAL ---
+let currentLink = null; // Variabel penanda kotak pertama yang diklik
+
+async function linkNode(id) {
+    if (!currentLink) {
+        // Klik pertama: Simpan ID awal
+        currentLink = id;
+        alert("Pilih kotak tujuan: Silakan klik tombol 'LINK' di kotak pertandingan selanjutnya.");
+    } else {
+        // Klik kedua: Hubungkan jika ID berbeda
+        if (currentLink !== id) {
+            // Cek agar tidak ada garis ganda
+            const exists = knockout.connections.some(c => c.from === currentLink && c.to === id);
+            if (!exists) {
+                knockout.connections.push({ from: currentLink, to: id, type: "win" });
+                await saveKnockout();
+            }
+        }
+        currentLink = null; // Reset setelah terhubung
+        renderNodes();
+    }
+}
+
+// --- FUNGSI UNTUK MENGHAPUS KOTAK ---
+async function deleteNode(id) {
+    if (!confirm("Yakin ingin menghapus pertandingan ini beserta garisnya?")) return;
+
+    // Hapus kotaknya
+    delete knockout.matches[id];
+
+    // Hapus semua garis yang terhubung ke kotak ini
+    knockout.connections = knockout.connections.filter(c => c.from !== id && c.to !== id);
+
+    await saveKnockout();
+    renderNodes();
+}
+
     // --- INIT & SCORERS LOGIC ---
     (function populateMatchweek() {
       const s = document.getElementById("matchMatchweek");
@@ -1398,14 +1435,16 @@ window.showHofDetail = (id) => {
     
     // Knockout & Others
     if (action === 'generateBracket') await generateBracket();
-    if (action === 'clearKnockout') {
-    if (confirm("Reset bracket?")) {
-        knockout = { matches: {}, connections: [] };
-        await saveKnockout();
+    else if (action === 'clearKnockout') {
+        if(confirm("Hapus semua data knockout?")) {
+            knockout = { matches: {}, connections: [] };
+            await saveKnockout();
+            renderNodes();
+        }
     }
-}
-    else if (action === 'createNode') await createNode();
+    else if (action === 'linkNode') await linkNode(btn.dataset.id);
     else if (action === 'deleteNode') await deleteNode(btn.dataset.id);
+    else if (action === 'createNode') await createNode();
     else if (action === 'saveCutoffs') await saveCutoffs();
     else if (action === 'exportBackup') exportBackup();
 });
