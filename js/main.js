@@ -1162,43 +1162,51 @@ function setupDraggable(div, m) {
 
 async function generateBracket() {
     const type = document.getElementById("koType").value;
-    // Gunakan list tim yang ada di sistem (teams)
-    if (!teams || teams.length < 2) {
-        alert("Data tim belum dimuat atau tim kurang dari 2. Silakan cek menu Teams.");
+    
+    // 1. Ambil & Urutkan Tim berdasarkan poin (sama seperti klasemen)
+    const sortedTeams = [...teams].sort((a, b) => {
+        const ptsA = (a.wins || 0) * 3 + (a.draws || 0);
+        const ptsB = (b.wins || 0) * 3 + (b.draws || 0);
+        if (ptsB !== ptsA) return ptsB - ptsA;
+        return (b.gd || 0) - (a.gd || 0);
+    });
+
+    // 2. AMBIL DARI championsCutoff (Peringkat 1-4)
+    const championsZoneTeams = sortedTeams.slice(0, championsCutoff);
+
+    if (championsZoneTeams.length < 2) {
+        alert(`Butuh minimal 2 tim di Champions Zone (Peringkat 1-${championsCutoff}) untuk membuat bracket!`);
         return;
     }
 
-    if (!confirm(`Buat bracket ${type} baru menggunakan data tim yang ada?`)) return;
+    if (!confirm(`Generate Semi-Final dari Top ${championsCutoff} Champions Zone?`)) return;
 
     let newMatches = {};
     let newConnections = [];
 
-    // Logika pengisian otomatis dari data 'teams'
-    if (type === "single") {
-        for (let i = 0; i < 4; i++) {
-            const id = `qf${i}`;
-            newMatches[id] = { 
-                id, x: 50, y: 50 + (i * 130), 
-                team1: teams[i*2]?.name || "TBD", 
-                team2: teams[i*2+1]?.name || "TBD", 
-                s1: null, s2: null 
-            };
-            const sfId = `sf${Math.floor(i/2)}`;
-            if (!newMatches[sfId]) {
-                newMatches[sfId] = { id: sfId, x: 350, y: 110 + (Math.floor(i/2) * 260), team1: "TBD", team2: "TBD", s1: null, s2: null };
-            }
-            newConnections.push({ from: id, to: sfId, type: "win" });
-        }
-    } else {
-        // Template Double Elimination Sederhana (4 Tim)
-        newMatches = {
-            "u1": { id: "u1", x: 50, y: 100, team1: teams[0]?.name || "T1", team2: teams[3]?.name || "T4", s1: null, s2: null },
-            "u2": { id: "u2", x: 50, y: 250, team1: teams[1]?.name || "T2", team2: teams[2]?.name || "T3", s1: null, s2: null },
-            "l1": { id: "l1", x: 350, y: 400, team1: "LOSER U1", team2: "LOSER U2", s1: null, s2: null },
-            "gf": { id: "gf", x: 650, y: 200, team1: "WINNER UB", team2: "WINNER LB", s1: null, s2: null }
-        };
-        newConnections = [{ from: "u1", to: "gf", type: "win" }, { from: "l1", to: "gf", type: "win" }];
-    }
+    // Jika Cutoff = 4, maka otomatis babak pertama adalah SEMI FINAL
+    // SF 1: Peringkat 1 vs Peringkat 4
+    newMatches["sf0"] = { 
+        id: "sf0", x: 100, y: 100, 
+        team1: championsZoneTeams[0]?.name || "TBD", 
+        team2: championsZoneTeams[3]?.name || "TBD", 
+        s1: null, s2: null 
+    };
+    
+    // SF 2: Peringkat 2 vs Peringkat 3
+    newMatches["sf1"] = { 
+        id: "sf1", x: 100, y: 350, 
+        team1: championsZoneTeams[1]?.name || "TBD", 
+        team2: championsZoneTeams[2]?.name || "TBD", 
+        s1: null, s2: null 
+    };
+
+    // FINAL
+    newMatches["final"] = { id: "final", x: 500, y: 225, team1: "TBD", team2: "TBD", s1: null, s2: null };
+
+    // Buat Koneksi Otomatis
+    newConnections.push({ from: "sf0", to: "final", type: "win" });
+    newConnections.push({ from: "sf1", to: "final", type: "win" });
 
     knockout = { matches: newMatches, connections: newConnections };
     await saveKnockout();
@@ -1231,15 +1239,6 @@ async function updateTeamKO(id, side, name) {
 }
 
 // Update Skor di Bagan
-async function updateScoreKO(id, side, score) {
-    if (!knockout.matches[id]) return;
-    const val = score === "" ? null : parseInt(score);
-    
-    if (side === 1) knockout.matches[id].s1 = val;
-    else knockout.matches[id].s2 = val;
-
-    // Simpan ke Firebase
-    await saveKnockout();
 }
 
 // --- FUNGSI UNTUK MENGHUBUNGKAN KOTAK SECARA MANUAL ---
@@ -1493,6 +1492,9 @@ window.showHofDetail = (id) => {
 }
     
     // Knockout & Others
+     if (action === 'updateScoreKO') {
+    await updateScoreKO(target.dataset.id, parseInt(target.dataset.side), target.value);
+}
     if (action === 'generateBracket') await generateBracket();
     else if (action === 'clearKnockout') {
         if(confirm("Hapus semua data knockout?")) {
@@ -1506,6 +1508,7 @@ window.showHofDetail = (id) => {
     else if (action === 'createNode') await createNode();
     else if (action === 'saveCutoffs') await saveCutoffs();
     else if (action === 'exportBackup') exportBackup();
+        
 });
     
 
