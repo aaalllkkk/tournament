@@ -1040,29 +1040,26 @@ document.getElementById("closeBackdrop").onclick = closeModal;
 function drawLines() {
     const svg = document.getElementById("connections");
     const container = document.getElementById("nodes-container");
-    if (!svg || !container) return;
+    if (!svg || !container || !knockout.connections) return;
 
     svg.innerHTML = "";
-    // Sesuaikan ukuran SVG dengan area scroll
-    svg.setAttribute("width", Math.max(container.scrollWidth, 2000));
-    svg.setAttribute("height", Math.max(container.scrollHeight, 1000));
-
-    const pr = svg.getBoundingClientRect();
+    
+    // Sesuaikan ukuran SVG dengan ukuran container, bukan layar
+    svg.setAttribute("width", container.scrollWidth);
+    svg.setAttribute("height", container.scrollHeight);
 
     knockout.connections.forEach(c => {
         const fNode = document.querySelector(`[data-id='${c.from}']`);
         const tNode = document.querySelector(`[data-id='${c.to}']`);
         if (!fNode || !tNode) return;
 
-        const fr = fNode.getBoundingClientRect();
-        const tr = tNode.getBoundingClientRect();
+        // Hitung posisi relatif terhadap container
+        const x1 = fNode.offsetLeft + fNode.offsetWidth;
+        const y1 = fNode.offsetTop + (fNode.offsetHeight / 2);
+        
+        const x2 = tNode.offsetLeft;
+        const y2 = tNode.offsetTop + (tNode.offsetHeight / 2);
 
-        const x1 = (fr.right - pr.left);
-        const y1 = (fr.top + fr.height / 2) - pr.top;
-        const x2 = (tr.left - pr.left);
-        const y2 = (tr.top + tr.height / 2) - pr.top;
-
-        // Logika Garis Siku-siku (Orthogonal)
         const midX = x1 + (x2 - x1) / 2;
         const color = c.type === "win" ? "#4ade80" : "#f87171";
         
@@ -1071,7 +1068,7 @@ function drawLines() {
         path.setAttribute("stroke", color);
         path.setAttribute("stroke-width", "2");
         path.setAttribute("fill", "none");
-        path.style.opacity = "0.3";
+        path.style.opacity = "0.4";
         svg.appendChild(path);
     });
 }
@@ -1165,21 +1162,31 @@ function setupDraggable(div, m) {
 
 async function generateBracket() {
     const type = document.getElementById("koType").value;
-    if (!confirm(`Hapus bracket lama dan buat ${type} elimination baru?`)) return;
+    // Gunakan list tim yang ada di sistem (teams)
+    if (!teams || teams.length < 2) {
+        alert("Data tim belum dimuat atau tim kurang dari 2. Silakan cek menu Teams.");
+        return;
+    }
+
+    if (!confirm(`Buat bracket ${type} baru menggunakan data tim yang ada?`)) return;
 
     let newMatches = {};
     let newConnections = [];
 
+    // Logika pengisian otomatis dari data 'teams'
     if (type === "single") {
-        // Contoh Template Single Elimination 8 Tim
-        const teamsList = teams.slice(0, 8);
         for (let i = 0; i < 4; i++) {
             const id = `qf${i}`;
-            newMatches[id] = { id, x: 50, y: 50 + (i * 120), team1: teamsList[i*2]?.name || "", team2: teamsList[i*2+1]?.name || "", s1: null, s2: null };
-            
-            // Hubungkan ke Semi Final
+            newMatches[id] = { 
+                id, x: 50, y: 50 + (i * 130), 
+                team1: teams[i*2]?.name || "TBD", 
+                team2: teams[i*2+1]?.name || "TBD", 
+                s1: null, s2: null 
+            };
             const sfId = `sf${Math.floor(i/2)}`;
-            if (!newMatches[sfId]) newMatches[sfId] = { id: sfId, x: 350, y: 110 + (Math.floor(i/2) * 240), team1: "TBD", team2: "TBD", s1: null, s2: null };
+            if (!newMatches[sfId]) {
+                newMatches[sfId] = { id: sfId, x: 350, y: 110 + (Math.floor(i/2) * 260), team1: "TBD", team2: "TBD", s1: null, s2: null };
+            }
             newConnections.push({ from: id, to: sfId, type: "win" });
         }
     } else {
