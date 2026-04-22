@@ -1445,73 +1445,50 @@ window.showHofDetail = (id) => {
     const importBackup = (e) => alert("Import logic to be implemented.");
 
     // --- EVENT DELEGATION HUB (MENGGANTIKAN SEMUA ONCLICK/ONCHANGE) ---
-    document.addEventListener('click', async (e) => {
-    // Kita gunakan satu variabel saja, yaitu 'btn'
+   // --- EVENT DELEGATION HUB ---
+document.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     
     const action = btn.dataset.action;
+    const id = btn.dataset.id; // Ambil ID sekaligus
 
-    // Navigasi & UI
+    // 1. Navigasi & UI
     if (action === 'toggleSidebar') toggleSidebar();
     else if (action === 'openTab') openTab(btn.dataset.tab, btn);
     else if (action === 'toggleFolder') toggleFolder(parseInt(btn.dataset.mw));
+    else if (action === 'openHofModal') {
+        const modal = document.getElementById('hofModal');
+        if(modal) modal.classList.remove('hidden');
+    }
     
-    // Auth
+    // 2. Auth
     else if (action === 'login') await login();
     else if (action === 'logout') logout(); 
     
-    // Teams
+    // 3. Teams
     else if (action === 'addTeam') await addTeam();
-    else if (action === 'deleteTeam') await deleteTeam(btn.dataset.id);
+    else if (action === 'deleteTeam') await deleteTeam(id);
     
-    // Matches & League
+    // 4. Matches & League
     else if (action === 'generateLeague') await generateLeague(); 
     else if (action === 'resetMatches') await hardReset();
-    else if (action === 'deleteMatch') await deleteMatch(btn.dataset.id);
+    else if (action === 'deleteMatch') await deleteMatch(id);
     else if (action === 'addMatch') await addMatch();
     
-    // LIVE System (Otomatis Tanggal)
+    // 5. LIVE System
     else if (action === 'toggleLive') {
-        const id = btn.dataset.id;
         const newState = btn.dataset.state === 'true'; 
         await toggleLive(id, newState);
     }
     
-    // Scorers & News
+    // 6. Scorers & News
     else if (action === 'addNews') await addNews();
     else if (action === 'addScorer') await addScorer();
-    else if (action === 'deleteScorer') await deleteScorer(btn.dataset.id);
+    else if (action === 'deleteScorer') await deleteScorer(id);
       
-    // Tambahkan baris ini di antara else if lainnya
-    if (action === 'openHofModal') {
-    const modal = document.getElementById('hofModal');
-    if(modal) modal.classList.remove('hidden');
-}
-    
-    // Knockout & Others
-        const target = e.target.closest('[data-action]');
-    if (!target) return;
-      
-    const action = target.dataset.id ? target.dataset.action : null; // Safety check
-
-    if (action === 'filterMatches') {
-        renderMatches();
-    } else if (action === 'updateScore') {
-        await updateScore(target.dataset.id, target.value, target.dataset.side);
-    } else if (action === 'updateScoreKO') {
-        // Sekarang 'target' sudah didefinisikan, error akan hilang
-        const matchId = target.dataset.id;
-        const side = parseInt(target.dataset.side);
-        const scoreValue = target.value;
-        await updateScoreKO(matchId, side, scoreValue);
-    } else if (action === 'updateTeamKO') {
-        updateTeamKO(target.dataset.id, parseInt(target.dataset.side), target.value);
-    }
-     if (action === 'updateScoreKO') {
-    await updateScoreKO(target.dataset.id, parseInt(target.dataset.side), target.value);
-}
-    if (action === 'generateBracket') await generateBracket();
+    // 7. Knockout System (Dibersihkan dari duplikasi)
+    else if (action === 'generateBracket') await generateBracket();
     else if (action === 'clearKnockout') {
         if(confirm("Hapus semua data knockout?")) {
             knockout = { matches: {}, connections: [] };
@@ -1519,15 +1496,15 @@ window.showHofDetail = (id) => {
             renderNodes();
         }
     }
-    else if (action === 'linkNode') await linkNode(btn.dataset.id);
-    else if (action === 'deleteNode') await deleteNode(btn.dataset.id);
+    else if (action === 'linkNode') await linkNode(id);
+    else if (action === 'deleteNode') await deleteNode(id);
     else if (action === 'createNode') await createNode();
+    
+    // 8. Backup & Settings
     else if (action === 'saveCutoffs') await saveCutoffs();
     else if (action === 'exportBackup') exportBackup();
-        
 });
     
-
     document.addEventListener('change', async (e) => {
     const target = e.target.closest('[data-action]');
     if (!target) return;
