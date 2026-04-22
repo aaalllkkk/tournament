@@ -1046,37 +1046,56 @@ function drawLines() {
     });
 }
 
+// Gunakan deklarasi 'function' agar aman dari error 'not defined'
 function renderNodes() {
     const container = document.getElementById("nodes-container");
     if (!container) return;
+
+    // 1. Cek jika data kosong
+    if (!knockout.matches || Object.keys(knockout.matches).length === 0) {
+        container.innerHTML = `
+            <div class="absolute inset-0 flex items-center justify-center translate-x-[-1000px]">
+                <div class="text-center bg-[#1e293b] p-10 rounded-[3rem] border border-white/10">
+                    <span class="material-symbols-outlined text-6xl text-primary mb-4">account_tree</span>
+                    <h3 class="text-white font-black uppercase italic">Bracket Kosong</h3>
+                    <p class="text-white/50 text-xs mb-4">Klik tombol 'Generate' di panel admin atas.</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
     container.innerHTML = "";
 
-    Object.entries(knockout.matches || {}).forEach(([id, m]) => {
+    // 2. Render Kotak Pertandingan
+    Object.entries(knockout.matches).forEach(([id, m]) => {
         const div = document.createElement("div");
-        div.className = "absolute z-20 group transition-shadow";
+        div.className = "absolute z-20 group";
         div.style.left = `${m.x}px`;
         div.style.top = `${m.y}px`;
         div.dataset.id = id;
 
         div.innerHTML = `
-            <div class="bg-[#1a243a] border border-white/10 rounded-xl shadow-2xl w-[200px] overflow-hidden group-hover:border-primary/50 transition-all">
-                <div class="flex items-center justify-between p-2 border-b border-white/5">
-                    <input type="text" value="${m.team1 || ''}" class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-28 focus:ring-0 uppercase" 
-                        data-action="updateTeamKO" data-id="${id}" data-side="1" ${!isAdmin ? 'readonly' : ''} placeholder="TEAM 1">
-                    <input type="number" value="${m.s1 ?? ''}" class="bg-black/40 border-none rounded w-8 text-center text-xs font-black text-primary focus:ring-0" 
-                        data-action="updateScoreKO" data-id="${id}" data-side="1" ${!isAdmin ? 'readonly' : ''}>
-                </div>
-                <div class="flex items-center justify-between p-2">
-                    <input type="text" value="${m.team2 || ''}" class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-28 focus:ring-0 uppercase" 
-                        data-action="updateTeamKO" data-id="${id}" data-side="2" ${!isAdmin ? 'readonly' : ''} placeholder="TEAM 2">
-                    <input type="number" value="${m.s2 ?? ''}" class="bg-black/40 border-none rounded w-8 text-center text-xs font-black text-primary focus:ring-0" 
-                        data-action="updateScoreKO" data-id="${id}" data-side="2" ${!isAdmin ? 'readonly' : ''}>
+            <div class="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl w-[220px] overflow-hidden group-hover:border-primary/50 transition-all">
+                <div class="p-3 space-y-2">
+                    <div class="flex items-center justify-between gap-2">
+                        <input type="text" value="${m.team1 || ''}" data-action="updateTeamKO" data-id="${id}" data-side="1" 
+                            class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-24 focus:ring-0 uppercase" placeholder="TEAM 1" ${!isAdmin ? 'readonly' : ''}>
+                        <input type="number" value="${m.s1 ?? ''}" data-action="updateScoreKO" data-id="${id}" data-side="1"
+                            class="bg-black/40 border-none rounded w-8 h-7 text-center text-xs font-black text-primary focus:ring-0" ${!isAdmin ? 'readonly' : ''}>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                        <input type="text" value="${m.team2 || ''}" data-action="updateTeamKO" data-id="${id}" data-side="2"
+                            class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-24 focus:ring-0 uppercase" placeholder="TEAM 2" ${!isAdmin ? 'readonly' : ''}>
+                        <input type="number" value="${m.s2 ?? ''}" data-action="updateScoreKO" data-id="${id}" data-side="2"
+                            class="bg-black/40 border-none rounded w-8 h-7 text-center text-xs font-black text-primary focus:ring-0" ${!isAdmin ? 'readonly' : ''}>
+                    </div>
                 </div>
                 ${isAdmin ? `
-                <div class="flex border-t border-white/5 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button class="flex-1 py-1 text-[9px] font-bold text-primary hover:bg-primary/10" data-action="linkNode" data-id="${id}">HUBUNGKAN</button>
-                    <button class="flex-1 py-1 text-[9px] font-bold text-error hover:bg-error/10" data-action="deleteNode" data-id="${id}">HAPUS</button>
-                    <div class="drag-handle p-1 cursor-move self-center"><span class="material-symbols-outlined text-xs text-white/20">drag_pan</span></div>
+                <div class="flex bg-black/20 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button class="flex-1 py-1.5 text-[10px] font-bold text-primary hover:bg-primary/10" data-action="linkNode" data-id="${id}">LINK</button>
+                    <button class="flex-1 py-1.5 text-[10px] font-bold text-red-400 hover:bg-red-400/10" data-action="deleteNode" data-id="${id}">DEL</button>
+                    <div class="drag-handle p-1 cursor-move self-center px-2"><span class="material-symbols-outlined text-sm text-white/20">drag_indicator</span></div>
                 </div>` : ''}
             </div>
         `;
