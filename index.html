@@ -487,21 +487,40 @@ select[data-action="filterMatches"]:focus {
     }
 
     .ko-score {
-      width: 40px;
+      width: 56px;
+      min-width: 56px;
+      height: 34px;
+      line-height: 34px;
       text-align: center;
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 8px;
       background: rgba(255, 255, 255, 0.04);
       color: #8eff71;
+      -webkit-text-fill-color: #8eff71;
       font-family: 'Space Grotesk', sans-serif;
       font-weight: 900;
-      font-size: 14px;
-      padding: 4px 0;
+      font-size: 16px;
+      padding: 0;
+      appearance: textfield;
+      -moz-appearance: textfield;
     }
 
     .ko-score:focus {
       outline: none;
       border-color: rgba(142, 255, 113, 0.6);
+    }
+
+    .ko-score:disabled {
+      opacity: 0.7;
+      color: #8eff71;
+      -webkit-text-fill-color: #8eff71;
+      cursor: not-allowed;
+    }
+
+    .ko-score::-webkit-outer-spin-button,
+    .ko-score::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
     }
 
     .ko-locked {
