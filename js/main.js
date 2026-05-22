@@ -1419,6 +1419,20 @@ const renderKnockout = () => {
   }).join("");
 
   const champion = getKnockoutChampion(resolved);
+  const championPanel = champion
+    ? `
+      <div class="mb-6 bg-[#11192a] border border-primary/20 rounded-2xl p-5 shadow-xl">
+        <p class="text-[10px] uppercase tracking-[0.24em] font-bold text-white/50 mb-2">Pemenang Partai Final</p>
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <p class="text-2xl md:text-3xl font-black italic uppercase text-primary leading-none">${champion}</p>
+            <p class="text-xs uppercase tracking-widest text-white/45 mt-2">Official Knockout Champion</p>
+          </div>
+          <span class="material-symbols-outlined text-secondary text-[64px] leading-none drop-shadow-[0_0_16px_rgba(255,215,9,0.35)]">workspace_premium</span>
+        </div>
+      </div>
+    `
+    : "";
 
   container.innerHTML = `
     <div class="mb-5 flex flex-wrap items-center gap-3 text-xs uppercase tracking-widest font-bold">
@@ -1426,6 +1440,7 @@ const renderKnockout = () => {
       <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70">Bracket: Top ${resolved.bracketSize || "-"}</span>
       ${champion ? `<span class="px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary">Champion: ${champion}</span>` : ""}
     </div>
+    ${championPanel}
     <div class="ko-grid">
       ${roundsHtml}
     </div>
