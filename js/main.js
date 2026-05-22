@@ -1159,7 +1159,7 @@ const sanitizeKnockout = (raw) => {
       s2: sanitizeScore(match.s2),
       isReset: !!match.isReset,
       visible: match.visible !== false
-    }) : []
+    })) : []
   }));
 
   return {
