@@ -3,7 +3,7 @@
 import { db, auth } from './firebase-config.js';
 
 // 2. Panggil fitur-fitur Firebase yang dibutuhkan
-import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, deleteDoc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, deleteDoc, setDoc, getDocs, getDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 // --- STATE ---
@@ -12,18 +12,15 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     let matches = [];
     let scorers = [];
     let news = [];
-    let knockout = { matches: {}, connections: [] };
+    let knockout = { format: "single", bracketSize: 0, rounds: [] };
     let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
     let championsCutoff = 4;
     let playoffCutoff = 8;
-    let currentLink = null;
-    let hofData = []; // Tempat simpan data Hall of Fame
     let hallOfFameData = []; 
+    let hofManagers = [];
     
     // Variabel Global untuk Slideshow
     let slideshowInterval = null;
-    let currentSlideIndex = 0;
-    let currentBannerData = { img: '' }; // Untuk menyimpan gambar dari Admin
 
     // --- UTILS ---
     const normalizeKey = (str) => (str || "").toString().trim().toLowerCase();
@@ -107,7 +104,7 @@ const getStarIcons = (rating) => {
       toggleAdminUI();
       renderMatches();
       renderScorers();
-      renderNodes();
+      renderKnockout();
       renderTeams();
     });
 
@@ -187,7 +184,7 @@ const getStarIcons = (rating) => {
 };
 
     const toggleAdminUI = () => {
-      ["adminTeamControls", "matchControls", "scorerControls", "newsControls", "knockoutControls", "liveBannerControls", "hofcontrols"].forEach(id => {
+      ["adminTeamControls", "matchControls", "scorerControls", "newsControls", "knockoutControls", "liveBannerControls", "hofcontrols", "hofManagerControls"].forEach(id => {
         if (document.getElementById(id)) document.getElementById(id).style.display = isAdmin ? "block" : "none";
       });
     };
@@ -235,12 +232,10 @@ const getStarIcons = (rating) => {
         targetEl.classList.add("text-[#ffd709]");
     }
 
-    // --- 7. BARIS KRITIKAL: Render Knockout jika tab dipilih ---
+    // --- 7. Render Knockout saat tab aktif ---
     if (id === 'knockout') {
-        console.log("Tab Knockout Aktif: Menjalankan render...");
         setTimeout(() => {
-            if (typeof renderNodes === 'function') renderNodes();
-            if (typeof drawLines === 'function') drawLines();
+            if (typeof renderKnockout === 'function') renderKnockout();
         }, 100);
     }
 };
@@ -275,11 +270,15 @@ const getStarIcons = (rating) => {
     
     // Listener untuk Hall of Fame
 onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (snapshot) => {
-    // Simpan ke window agar bisa diakses oleh fungsi detail
-    window.hallOfFameData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    
-    // Panggil fungsi render yang sudah kita buat
-    renderHof(window.hallOfFameData);
+    hallOfFameData = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+    window.hallOfFameData = hallOfFameData;
+    renderHof(hallOfFameData);
+    renderHofManagers();
+});
+
+onSnapshot(collection(db, "hofManagers"), (snapshot) => {
+    hofManagers = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+    renderHofManagers();
 });
     
     onSnapshot(collection(db, "news"), snap => {
@@ -481,7 +480,7 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
                 </div>`).join("");
     };
 
-    const renderHof = (data) => {
+const renderHof = (data) => {
   const container = document.getElementById('hofGrid');
   if (!container) return;
 
@@ -530,6 +529,102 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
         </div>
       </div>
     </div>`;
+  }).join("");
+};
+
+const renderHofManagers = () => {
+  const container = document.getElementById("hofManagerList");
+  if (!container) return;
+
+  const normalizedManual = hofManagers.map((m) => ({
+    id: m.id,
+    name: (m.name || "").trim(),
+    photo: (m.photo || "").trim(),
+    leagueTitles: parseInt(m.leagueTitles) || 0,
+    cupTitles: parseInt(m.cupTitles) || 0
+  })).filter((m) => m.name);
+
+  // Jika admin belum input manual, fallback dari data hall of fame (otomatis hitung juara liga).
+  const fallbackFromHistory = (() => {
+    if (normalizedManual.length > 0) return [];
+    const map = {};
+    hallOfFameData.forEach((item) => {
+      const key = (item.winnerPlayer || "").trim();
+      if (!key) return;
+      if (!map[key]) {
+        map[key] = {
+          id: `auto-${key.toLowerCase().replace(/\s+/g, "-")}`,
+          name: key,
+          photo: "",
+          leagueTitles: 0,
+          cupTitles: 0
+        };
+      }
+      map[key].leagueTitles += 1;
+    });
+    return Object.values(map);
+  })();
+
+  const leaderboard = [...normalizedManual, ...fallbackFromHistory].sort((a, b) => {
+    if (b.leagueTitles !== a.leagueTitles) return b.leagueTitles - a.leagueTitles;
+    if (b.cupTitles !== a.cupTitles) return b.cupTitles - a.cupTitles;
+    return a.name.localeCompare(b.name);
+  });
+
+  if (leaderboard.length === 0) {
+    container.innerHTML = `<p class="text-white/25 italic text-sm">Belum ada data manajer.</p>`;
+    return;
+  }
+
+  container.innerHTML = leaderboard.map((manager, index) => {
+    const rank = index + 1;
+    const starsToShow = Math.min(manager.leagueTitles, 5);
+    const extraStars = manager.leagueTitles > 5 ? `+${manager.leagueTitles - 5}` : "";
+
+    return `
+      <article class="relative rounded-[1.6rem] border ${rank === 1 ? "border-[#8eff71]/40 bg-[#0f1d30]" : "border-white/10 bg-black/20"} p-5 shadow-xl">
+        <div class="flex items-start gap-4">
+          <div class="relative">
+            <img src="${manager.photo || 'https://i.imgur.com/xnTuRnl.png'}" alt="${manager.name}" class="w-16 h-16 rounded-2xl object-cover border border-white/10 bg-[#161f32]">
+            <span class="absolute -bottom-2 -right-2 w-7 h-7 rounded-full bg-[#8eff71] text-[#053100] text-[10px] font-black flex items-center justify-center shadow-md">${rank}</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <h3 class="text-white text-lg font-black uppercase tracking-tight truncate flex items-center gap-2">
+                  ${manager.name}
+                  <span class="material-symbols-outlined text-yellow-400 text-[18px]">workspace_premium</span>
+                  <span class="material-symbols-outlined text-[#8eff71] text-[18px]">star</span>
+                </h3>
+                <div class="flex items-center gap-1.5 mt-1 text-yellow-400">
+                  ${Array.from({ length: starsToShow }).map(() => `<span class="material-symbols-outlined text-[14px]">star</span>`).join("")}
+                  ${extraStars ? `<span class="text-[10px] font-bold text-white/70">${extraStars}</span>` : ""}
+                </div>
+              </div>
+              ${isAdmin && manager.id && !manager.id.startsWith("auto-")
+                ? `<button class="deleteBtn !text-[9px] !px-2 !py-1" data-action="deleteHofManager" data-id="${manager.id}">Delete</button>`
+                : ""
+              }
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mt-4 text-[11px] uppercase font-bold tracking-widest">
+              <div class="rounded-xl bg-[#1c263a] p-3 border border-white/5">
+                <p class="text-white/45 mb-1">League Titles</p>
+                <p class="text-[#8eff71] text-lg font-black flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[16px]">star</span>${manager.leagueTitles}
+                </p>
+              </div>
+              <div class="rounded-xl bg-[#1c263a] p-3 border border-white/5">
+                <p class="text-white/45 mb-1">Cup Trophies</p>
+                <p class="text-secondary text-lg font-black flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[16px]">workspace_premium</span>${manager.cupTitles}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    `;
   }).join("");
 };
     
@@ -769,32 +864,13 @@ const initSlideshow = (urls) => {
 
 onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
     if (docSnap.exists()) {
-        knockout = docSnap.data();
-        
-        // Proteksi agar tidak undefined
-        if (!knockout.matches) knockout.matches = {};
-        if (!knockout.connections) knockout.connections = [];
-        
-        // Render ulang jika tab knockout sedang terbuka
-        const koSection = document.getElementById("knockout");
-        if (koSection && koSection.style.display !== "none") {
-            renderNodes();
-        }
+        knockout = sanitizeKnockout(docSnap.data());
+        renderKnockout();
     } else {
-        // Jika data benar-benar belum pernah dibuat di database
-        knockout = { matches: {}, connections: [] };
+        knockout = { format: "single", bracketSize: 0, rounds: [] };
+        renderKnockout();
     }
 });
-
-    onSnapshot(collection(db, "teams"), snap => {
-      teams = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderStandings();
-    });
-
-    onSnapshot(collection(db, "matches"), snap => {
-      matches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderMatches();
-    });
 
     const renderLiveMatches = () => {
       const live = matches.filter(m => m.live);
@@ -1037,265 +1113,407 @@ document.getElementById("closeBackdrop").onclick = closeModal;
 
     // --- CORE KNOCKOUT FUNCTIONS ---
 
-function drawLines() {
-    const svg = document.getElementById("connections");
-    const container = document.getElementById("nodes-container");
-    if (!svg || !container || !knockout.connections) return;
+const sanitizeScore = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = parseInt(value, 10);
+  return Number.isNaN(parsed) ? null : parsed;
+};
 
-    svg.innerHTML = "";
-    
-    // Sesuaikan ukuran SVG dengan ukuran container, bukan layar
-    svg.setAttribute("width", container.scrollWidth);
-    svg.setAttribute("height", container.scrollHeight);
+const getRoundName = (teamsInRound) => {
+  if (teamsInRound <= 2) return "Final";
+  if (teamsInRound === 4) return "Semifinal";
+  if (teamsInRound === 8) return "Quarterfinal";
+  if (teamsInRound === 16) return "Round of 16";
+  return `Round of ${teamsInRound}`;
+};
 
-    knockout.connections.forEach(c => {
-        const fNode = document.querySelector(`[data-id='${c.from}']`);
-        const tNode = document.querySelector(`[data-id='${c.to}']`);
-        if (!fNode || !tNode) return;
+const nextPowerOfTwo = (num) => {
+  if (num <= 2) return 2;
+  return Math.pow(2, Math.ceil(Math.log2(num)));
+};
 
-        // Hitung posisi relatif terhadap container
-        const x1 = fNode.offsetLeft + fNode.offsetWidth;
-        const y1 = fNode.offsetTop + (fNode.offsetHeight / 2);
-        
-        const x2 = tNode.offsetLeft;
-        const y2 = tNode.offsetTop + (tNode.offsetHeight / 2);
+const createSeedOrder = (size) => {
+  let order = [1, 2];
+  while (order.length < size) {
+    const pivot = (order.length * 2) + 1;
+    order = order.flatMap((seed) => [seed, pivot - seed]);
+  }
+  return order;
+};
 
-        const midX = x1 + (x2 - x1) / 2;
-        const color = c.type === "win" ? "#4ade80" : "#f87171";
-        
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`);
-        path.setAttribute("stroke", color);
-        path.setAttribute("stroke-width", "2");
-        path.setAttribute("fill", "none");
-        path.style.opacity = "0.4";
-        svg.appendChild(path);
-    });
-}
+const sanitizeKnockout = (raw) => {
+  if (!raw || !Array.isArray(raw.rounds)) {
+    return { format: "single", bracketSize: 0, rounds: [] };
+  }
 
-// Gunakan deklarasi 'function' agar aman dari error 'not defined'
-function renderNodes() {
-    const container = document.getElementById("nodes-container");
-    if (!container) return;
+  const rounds = raw.rounds.map((round, roundIndex) => ({
+    id: round.id || `r${roundIndex + 1}`,
+    name: round.name || `Round ${roundIndex + 1}`,
+    matches: Array.isArray(round.matches) ? round.matches.map((match, matchIndex) => ({
+      id: match.id || `${round.id || `r${roundIndex + 1}`}m${matchIndex + 1}`,
+      seed1: match.source1 ? (match.seed1 || "") : (match.seed1 ?? match.team1 ?? ""),
+      seed2: match.source2 ? (match.seed2 || "") : (match.seed2 ?? match.team2 ?? ""),
+      source1: match.source1 || null,
+      source2: match.source2 || null,
+      s1: sanitizeScore(match.s1),
+      s2: sanitizeScore(match.s2),
+      isReset: !!match.isReset,
+      visible: match.visible !== false
+    }) : []
+  }));
 
-    // 1. Cek jika data kosong
-    if (!knockout.matches || Object.keys(knockout.matches).length === 0) {
-        container.innerHTML = `
-            <div class="absolute inset-0 flex items-center justify-center translate-x-[-1000px]">
-                <div class="text-center bg-[#1e293b] p-10 rounded-[3rem] border border-white/10">
-                    <span class="material-symbols-outlined text-6xl text-primary mb-4">account_tree</span>
-                    <h3 class="text-white font-black uppercase italic">Bracket Kosong</h3>
-                    <p class="text-white/50 text-xs mb-4">Klik tombol 'Generate' di panel admin atas.</p>
-                </div>
-            </div>
-        `;
-        return;
+  return {
+    format: raw.format === "double" ? "double" : "single",
+    bracketSize: parseInt(raw.bracketSize) || 0,
+    rounds
+  };
+};
+
+const buildSingleEliminationRounds = (rankedTeams, bracketSize) => {
+  const seedingPattern = createSeedOrder(bracketSize);
+  const seededSlots = seedingPattern.map((seedNo) => rankedTeams[seedNo - 1] || "");
+  const totalRounds = Math.log2(bracketSize);
+  const rounds = [];
+  let previousMatchIds = [];
+
+  for (let roundIndex = 0; roundIndex < totalRounds; roundIndex++) {
+    const matchCount = bracketSize / Math.pow(2, roundIndex + 1);
+    const teamsInRound = matchCount * 2;
+    const round = {
+      id: `r${roundIndex + 1}`,
+      name: getRoundName(teamsInRound),
+      matches: []
+    };
+
+    for (let matchIndex = 0; matchIndex < matchCount; matchIndex++) {
+      const id = `r${roundIndex + 1}m${matchIndex + 1}`;
+      if (roundIndex === 0) {
+        round.matches.push({
+          id,
+          seed1: seededSlots[matchIndex * 2] || "",
+          seed2: seededSlots[(matchIndex * 2) + 1] || "",
+          source1: null,
+          source2: null,
+          s1: null,
+          s2: null
+        });
+      } else {
+        round.matches.push({
+          id,
+          seed1: "",
+          seed2: "",
+          source1: { matchId: previousMatchIds[matchIndex * 2], outcome: "winner" },
+          source2: { matchId: previousMatchIds[(matchIndex * 2) + 1], outcome: "winner" },
+          s1: null,
+          s2: null
+        });
+      }
     }
 
-    container.innerHTML = "";
+    previousMatchIds = round.matches.map((match) => match.id);
+    rounds.push(round);
+  }
 
-    // 2. Render Kotak Pertandingan
-    Object.entries(knockout.matches).forEach(([id, m]) => {
-        const div = document.createElement("div");
-        div.className = "absolute z-20 group";
-        div.style.left = `${m.x}px`;
-        div.style.top = `${m.y}px`;
-        div.dataset.id = id;
+  return rounds;
+};
 
-        div.innerHTML = `
-            <div class="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl w-[220px] overflow-hidden group-hover:border-primary/50 transition-all">
-                <div class="p-3 space-y-2">
-                    <div class="flex items-center justify-between gap-2">
-                        <input type="text" value="${m.team1 || ''}" data-action="updateTeamKO" data-id="${id}" data-side="1" 
-                            class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-24 focus:ring-0 uppercase" placeholder="TEAM 1" ${!isAdmin ? 'readonly' : ''}>
-                        <input type="number" value="${m.s1 ?? ''}" data-action="updateScoreKO" data-id="${id}" data-side="1"
-                            class="bg-black/40 border-none rounded w-8 h-7 text-center text-xs font-black text-primary focus:ring-0" ${!isAdmin ? 'readonly' : ''}>
-                    </div>
-                    <div class="flex items-center justify-between gap-2">
-                        <input type="text" value="${m.team2 || ''}" data-action="updateTeamKO" data-id="${id}" data-side="2"
-                            class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-24 focus:ring-0 uppercase" placeholder="TEAM 2" ${!isAdmin ? 'readonly' : ''}>
-                        <input type="number" value="${m.s2 ?? ''}" data-action="updateScoreKO" data-id="${id}" data-side="2"
-                            class="bg-black/40 border-none rounded w-8 h-7 text-center text-xs font-black text-primary focus:ring-0" ${!isAdmin ? 'readonly' : ''}>
-                    </div>
-                </div>
-                ${isAdmin ? `
-                <div class="flex bg-black/20 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button class="flex-1 py-1.5 text-[10px] font-bold text-primary hover:bg-primary/10" data-action="linkNode" data-id="${id}">LINK</button>
-                    <button class="flex-1 py-1.5 text-[10px] font-bold text-red-400 hover:bg-red-400/10" data-action="deleteNode" data-id="${id}">DEL</button>
-                    <div class="drag-handle p-1 cursor-move self-center px-2"><span class="material-symbols-outlined text-sm text-white/20">drag_indicator</span></div>
-                </div>` : ''}
-            </div>
-        `;
+const buildDoubleEliminationTop4 = (rankedTeams) => {
+  const seeds = rankedTeams.slice(0, 4);
+  return [
+    {
+      id: "d1",
+      name: "Upper Bracket - Semifinal",
+      matches: [
+        { id: "wb1", seed1: seeds[0] || "", seed2: seeds[3] || "", source1: null, source2: null, s1: null, s2: null },
+        { id: "wb2", seed1: seeds[1] || "", seed2: seeds[2] || "", source1: null, source2: null, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d2",
+      name: "Lower Bracket - Elimination",
+      matches: [
+        { id: "lb1", seed1: "", seed2: "", source1: { matchId: "wb1", outcome: "loser" }, source2: { matchId: "wb2", outcome: "loser" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d3",
+      name: "Upper Bracket - Final",
+      matches: [
+        { id: "wb3", seed1: "", seed2: "", source1: { matchId: "wb1", outcome: "winner" }, source2: { matchId: "wb2", outcome: "winner" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d4",
+      name: "Lower Bracket - Final",
+      matches: [
+        { id: "lb2", seed1: "", seed2: "", source1: { matchId: "lb1", outcome: "winner" }, source2: { matchId: "wb3", outcome: "loser" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d5",
+      name: "Grand Final",
+      matches: [
+        { id: "gf1", seed1: "", seed2: "", source1: { matchId: "wb3", outcome: "winner" }, source2: { matchId: "lb2", outcome: "winner" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d6",
+      name: "Grand Final Reset",
+      matches: [
+        { id: "gf2", seed1: "", seed2: "", source1: { matchId: "gf1", outcome: "winnerSeed1" }, source2: { matchId: "gf1", outcome: "winnerSeed2" }, s1: null, s2: null, isReset: true, visible: false }
+      ]
+    }
+  ];
+};
 
-        if (isAdmin) setupDraggable(div, m);
-        container.appendChild(div);
+const resolveKnockout = (state) => {
+  const safe = sanitizeKnockout(state);
+  const rounds = safe.rounds.map((round) => ({
+    ...round,
+    matches: round.matches.map((match) => ({ ...match }))
+  }));
+  const matchMap = {};
+
+  rounds.forEach((round) => {
+    round.matches.forEach((match) => {
+      matchMap[match.id] = match;
     });
+  });
 
-    drawLines();
+  const teamFromOutcome = (source) => {
+    if (!source || !source.matchId) return "";
+    const sourceMatch = matchMap[source.matchId];
+    if (!sourceMatch) return "";
+
+    if (source.outcome === "winner") return sourceMatch.winner || "";
+    if (source.outcome === "loser") return sourceMatch.loser || "";
+
+    // Khusus grand final reset: ambil slot peserta dari grand final.
+    if (source.outcome === "winnerSeed1") return sourceMatch.team1 || "";
+    if (source.outcome === "winnerSeed2") return sourceMatch.team2 || "";
+    return "";
+  };
+
+  rounds.forEach((round) => {
+    round.matches.forEach((match) => {
+      match.team1 = match.source1 ? teamFromOutcome(match.source1) : (match.seed1 || "");
+      match.team2 = match.source2 ? teamFromOutcome(match.source2) : (match.seed2 || "");
+      match.s1 = sanitizeScore(match.s1);
+      match.s2 = sanitizeScore(match.s2);
+
+      const hasTeams = !!match.team1 && !!match.team2;
+      const hasScore = match.s1 !== null && match.s2 !== null;
+
+      match.winner = "";
+      match.loser = "";
+      if (hasTeams && hasScore && match.s1 !== match.s2) {
+        match.winner = match.s1 > match.s2 ? match.team1 : match.team2;
+        match.loser = match.s1 > match.s2 ? match.team2 : match.team1;
+      } else if (match.team1 && !match.team2) {
+        match.winner = match.team1;
+      } else if (!match.team1 && match.team2) {
+        match.winner = match.team2;
+      }
+    });
+  });
+
+  if (safe.format === "double") {
+    const gf1 = matchMap.gf1;
+    const gf2 = matchMap.gf2;
+    const lb2 = matchMap.lb2;
+
+    if (gf1 && gf2 && lb2) {
+      const needReset = !!gf1.winner && gf1.winner === lb2.winner;
+      gf2.visible = needReset;
+      if (!needReset) {
+        gf2.s1 = null;
+        gf2.s2 = null;
+        gf2.winner = "";
+        gf2.loser = "";
+      } else {
+        gf2.team1 = gf1.team1 || "";
+        gf2.team2 = gf1.team2 || "";
+      }
+    }
+  }
+
+  return { ...safe, rounds };
+};
+
+const getKnockoutChampion = (resolved) => {
+  if (!resolved.rounds.length) return "";
+  if (resolved.format === "double") {
+    const allMatches = resolved.rounds.flatMap((round) => round.matches);
+    const reset = allMatches.find((match) => match.id === "gf2");
+    const grand = allMatches.find((match) => match.id === "gf1");
+    if (reset && reset.visible && reset.winner) return reset.winner;
+    return grand?.winner || "";
+  }
+
+  const finalRound = resolved.rounds[resolved.rounds.length - 1];
+  const finalMatch = finalRound?.matches?.[0];
+  return finalMatch?.winner || "";
+};
+
+const renderKnockout = () => {
+  const container = document.getElementById("knockoutBracket");
+  if (!container) return;
+
+  const resolved = resolveKnockout(knockout);
+  knockout = resolved;
+  const visibleRounds = resolved.rounds.filter((round) => round.matches.some((match) => match.visible !== false));
+
+  if (visibleRounds.length === 0) {
+    container.innerHTML = `<p class="text-white/30 text-sm italic">Belum ada bracket. Generate dari panel admin.</p>`;
+    return;
+  }
+
+  const roundsHtml = visibleRounds.map((round, roundIndex) => {
+    const baseGap = resolved.format === "single" ? Math.max(14, 14 * Math.pow(2, roundIndex)) : 14;
+
+    const matchesHtml = round.matches
+      .filter((match) => match.visible !== false)
+      .map((match) => {
+        const locked = !match.team1 || !match.team2;
+        const team1Class = match.winner && match.winner === match.team1 ? "win" : "";
+        const team2Class = match.winner && match.winner === match.team2 ? "win" : "";
+        const status = match.winner
+          ? `<span class="text-primary">${match.winner}</span>`
+          : (locked ? `<span class="text-white/40">Waiting Teams</span>` : `<span class="text-secondary">Waiting Result</span>`);
+
+        return `
+          <article class="ko-match-card ${locked ? "ko-locked" : ""}">
+            <div class="ko-match-head">
+              <span>${match.id.toUpperCase()}</span>
+              <span>${status}</span>
+            </div>
+            <div class="space-y-2">
+              <div class="ko-team-row ${team1Class}">
+                <p class="ko-team-name">${match.team1 || "BYE"}</p>
+                ${isAdmin
+                  ? `<input type="number" class="ko-score" value="${match.s1 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="1" ${locked ? "disabled" : ""}>`
+                  : `<span class="ko-score text-center ${locked ? "opacity-50" : ""}">${match.s1 ?? "-"}</span>`
+                }
+              </div>
+              <div class="ko-team-row ${team2Class}">
+                <p class="ko-team-name">${match.team2 || "BYE"}</p>
+                ${isAdmin
+                  ? `<input type="number" class="ko-score" value="${match.s2 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="2" ${locked ? "disabled" : ""}>`
+                  : `<span class="ko-score text-center ${locked ? "opacity-50" : ""}">${match.s2 ?? "-"}</span>`
+                }
+              </div>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+
+    return `
+      <section class="ko-round">
+        <h3 class="ko-round-title">${round.name}</h3>
+        <div class="ko-stack" style="gap: ${baseGap}px;">
+          ${matchesHtml}
+        </div>
+      </section>
+    `;
+  }).join("");
+
+  const champion = getKnockoutChampion(resolved);
+
+  container.innerHTML = `
+    <div class="mb-5 flex flex-wrap items-center gap-3 text-xs uppercase tracking-widest font-bold">
+      <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70">Format: ${resolved.format === "double" ? "Double Elimination" : "Single Elimination"}</span>
+      <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70">Bracket: Top ${resolved.bracketSize || "-"}</span>
+      ${champion ? `<span class="px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary">Champion: ${champion}</span>` : ""}
+    </div>
+    <div class="ko-grid">
+      ${roundsHtml}
+    </div>
+  `;
+};
+
+async function saveKnockout() {
+  if (!isAdmin) return;
+  try {
+    await setDoc(doc(db, "tournament", "knockout"), sanitizeKnockout(knockout));
+  } catch (error) {
+    console.error("Error saving knockout:", error);
+    alert("Gagal menyimpan data knockout.");
+  }
 }
 
-function setupDraggable(div, m) {
-    const handle = div.querySelector('.drag-handle');
-    if (!handle) return;
-    
-    handle.onmousedown = (e) => {
-        let isDragging = true;
-        const offsetX = e.clientX - div.offsetLeft;
-        const offsetY = e.clientY - div.offsetTop;
+async function updateScoreKO(matchId, side, score) {
+  if (!isAdmin) return;
+  const resolved = resolveKnockout(knockout);
+  let targetMatch = null;
 
-        document.onmousemove = (ev) => {
-            if (!isDragging) return;
-            m.x = ev.clientX - offsetX;
-            m.y = ev.clientY - offsetY;
-            div.style.left = `${m.x}px`;
-            div.style.top = `${m.y}px`;
-            drawLines();
-        };
+  resolved.rounds.forEach((round) => {
+    round.matches.forEach((match) => {
+      if (match.id === matchId) targetMatch = match;
+    });
+  });
 
-        document.onmouseup = async () => {
-            isDragging = false;
-            document.onmousemove = null;
-            await saveKnockout();
-        };
-    };
+  if (!targetMatch) return;
+
+  const parsed = sanitizeScore(score);
+  if (side === 1) targetMatch.s1 = parsed;
+  else targetMatch.s2 = parsed;
+
+  knockout = resolved;
+  await saveKnockout();
+  renderKnockout();
 }
 
 async function generateBracket() {
-    const type = document.getElementById("koType").value;
-    
-    // Ambil tim dan urutkan sesuai poin klasemen
-    const sortedTeams = [...teams].sort((a, b) => {
-        const ptsA = (a.wins || 0) * 3 + (a.draws || 0);
-        const ptsB = (b.wins || 0) * 3 + (b.draws || 0);
-        if (ptsB !== ptsA) return ptsB - ptsA;
-        return (b.gd || 0) - (a.gd || 0);
-    });
+  if (!isAdmin) return;
+  if (teams.length < 2) {
+    alert("Minimal butuh 2 tim.");
+    return;
+  }
 
-    // Ambil tim hanya dari zona Champions (Peringkat 1-4)
-    const topTeams = sortedTeams.slice(0, championsCutoff);
+  const format = document.getElementById("koType")?.value || "single";
+  const sizeSelection = document.getElementById("koSize")?.value || "auto";
+  const requestedSize = sizeSelection === "auto" ? (parseInt(championsCutoff) || 4) : (parseInt(sizeSelection) || 4);
+  const rankedTeams = calculateStandings().map((row) => row.team);
 
-    if (topTeams.length < 2) {
-        alert(`Butuh minimal 2 tim di Champions Zone (1-${championsCutoff})!`);
-        return;
+  if (format === "double") {
+    if (rankedTeams.length < 4) {
+      alert("Double elimination minimal butuh 4 tim.");
+      return;
     }
-
-    if (!confirm(`Generate Bracket Semi-Final untuk Top ${championsCutoff} tim?`)) return;
-
-    let newMatches = {};
-    let newConnections = [];
-
-    // Semi Final 1 (Peringkat 1 vs 4)
-    newMatches["sf0"] = { id: "sf0", x: 100, y: 100, team1: topTeams[0]?.name || "TBD", team2: topTeams[3]?.name || "TBD", s1: null, s2: null };
-    // Semi Final 2 (Peringkat 2 vs 3)
-    newMatches["sf1"] = { id: "sf1", x: 100, y: 350, team1: topTeams[1]?.name || "TBD", team2: topTeams[2]?.name || "TBD", s1: null, s2: null };
-    // Final
-    newMatches["final"] = { id: "final", x: 500, y: 225, team1: "TBD", team2: "TBD", s1: null, s2: null };
-
-    newConnections.push({ from: "sf0", to: "final", type: "win" });
-    newConnections.push({ from: "sf1", to: "final", type: "win" });
-
-    knockout = { matches: newMatches, connections: newConnections };
+    if (!confirm("Generate Double Elimination bracket untuk Top 4 tim?")) return;
+    knockout = {
+      format: "double",
+      bracketSize: 4,
+      rounds: buildDoubleEliminationTop4(rankedTeams)
+    };
     await saveKnockout();
-    renderNodes();
+    renderKnockout();
+    return;
+  }
+
+  const teamCount = Math.max(2, Math.min(requestedSize, rankedTeams.length));
+  const seeded = rankedTeams.slice(0, teamCount);
+  const bracketSize = nextPowerOfTwo(teamCount);
+
+  if (!confirm(`Generate Single Elimination untuk Top ${teamCount} tim (bracket ${bracketSize})?`)) return;
+
+  knockout = {
+    format: "single",
+    bracketSize: teamCount,
+    rounds: buildSingleEliminationRounds(seeded, bracketSize)
+  };
+
+  await saveKnockout();
+  renderKnockout();
 }
 
-// Fungsi untuk menyimpan seluruh data Knockout ke Firebase
-async function saveKnockout() {
-    try {
-        // Pastikan kita hanya menyimpan jika user adalah Admin
-        if (!isAdmin) return;
-
-        const koRef = doc(db, "tournament", "knockout");
-        await setDoc(koRef, knockout);
-        console.log("Knockout data saved successfully!");
-    } catch (error) {
-        console.error("Error saving knockout data:", error);
-        alert("Gagal menyimpan perubahan ke database.");
-    }
-}
-
-// Update Nama Tim di Bagan
-async function updateScoreKO(matchId, side, score) {
-    if (!knockout.matches[matchId]) return;
-    
-    const val = score === "" ? null : parseInt(score);
-    if (side === 1) knockout.matches[matchId].s1 = val;
-    else knockout.matches[matchId].s2 = val;
-
-    // Logika Otomatis Lolos ke Babak Berikutnya
-    const m = knockout.matches[matchId];
-    if (m.s1 !== null && m.s2 !== null && m.s1 !== m.s2) {
-        const winner = m.s1 > m.s2 ? m.team1 : m.team2;
-        const conn = knockout.connections.find(c => c.from === matchId);
-        
-        if (conn) {
-            const targetMatch = knockout.matches[conn.to];
-            if (matchId === "sf0") targetMatch.team1 = winner;
-            else if (matchId === "sf1") targetMatch.team2 = winner;
-        }
-    }
-
-    await saveKnockout();
-    renderNodes(); // Gambar ulang untuk melihat perubahan
-}
-
-// --- FUNGSI UNTUK MENGHUBUNGKAN KOTAK SECARA MANUAL ---
-
-async function linkNode(id) {
-    if (!currentLink) {
-        // Klik pertama: Simpan ID awal
-        currentLink = id;
-        alert("Pilih kotak tujuan: Silakan klik tombol 'LINK' di kotak pertandingan selanjutnya.");
-    } else {
-        // Klik kedua: Hubungkan jika ID berbeda
-        if (currentLink !== id) {
-            // Cek agar tidak ada garis ganda
-            const exists = knockout.connections.some(c => c.from === currentLink && c.to === id);
-            if (!exists) {
-                knockout.connections.push({ from: currentLink, to: id, type: "win" });
-                await saveKnockout();
-            }
-        }
-        currentLink = null; // Reset setelah terhubung
-        renderNodes();
-    }
-}
-
-// --- FUNGSI UNTUK MENGHAPUS KOTAK ---
-async function deleteNode(id) {
-    if (!confirm("Yakin ingin menghapus pertandingan ini beserta garisnya?")) return;
-
-    // Hapus kotaknya
-    delete knockout.matches[id];
-
-    // Hapus semua garis yang terhubung ke kotak ini
-    knockout.connections = knockout.connections.filter(c => c.from !== id && c.to !== id);
-
-    await saveKnockout();
-    renderNodes();
-}
-// Nama fungsinya mungkin showSection, switchTab, atau sejenisnya di kodemu
-function showSection(sectionId) {
-    // 1. Sembunyikan semua section
-    document.querySelectorAll('.section').forEach(sec => {
-        sec.style.display = 'none'; 
-        // atau sec.classList.add('hidden'); (tergantung cara kerjamu sebelumnya)
-    });
-
-    // 2. Tampilkan section tujuan
-    const targetSection = document.getElementById(sectionId);
-    if (targetSection) {
-        targetSection.style.display = 'block';
-        // atau targetSection.classList.remove('hidden');
-
-        // 3. TAMBAHKAN BLOK INI: Khusus untuk memancing Knockout agar muncul
-        if (sectionId === 'knockout') {
-            setTimeout(() => {
-                renderNodes(); // Gambar kotak pertandingannya
-            }, 100); // Jeda sedikit agar elemen HTML siap dulu
-        }
-    }
-}
+const clearKnockoutData = async () => {
+  if (!isAdmin) return;
+  knockout = { format: "single", bracketSize: 0, rounds: [] };
+  await saveKnockout();
+  renderKnockout();
+};
 
 
     // --- INIT & SCORERS LOGIC ---
@@ -1334,6 +1552,51 @@ function showSection(sectionId) {
 
     const deleteScorer = async (id) => {
       if (isAdmin && confirm("Delete scorer?")) await deleteDoc(doc(db, "scorers", id));
+    };
+
+    const addHofManager = async () => {
+      if (!isAdmin) return;
+
+      const name = document.getElementById("hofManagerName")?.value.trim();
+      const photo = document.getElementById("hofManagerPhoto")?.value.trim();
+      const leagueTitles = parseInt(document.getElementById("hofManagerLeagueTitles")?.value) || 0;
+      const cupTitles = parseInt(document.getElementById("hofManagerCupTitles")?.value) || 0;
+
+      if (!name) {
+        alert("Nama manajer wajib diisi.");
+        return;
+      }
+
+      const existing = hofManagers.find((m) => normalizeKey(m.name) === normalizeKey(name));
+      const payload = {
+        name,
+        photo,
+        leagueTitles,
+        cupTitles,
+        updatedAt: serverTimestamp()
+      };
+
+      if (existing) {
+        await updateDoc(doc(db, "hofManagers", existing.id), payload);
+        alert("Data manager berhasil di-update.");
+      } else {
+        await addDoc(collection(db, "hofManagers"), {
+          ...payload,
+          createdAt: serverTimestamp()
+        });
+        alert("Manager berhasil ditambahkan.");
+      }
+
+      ["hofManagerName", "hofManagerPhoto", "hofManagerLeagueTitles", "hofManagerCupTitles"].forEach((fieldId) => {
+        const field = document.getElementById(fieldId);
+        if (field) field.value = "";
+      });
+    };
+
+    const deleteHofManager = async (id) => {
+      if (!isAdmin || !id) return;
+      if (!confirm("Hapus manager ini dari leaderboard?")) return;
+      await deleteDoc(doc(db, "hofManagers", id));
     };
 
     // Fungsi untuk menyimpan data HOF dari Modal
@@ -1441,8 +1704,160 @@ window.showHofDetail = (id) => {
     }
 };
 
-    const exportBackup = () => alert("Backup logic to be implemented.");
-    const importBackup = (e) => alert("Import logic to be implemented.");
+    const BACKUP_COLLECTIONS = ["teams", "matches", "scorers", "news", "halloffame", "hofManagers"];
+    const BACKUP_DOCUMENTS = ["config/standings", "settings/liveBanner", "tournament/knockout"];
+
+    const serializeForBackup = (value) => {
+      if (value instanceof Timestamp) {
+        return {
+          __type: "timestamp",
+          seconds: value.seconds,
+          nanoseconds: value.nanoseconds
+        };
+      }
+      if (Array.isArray(value)) return value.map((item) => serializeForBackup(item));
+      if (value && typeof value === "object") {
+        const result = {};
+        Object.entries(value).forEach(([key, child]) => {
+          result[key] = serializeForBackup(child);
+        });
+        return result;
+      }
+      return value;
+    };
+
+    const deserializeFromBackup = (value) => {
+      if (Array.isArray(value)) return value.map((item) => deserializeFromBackup(item));
+      if (value && typeof value === "object") {
+        if (value.__type === "timestamp" && typeof value.seconds === "number") {
+          return new Timestamp(value.seconds, value.nanoseconds || 0);
+        }
+        const result = {};
+        Object.entries(value).forEach(([key, child]) => {
+          result[key] = deserializeFromBackup(child);
+        });
+        return result;
+      }
+      return value;
+    };
+
+    const exportBackup = async () => {
+      if (!isAdmin) {
+        alert("Hanya admin yang bisa export backup.");
+        return;
+      }
+
+      try {
+        const collectionPairs = await Promise.all(
+          BACKUP_COLLECTIONS.map(async (name) => {
+            const snap = await getDocs(collection(db, name));
+            const docs = snap.docs.map((item) => ({
+              id: item.id,
+              data: serializeForBackup(item.data())
+            }));
+            return [name, docs];
+          })
+        );
+
+        const documentPairs = await Promise.all(
+          BACKUP_DOCUMENTS.map(async (path) => {
+            const ref = doc(db, ...path.split("/"));
+            const snap = await getDoc(ref);
+            return [path, snap.exists() ? serializeForBackup(snap.data()) : null];
+          })
+        );
+
+        const payload = {
+          meta: {
+            app: "Liga King",
+            version: 2,
+            exportedAt: new Date().toISOString()
+          },
+          collections: Object.fromEntries(collectionPairs),
+          documents: Object.fromEntries(documentPairs)
+        };
+
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+        link.href = url;
+        link.download = `liga-king-backup-${stamp}.json`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+
+        alert("Backup berhasil di-export.");
+      } catch (error) {
+        console.error("Export backup failed:", error);
+        alert("Gagal export backup: " + error.message);
+      }
+    };
+
+    const importBackup = async (e) => {
+      if (!isAdmin) {
+        alert("Hanya admin yang bisa import backup.");
+        e.target.value = "";
+        return;
+      }
+
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        const incomingCollections = parsed.collections || {};
+        const incomingDocuments = parsed.documents || {};
+
+        if (!incomingCollections || typeof incomingCollections !== "object") {
+          throw new Error("Format backup tidak valid (collections missing).");
+        }
+
+        if (!confirm("Import backup akan menimpa database saat ini. Lanjutkan?")) {
+          e.target.value = "";
+          return;
+        }
+
+        for (const collectionName of BACKUP_COLLECTIONS) {
+          if (!Array.isArray(incomingCollections[collectionName])) continue;
+
+          const current = await getDocs(collection(db, collectionName));
+          await Promise.all(current.docs.map((item) => deleteDoc(item.ref)));
+
+          const incomingDocs = incomingCollections[collectionName];
+          for (const incoming of incomingDocs) {
+            const incomingId = incoming?.id;
+            const incomingData = deserializeFromBackup(incoming?.data || {});
+            if (incomingId) {
+              await setDoc(doc(db, collectionName, incomingId), incomingData);
+            } else {
+              await addDoc(collection(db, collectionName), incomingData);
+            }
+          }
+        }
+
+        for (const documentPath of BACKUP_DOCUMENTS) {
+          if (!(documentPath in incomingDocuments)) continue;
+
+          const ref = doc(db, ...documentPath.split("/"));
+          const incomingData = incomingDocuments[documentPath];
+          if (incomingData === null) {
+            await deleteDoc(ref);
+          } else {
+            await setDoc(ref, deserializeFromBackup(incomingData));
+          }
+        }
+
+        alert("Import backup selesai. Data sudah diperbarui.");
+      } catch (error) {
+        console.error("Import backup failed:", error);
+        alert("Gagal import backup: " + error.message);
+      } finally {
+        e.target.value = "";
+      }
+    };
 
     // --- EVENT DELEGATION HUB (MENGGANTIKAN SEMUA ONCLICK/ONCHANGE) ---
    // --- EVENT DELEGATION HUB ---
@@ -1486,23 +1901,20 @@ document.addEventListener('click', async (e) => {
     else if (action === 'addNews') await addNews();
     else if (action === 'addScorer') await addScorer();
     else if (action === 'deleteScorer') await deleteScorer(id);
+    else if (action === 'addHofManager') await addHofManager();
+    else if (action === 'deleteHofManager') await deleteHofManager(id);
       
     // 7. Knockout System (Dibersihkan dari duplikasi)
     else if (action === 'generateBracket') await generateBracket();
     else if (action === 'clearKnockout') {
         if(confirm("Hapus semua data knockout?")) {
-            knockout = { matches: {}, connections: [] };
-            await saveKnockout();
-            renderNodes();
+            await clearKnockoutData();
         }
     }
-    else if (action === 'linkNode') await linkNode(id);
-    else if (action === 'deleteNode') await deleteNode(id);
-    else if (action === 'createNode') await createNode();
     
     // 8. Backup & Settings
     else if (action === 'saveCutoffs') await saveCutoffs();
-    else if (action === 'exportBackup') exportBackup();
+    else if (action === 'exportBackup') await exportBackup();
 });
     
     document.addEventListener('change', async (e) => {
@@ -1515,9 +1927,8 @@ document.addEventListener('click', async (e) => {
     else if (action === 'updateScore') await updateScore(target.dataset.id, target.value, target.dataset.side);
     else if (action === 'updateScorerGoals') await updateScorerGoals(target.dataset.id, target.value);
     else if (action === 'updateScorerAssists') await updateScorerAssists(target.dataset.id, target.value);
-    else if (action === 'updateTeamKO') updateTeamKO(target.dataset.id, parseInt(target.dataset.side), target.value);
-    else if (action === 'updateScoreKO') updateScoreKO(target.dataset.id, parseInt(target.dataset.side), target.value);
-    else if (action === 'importBackup') importBackup(e);
+    else if (action === 'updateScoreKO') await updateScoreKO(target.dataset.id, parseInt(target.dataset.side), target.value);
+    else if (action === 'importBackup') await importBackup(e);
 });
 
     document.addEventListener('input', (e) => {
@@ -1525,13 +1936,4 @@ document.addEventListener('click', async (e) => {
       if (!target) return;
 
       if (target.dataset.action === 'searchScorer') renderScorers();
-    });
-
-    // Handle spesial line-removal click
-    document.getElementById("connections").addEventListener('click', () => {
-      if (isAdmin && knockout.connections.length > 0 && confirm("Remove last link?")) {
-        knockout.connections.pop();
-        saveKnockout();
-        drawLines();
-      }
     });

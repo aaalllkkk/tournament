@@ -400,6 +400,130 @@ select[data-action="filterMatches"]:focus {
       transform: scale(1.3);
     }
 
+    .ko-grid {
+      display: flex;
+      gap: 22px;
+      align-items: flex-start;
+      min-width: max-content;
+      padding-bottom: 12px;
+    }
+
+    .ko-round {
+      min-width: 280px;
+    }
+
+    .ko-round-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 900;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      color: #8eff71;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ko-round-title::before {
+      content: "";
+      width: 16px;
+      height: 2px;
+      background: linear-gradient(to right, #8eff71, transparent);
+      display: block;
+    }
+
+    .ko-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .ko-match-card {
+      background: rgba(17, 25, 42, 0.86);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .ko-match-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: rgba(255, 255, 255, 0.45);
+      font-weight: 700;
+    }
+
+    .ko-team-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      border-radius: 12px;
+      padding: 8px 10px;
+      background: rgba(7, 14, 28, 0.9);
+    }
+
+    .ko-team-row.win {
+      outline: 1px solid rgba(142, 255, 113, 0.3);
+      box-shadow: inset 0 0 20px rgba(142, 255, 113, 0.08);
+    }
+
+    .ko-team-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #e2e8fc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ko-score {
+      width: 40px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      color: #8eff71;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 900;
+      font-size: 14px;
+      padding: 4px 0;
+    }
+
+    .ko-score:focus {
+      outline: none;
+      border-color: rgba(142, 255, 113, 0.6);
+    }
+
+    .ko-locked {
+      opacity: 0.7;
+    }
+
+    .ko-round-gap-1 .ko-match-card {
+      margin-top: 0;
+    }
+
+    .ko-round-gap-2 .ko-match-card {
+      margin-top: 28px;
+    }
+
+    .ko-round-gap-4 .ko-match-card {
+      margin-top: 58px;
+    }
+
+    .ko-round-gap-8 .ko-match-card {
+      margin-top: 122px;
+    }
+
     body:not(.admin) .winIn,
     body:not(.admin) .loseIn,
     body:not(.admin) .winOut,
@@ -761,7 +885,7 @@ select[data-action="filterMatches"]:focus {
       </div>
 
      <div id="knockout" class="section p-6 md:p-8">
-    <div id="knockoutControls" class="bg-[#161f32] p-6 rounded-[2rem] border border-white/10 shadow-2xl mb-8 w-full max-w-4xl" style="display:none">
+    <div id="knockoutControls" class="bg-[#161f32] p-6 rounded-[2rem] border border-white/10 shadow-2xl mb-8 w-full max-w-5xl" style="display:none">
         <div class="flex flex-wrap items-center justify-start gap-6">
             <div>
                 <h3 class="text-xl font-black text-primary uppercase italic leading-none">Bracket System</h3>
@@ -770,10 +894,16 @@ select[data-action="filterMatches"]:focus {
             
             <div class="h-8 w-[1px] bg-white/10 hidden md:block"></div>
 
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-3">
                 <select id="koType" class="bg-black/40 border-white/10 rounded-xl text-white text-xs p-2 focus:ring-primary focus:border-primary">
                     <option value="single">Single Elimination</option>
-                    <option value="double">Double Elimination</option>
+                    <option value="double">Double Elimination (Top 4)</option>
+                </select>
+                <select id="koSize" class="bg-black/40 border-white/10 rounded-xl text-white text-xs p-2 focus:ring-primary focus:border-primary">
+                    <option value="auto">Auto (Champions Zone)</option>
+                    <option value="4">Top 4</option>
+                    <option value="8">Top 8</option>
+                    <option value="16">Top 16</option>
                 </select>
                 <button class="bg-primary hover:bg-primary/80 text-black px-5 py-2 rounded-xl font-black text-xs uppercase transition-all" data-action="generateBracket">
                     Generate
@@ -787,9 +917,9 @@ select[data-action="filterMatches"]:focus {
 
     <div class="w-full bg-[#0f172a] rounded-[2.5rem] border border-white/5 relative overflow-hidden" style="height: 75vh;">
         <div id="knockout-viewport" class="overflow-auto w-full h-full p-10 custom-scroll">
-            <div id="nodes-container" class="relative min-w-[2000px] min-h-[1000px]">
-                <svg id="connections" class="absolute top-0 left-0 pointer-events-none z-0"></svg>
-                </div>
+            <div id="knockoutBracket" class="min-w-max">
+                <p class="text-white/30 text-sm italic">Belum ada bracket. Generate dari panel admin.</p>
+            </div>
         </div>
     </div>
 </div>
@@ -844,7 +974,32 @@ select[data-action="filterMatches"]:focus {
       <div id="hofcontrols" style="display:none;" >
       <button data-action="openHofModal" class="admin-btn bg-[#8eff71] text-black px-8 py-3 rounded-full font-black text-xs uppercase hover:scale-105 transition-all shadow-lg shadow-[#8eff71]/20">Add History</button>
     </div>
-  </div>
+    </div>
+
+    <section class="bg-[#11192a] rounded-[2rem] border border-white/10 p-6 md:p-8 shadow-2xl space-y-6">
+      <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div>
+          <p class="text-[#8eff71] text-[10px] font-black tracking-[0.28em] uppercase">Dynasty Ranking</p>
+          <h2 class="text-3xl md:text-4xl font-black italic uppercase tracking-tight text-white font-['Space_Grotesk']">Top Managers</h2>
+          <p class="text-white/50 text-xs mt-2 uppercase tracking-widest">League Titles + Cup Titles</p>
+        </div>
+      </div>
+
+      <div id="hofManagerControls" style="display:none;" class="bg-black/20 border border-white/10 rounded-2xl p-4">
+        <h3 class="font-headline font-bold text-secondary mb-3 uppercase tracking-widest text-xs">Add / Update Manager</h3>
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <input id="hofManagerName" class="admin-input mb-0" placeholder="Manager Name">
+          <input id="hofManagerPhoto" class="admin-input mb-0" placeholder="Photo URL">
+          <input id="hofManagerLeagueTitles" type="number" min="0" class="admin-input mb-0" placeholder="League Titles">
+          <input id="hofManagerCupTitles" type="number" min="0" class="admin-input mb-0" placeholder="Cup Titles">
+          <button class="admin-btn !py-2" data-action="addHofManager">Save Manager</button>
+        </div>
+      </div>
+
+      <div id="hofManagerList" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <p class="text-white/25 italic text-sm">Belum ada data manajer.</p>
+      </div>
+    </section>
 
     <div id="hofGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
        <p class="text-white/20 italic col-span-full text-center py-10">Menghubungkan ke Database...</p>
