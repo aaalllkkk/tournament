@@ -20,6 +20,10 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     let playoffCutoff = 8;
     let hallOfFameData = []; 
     let hofManagers = [];
+    let trophyCabinetSettings = {
+      leagueImage: "",
+      cupImage: ""
+    };
     let matchEventsReady = false;
     const seenMatchEventIds = new Set();
     let matchesSnapshotReady = false;
@@ -418,7 +422,7 @@ const getStarIcons = (rating) => {
 };
 
     const toggleAdminUI = () => {
-      ["adminTeamControls", "matchControls", "scorerControls", "newsControls", "knockoutControls", "liveBannerControls", "hofcontrols", "hofManagerControls"].forEach(id => {
+      ["adminTeamControls", "matchControls", "scorerControls", "newsControls", "knockoutControls", "liveBannerControls", "trophyCabinetControls", "hofcontrols", "hofManagerControls"].forEach(id => {
         if (document.getElementById(id)) document.getElementById(id).style.display = isAdmin ? "block" : "none";
       });
     };
@@ -761,6 +765,7 @@ const renderHof = (data) => {
     }
     const winnerManagerPhoto = h.winnerPlayerPhoto || 'https://i.imgur.com/xnTuRnl.png';
     const cupManager = (h.cupWinnerManager || "").trim();
+    const cupManagerPhoto = h.cupWinnerManagerPhoto || 'https://i.imgur.com/xnTuRnl.png';
 
     return `
     <div onclick="showHofDetail('${h.id}')" class="cursor-pointer group bg-[#161f32]/40 rounded-[2.5rem] border border-white/5 overflow-hidden flex flex-col shadow-2xl transition-all hover:border-[#8eff71]/30 hover:scale-[1.02] active:scale-95">
@@ -784,7 +789,12 @@ const renderHof = (data) => {
         <div>
           <p class="text-[7px] font-bold text-[#8eff71] uppercase tracking-tighter">Cup Winner</p>
           <p class="text-[10px] font-black text-white uppercase leading-none mt-1">${h.cupWinner}</p>
-          ${cupManager ? `<p class="text-[8px] font-bold text-white/45 uppercase mt-1">Manager: ${cupManager}</p>` : ""}
+          ${cupManager ? `
+            <div class="mt-2 flex items-center gap-2">
+              <img src="${cupManagerPhoto}" class="w-6 h-6 rounded-lg object-cover border border-white/10 bg-[#1c263a]">
+              <p class="text-[8px] font-bold text-white/45 uppercase">Manager: ${cupManager}</p>
+            </div>
+          ` : ""}
         </div>
         <span class="material-symbols-outlined text-[#8eff71] text-lg opacity-40">workspace_premium</span>
       </div>` : ''}
@@ -837,12 +847,13 @@ const renderHofManagers = () => {
     const leagueManager = ensureHistoryManager(item.winnerPlayer);
     if (leagueManager) {
       leagueManager.photo = leagueManager.photo || (item.winnerPlayerPhoto || "").trim();
-      leagueManager.leagueTitles += Math.max(parseInt(item.winnerStars) || 1, 1);
+      leagueManager.leagueTitles += 1;
     }
 
     const hasCupWinner = item.cupWinner && item.cupWinner !== "N/A";
     const cupManager = hasCupWinner ? ensureHistoryManager(item.cupWinnerManager) : null;
     if (cupManager) {
+      cupManager.photo = cupManager.photo || (item.cupWinnerManagerPhoto || "").trim();
       cupManager.cupTitles += 1;
     }
   });
@@ -880,6 +891,24 @@ const renderHofManagers = () => {
     return a.name.localeCompare(b.name);
   });
 
+  const renderTrophyImages = (count, image, label, fallbackIcon) => {
+    const safeCount = Math.max(parseInt(count) || 0, 0);
+    if (safeCount <= 0) return "";
+    const items = Array.from({ length: safeCount }, (_, index) => {
+      if (image) {
+        return `<img src="${image}" alt="${label}" title="${label}" class="w-8 h-8 object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,0.45)]">`;
+      }
+      return `<span title="${label}" class="material-symbols-outlined text-[28px] ${label === "League Trophy" ? "text-[#8eff71]" : "text-secondary"}">${fallbackIcon}</span>`;
+    }).join("");
+
+    return `
+      <div>
+        <p class="mb-2 text-[9px] uppercase tracking-widest text-white/40 font-black">${label}</p>
+        <div class="flex flex-wrap gap-2">${items}</div>
+      </div>
+    `;
+  };
+
   if (leaderboard.length === 0) {
     container.innerHTML = `<p class="text-white/25 italic text-sm">Belum ada data manajer.</p>`;
     return;
@@ -887,11 +916,10 @@ const renderHofManagers = () => {
 
   container.innerHTML = leaderboard.map((manager, index) => {
     const rank = index + 1;
-    const totalTitles = manager.leagueTitles + manager.cupTitles;
-    const cabinetItems = [
-      { label: "League", count: manager.leagueTitles, icon: "workspace_premium", color: "text-[#8eff71]" },
-      { label: "Cup", count: manager.cupTitles, icon: "emoji_events", color: "text-secondary" }
-    ].filter((item) => item.count > 0);
+    const trophyShelf = [
+      renderTrophyImages(manager.leagueTitles, trophyCabinetSettings.leagueImage, "League Trophy", "workspace_premium"),
+      renderTrophyImages(manager.cupTitles, trophyCabinetSettings.cupImage, "Cup Trophy", "emoji_events")
+    ].filter(Boolean).join("");
 
     return `
       <article class="relative rounded-[1.6rem] border ${rank === 1 ? "border-[#8eff71]/40 bg-[#0f1d30]" : "border-white/10 bg-black/20"} p-5 shadow-xl">
@@ -904,7 +932,7 @@ const renderHofManagers = () => {
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
                 <h3 class="text-white text-lg font-black uppercase tracking-tight truncate">${manager.name}</h3>
-                <p class="mt-1 text-[10px] uppercase tracking-widest text-white/40 font-bold">${totalTitles} Total Trophies</p>
+                <p class="mt-1 text-[10px] uppercase tracking-widest text-white/40 font-bold">Hall of Fame Cabinet</p>
               </div>
               ${isAdmin && manager.id && !manager.id.startsWith("auto-")
                 ? `<button class="deleteBtn !text-[9px] !px-2 !py-1" data-action="deleteHofManager" data-id="${manager.id}">Delete</button>`
@@ -914,14 +942,8 @@ const renderHofManagers = () => {
 
             <div class="mt-4 rounded-2xl bg-[#1c263a] p-3 border border-white/5">
               <p class="mb-3 text-[10px] uppercase tracking-widest text-white/45 font-black">Trophy Cabinet</p>
-              <div class="grid grid-cols-2 gap-2">
-                ${(cabinetItems.length ? cabinetItems : [{ label: "No Trophy", count: 0, icon: "inventory_2", color: "text-white/35" }]).map((item) => `
-                  <div class="rounded-xl bg-black/20 p-3 border border-white/5">
-                    <span class="material-symbols-outlined ${item.color} text-[24px]">${item.icon}</span>
-                    <p class="mt-2 text-xl font-black ${item.color} leading-none">${item.count}</p>
-                    <p class="mt-1 text-[9px] uppercase tracking-widest text-white/45 font-bold">${item.label}</p>
-                  </div>
-                `).join("")}
+              <div class="space-y-4">
+                ${trophyShelf || `<div class="rounded-xl bg-black/20 p-3 border border-white/5 text-white/35 text-[10px] uppercase tracking-widest font-bold">No Trophy</div>`}
               </div>
             </div>
           </div>
@@ -1055,6 +1077,20 @@ const renderHofManagers = () => {
     alert("Gagal: " + e.message); 
   }
 };
+
+window.updateTrophyCabinetSettings = async () => {
+  const dataToSave = {
+    leagueImage: document.getElementById("leagueTrophyImage")?.value.trim() || "",
+    cupImage: document.getElementById("cupTrophyImage")?.value.trim() || ""
+  };
+
+  try {
+    await setDoc(doc(db, "settings", "trophyCabinet"), dataToSave);
+    alert("Foto trophy berhasil disimpan!");
+  } catch (e) {
+    alert("Gagal: " + e.message);
+  }
+};
     
     // --- LOGIKA SLIDESHOW FADE (JASCRIPT) ---
     
@@ -1146,7 +1182,7 @@ const initSlideshow = (urls) => {
     };
     
     // --- DATA LISTENERS ---
-    onSnapshot(doc(db, "settings", "liveBanner"), (snap) => {
+onSnapshot(doc(db, "settings", "liveBanner"), (snap) => {
   if (snap.exists()) {
     const data = snap.data();
     const urls = [];
@@ -1163,6 +1199,22 @@ const initSlideshow = (urls) => {
     
     initSlideshow(urls);
   }
+});
+
+onSnapshot(doc(db, "settings", "trophyCabinet"), (snap) => {
+  trophyCabinetSettings = snap.exists()
+    ? {
+        leagueImage: snap.data().leagueImage || "",
+        cupImage: snap.data().cupImage || ""
+      }
+    : { leagueImage: "", cupImage: "" };
+
+  const leagueInput = document.getElementById("leagueTrophyImage");
+  const cupInput = document.getElementById("cupTrophyImage");
+  if (leagueInput) leagueInput.value = trophyCabinetSettings.leagueImage;
+  if (cupInput) cupInput.value = trophyCabinetSettings.cupImage;
+
+  renderHofManagers();
 });
 
 onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
@@ -1945,6 +1997,7 @@ window.saveHofEntry = async () => {
       winnerStars: parseInt(document.getElementById('hofWinnerStars').value) || 1,
       cupWinner: document.getElementById('hofCupWinner').value || "N/A",
       cupWinnerManager: document.getElementById('hofCupWinnerManager').value || "",
+      cupWinnerManagerPhoto: document.getElementById('hofCupWinnerManagerPhoto').value || "",
       topScorer: document.getElementById('hofTopScorer').value,
       goals: parseInt(document.getElementById('hofGoals').value) || 0,
       scorerPhoto: document.getElementById('hofScorerPhoto').value || "", // Pastikan ID ini ada di HTML
@@ -1989,6 +2042,10 @@ window.showHofDetail = (id) => {
     const detailCupWinnerManager = document.getElementById('detailCupWinnerManager');
     if (detailCupWinnerManager) {
         detailCupWinnerManager.innerText = item.cupWinnerManager || "-";
+    }
+    const detailCupWinnerManagerPhoto = document.getElementById('detailCupWinnerManagerPhoto');
+    if (detailCupWinnerManagerPhoto) {
+        detailCupWinnerManagerPhoto.src = item.cupWinnerManagerPhoto || 'https://i.imgur.com/xnTuRnl.png';
     }
     
     // 3. Isi Deskripsi (Dengan penanganan jika kosong)
@@ -2038,7 +2095,7 @@ window.showHofDetail = (id) => {
 };
 
     const BACKUP_COLLECTIONS = ["teams", "matches", "scorers", "news", "halloffame", "hofManagers"];
-    const BACKUP_DOCUMENTS = ["config/standings", "settings/liveBanner", "tournament/knockout"];
+    const BACKUP_DOCUMENTS = ["config/standings", "settings/liveBanner", "settings/trophyCabinet", "tournament/knockout"];
 
     const serializeForBackup = (value) => {
       if (value instanceof Timestamp) {
