@@ -1150,6 +1150,10 @@ select[data-action="filterMatches"]:focus {
                         <input type="text" id="hofWinnerPlayer" placeholder="Andi" class="admin-input w-full mt-1">
                     </div>
                 </div>
+                <div>
+                    <label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Winner Manager Photo (URL)</label>
+                    <input type="text" id="hofWinnerPlayerPhoto" placeholder="Link foto manager juara..." class="admin-input w-full mt-1">
+                </div>
                         <div>
               <label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Season Description</label>
               <textarea id="hofDescription" placeholder="Ceritakan keseruan season ini..." class="admin-input w-full mt-1 h-20 py-3"></textarea>
@@ -1167,6 +1171,10 @@ select[data-action="filterMatches"]:focus {
                         <label class="text-[10px] font-bold uppercase tracking-widest text-secondary">Cup Winner</label>
                         <input type="text" id="hofCupWinner" placeholder="Optional" class="admin-input w-full mt-1">
                     </div>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold uppercase tracking-widest text-secondary">Cup Winner Manager</label>
+                    <input type="text" id="hofCupWinnerManager" placeholder="Nama manager pemenang cup..." class="admin-input w-full mt-1">
                 </div>
               <div>
     <label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Top Scorer Photo (URL)</label>
@@ -1221,7 +1229,10 @@ select[data-action="filterMatches"]:focus {
                             <div id="detailWinnerStars" class="flex gap-1 text-yellow-400"></div>
                         </div>
                         <h2 id="detailWinnerTeam" class="text-4xl md:text-5xl font-black text-white uppercase italic leading-none tracking-tighter text-glow-primary"></h2>
-                        <p class="text-on-surface-variant text-[11px] font-bold uppercase tracking-widest pt-1">Manager: <span id="detailWinnerPlayer" class="text-white font-black italic"></span></p>
+                        <div class="flex items-center gap-3 pt-1">
+                            <img id="detailWinnerPlayerPhoto" src="" class="w-10 h-10 rounded-xl object-cover border border-white/10 bg-surface-container-highest">
+                            <p class="text-on-surface-variant text-[11px] font-bold uppercase tracking-widest">Manager: <span id="detailWinnerPlayer" class="text-white font-black italic"></span></p>
+                        </div>
                     </div>
                 </div>
 
@@ -1244,7 +1255,7 @@ select[data-action="filterMatches"]:focus {
                          <span class="material-symbols-outlined absolute -right-3 -bottom-3 text-7xl opacity-[0.05] text-secondary group-hover:scale-110 transition-transform">workspace_premium</span>
                         <p class="text-[9px] font-bold text-secondary uppercase tracking-widest mb-1.5 relative z-10">Cup Winner</p>
                         <p id="detailCupWinner" class="text-xl font-black text-white uppercase italic leading-none relative z-10"></p>
-                        <p class="text-[10px] text-on-surface-variant font-bold mt-1 uppercase relative z-10">Champion</p>
+                        <p class="text-[10px] text-on-surface-variant font-bold mt-1 uppercase relative z-10">Manager: <span id="detailCupWinnerManager">-</span></p>
                     </div>
                 </div>
 
