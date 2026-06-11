@@ -1,463 +1,1269 @@
 <!DOCTYPE html>
-<html lang="id">
+<html class="dark" lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KURAMASH ERP TEAM</title>
-<link rel="icon" href="data:,">
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./styles.css">
+  <meta name="google-site-verification" content="a1Av6B4sURDsMcpu0nqhjagnIvglBNcJlDKC1xEW384" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: 'unsafe-inline' 'unsafe-eval';">
+  <meta name="description" content="Tournament dashboard for football league tracking standings, scorers, and fixtures.">
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>Liga King | Elite Series</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&family=Manrope:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "outline-variant": "#414858",
+            "secondary": "#ffd709",
+            "primary-dim": "#2be800",
+            "tertiary": "#81ecff",
+            "primary": "#8eff71",
+            "surface-container-high": "#161f32",
+            "outline": "#6f7587",
+            "surface-container-highest": "#1c263a",
+            "background": "#070e1c",
+            "error": "#ff7351",
+            "surface-container": "#11192a",
+            "surface-container-low": "#0b1323",
+            "surface-bright": "#212c42",
+            "on-surface-variant": "#a4abbe",
+            "on-background": "#e2e8fc",
+            "surface-dim": "#070e1c",
+            "surface": "#070e1c",
+            "on-surface": "#e2e8fc",
+            "on-primary": "#064200",
+            "on-secondary": "#5b4b00"
+          },
+          fontFamily: {
+            "headline": ["Space Grotesk"],
+            "body": ["Manrope"],
+            "label": ["Inter"]
+          }
+        },
+      },
+    }
+  </script>
+
+  <style>
+    
+    /* Base Styles */
+    body {
+      font-family: 'Manrope', sans-serif;
+      background-color: #070e1c;
+      color: #e2e8fc;
+      overflow-x: hidden;
+    }
+
+    .font-headline {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .font-label {
+      font-family: 'Inter', sans-serif;
+    }
+
+    .glass-card {
+      background: rgba(22, 31, 50, 0.6);
+      backdrop-filter: blur(12px);
+    }
+
+    .pitch-gradient,
+    .stats-gradient {
+      background: linear-gradient(135deg, #8eff71 0%, #2ff801 100%);
+    }
+
+    /* --- Custom Scrollbar Theme --- */
+
+/* 1. Ukuran Scrollbar */
+::-webkit-scrollbar {
+  width: 8px; /* Lebar untuk scroll vertical */
+  height: 8px; /* Tinggi untuk scroll horizontal (Active Pitches) */
+}
+
+/* 2. Track (Latar belakang scrollbar) */
+::-webkit-scrollbar-track {
+  background: #070e1c; /* Sama dengan warna background web */
+}
+
+/* 3. Thumb (Bagian yang digeser) */
+::-webkit-scrollbar-thumb {
+  background: #1c263a; /* Warna surface-container-highest */
+  border-radius: 10px;
+  border: 2px solid #070e1c; /* Memberi efek jarak (padding) */
+}
+
+/* 4. Hover effect pada Thumb */
+::-webkit-scrollbar-thumb:hover {
+  background: #8eff71; /* Berubah jadi warna Primary (Neon Green) saat disentuh */
+}
+
+/* Khusus untuk bagian "Active Pitches" yang horizontal agar tidak terlihat kaku */
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Sembunyikan scrollbar default jika kamu pakai class no-scrollbar */
+}
+
+/* Gaya scrollbar tipis untuk elemen box tertentu */
+.custom-scroll-thin::-webkit-scrollbar,
+.custom-scrollbar::-webkit-scrollbar,
+.custom-scroll::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.custom-scroll-thin::-webkit-scrollbar-track,
+.custom-scrollbar::-webkit-scrollbar-track,
+.custom-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.custom-scroll-thin::-webkit-scrollbar-thumb,
+.custom-scrollbar::-webkit-scrollbar-thumb,
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.custom-scroll-thin::-webkit-scrollbar-thumb:hover,
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: #8eff71;
+}
+
+    /* Styling Dropdown agar konsisten di Viewer maupun Admin */
+select[data-action="filterMatches"],
+#matchweekFilter,
+#teamFilter {
+    background-color: #1c263a !important; /* Warna biru gelap Liga King */
+    color: #8eff71 !important; /* Warna teks Neon Green agar terbaca jelas */
+    border: 1px solid rgba(65, 72, 88, 0.4) !important; /* outline-variant */
+    border-radius: 0.75rem;
+    padding: 0.6rem 2.5rem 0.6rem 1rem;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    appearance: none; /* Hapus panah default browser */
+    
+    /* Tambahkan panah kustom berwarna Neon Green */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238eff71'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 1rem center !important;
+    background-size: 1rem !important;
+}
+
+/* Styling saat dropdown diklik (List Option) */
+select[data-action="filterMatches"] option {
+    background-color: #0b1323; /* Warna gelap solid agar tidak putih */
+    color: #e2e8fc;
+    padding: 12px;
+}
+
+/* Hilangkan outline biru saat fokus */
+select[data-action="filterMatches"]:focus {
+    outline: none;
+    border-color: #8eff71 !important;
+    box-shadow: 0 0 0 2px rgba(142, 255, 113, 0.1);
+}
+    
+
+    .text-glow-primary {
+      text-shadow: 0 0 15px rgba(142, 255, 113, 0.4);
+    }
+
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* SPA Sections & Animations */
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .mw-row {
+      overflow: hidden;
+      transition: opacity 0.25s ease, transform 0.25s ease, display 0.25s ease;
+    }
+
+    /* UI Elements states */
+    .tab.active {
+      background-color: #1c263a;
+      color: #ffd709;
+      border-right-width: 4px;
+      border-color: #ffd709;
+    }
+
+    .score-font {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 900;
+      font-style: italic;
+    }
+
+    /* Live Pulsing */
+    .liveDot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #ff7351;
+      border-radius: 50%;
+      box-shadow: 0 0 6px rgba(255, 115, 81, 0.8);
+      animation: livePulse 1.6s ease-out infinite;
+    }
+
+    @keyframes livePulse {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(255, 115, 81, 0.7);
+      }
+
+      70% {
+        transform: scale(1.4);
+        box-shadow: 0 0 0 8px rgba(255, 115, 81, 0);
+      }
+
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(255, 115, 81, 0);
+      }
+    }
+
+    /*  Engine Styles */
+    #knockout-viewport {
+    height: 80vh;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 30px 30px;
+    background-color: #0f172a;
+    position: relative;
+}
+    
+#knockout-viewport::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+}
+#knockout-viewport::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+#knockout-viewport::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-color, #4ade80);
+}
+  #nodes-container {
+    min-width: 3000px; /* Luas agar bracket tidak terjepit */
+    min-height: 2000px;
+    position: relative;
+    z-index: 10;
+}
+
+#connections {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 5;
+    pointer-events: none; /* Agar tidak menghalangi klik pada kotak */
+}
+    
+    .node {
+      width: 220px;
+      background: rgba(22, 31, 50, 0.95);
+      border: 1px solid #414858;
+      border-radius: 12px;
+      padding: 12px;
+      position: absolute;
+      backdrop-filter: blur(12px);
+      color: white;
+      z-index: 10;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .nodeBody {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .teamRowKO {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #070e1c;
+      padding: 6px 10px;
+      border-radius: 8px;
+    }
+
+    .teamRowKO input {
+      width: 80px;
+      background: transparent;
+      border: none;
+      padding: 0;
+      color: white;
+      font-family: 'Space Grotesk';
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .teamRowKO input:focus {
+      outline: none;
+      border-bottom: 1px solid #8eff71;
+    }
+
+    .scoreKO {
+      color: #ffd709;
+      font-weight: 900;
+      font-size: 18px;
+      font-family: 'Space Grotesk';
+      font-style: italic;
+    }
+
+    .ports {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 80px;
+    }
+
+    .ports.left {
+      left: -8px;
+    }
+
+    .ports.right {
+      right: -8px;
+    }
+
+    .port {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: 0.2s;
+      border: 2px solid #070e1c;
+    }
+
+    .winIn,
+    .winOut {
+      background: #8eff71;
+    }
+
+    .midIn,
+    .midOut {
+      background: #81ecff;
+    }
+
+    .loseIn,
+    .loseOut {
+      background: #ff7351;
+    }
+
+    .viewerPort {
+      background: #81ecff;
+      opacity: 0.8;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .port.active {
+      box-shadow: 0 0 12px #ffd709;
+      transform: scale(1.3);
+    }
+
+    .ko-grid {
+      display: flex;
+      gap: 22px;
+      align-items: flex-start;
+      min-width: max-content;
+      padding-bottom: 12px;
+    }
+
+    .ko-round {
+      min-width: 280px;
+    }
+
+    .ko-round-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 900;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      color: #8eff71;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ko-round-title::before {
+      content: "";
+      width: 16px;
+      height: 2px;
+      background: linear-gradient(to right, #8eff71, transparent);
+      display: block;
+    }
+
+    .ko-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .ko-match-card {
+      background: rgba(17, 25, 42, 0.86);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .ko-match-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: rgba(255, 255, 255, 0.45);
+      font-weight: 700;
+    }
+
+    .ko-team-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      border-radius: 12px;
+      padding: 8px 10px;
+      background: rgba(7, 14, 28, 0.9);
+    }
+
+    .ko-team-row.win {
+      outline: 1px solid rgba(142, 255, 113, 0.3);
+      box-shadow: inset 0 0 20px rgba(142, 255, 113, 0.08);
+    }
+
+    .ko-team-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #e2e8fc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ko-score {
+      width: 56px;
+      min-width: 56px;
+      height: 34px;
+      line-height: 34px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      color: #8eff71;
+      -webkit-text-fill-color: #8eff71;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 900;
+      font-size: 16px;
+      padding: 0;
+      appearance: textfield;
+      -moz-appearance: textfield;
+    }
+
+    .ko-score:focus {
+      outline: none;
+      border-color: rgba(142, 255, 113, 0.6);
+    }
+
+    .ko-score:disabled {
+      opacity: 0.7;
+      color: #8eff71;
+      -webkit-text-fill-color: #8eff71;
+      cursor: not-allowed;
+    }
+
+    .ko-score::-webkit-outer-spin-button,
+    .ko-score::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .ko-locked {
+      opacity: 0.7;
+    }
+
+    .ko-round-gap-1 .ko-match-card {
+      margin-top: 0;
+    }
+
+    .ko-round-gap-2 .ko-match-card {
+      margin-top: 28px;
+    }
+
+    .ko-round-gap-4 .ko-match-card {
+      margin-top: 58px;
+    }
+
+    .ko-round-gap-8 .ko-match-card {
+      margin-top: 122px;
+    }
+
+    body:not(.admin) .winIn,
+    body:not(.admin) .loseIn,
+    body:not(.admin) .winOut,
+    body:not(.admin) .loseOut {
+      display: none;
+    }
+
+    /* Admin Forms styling */
+    .admin-input {
+      background: #1c263a;
+      border: 1px solid #414858;
+      color: green;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-family: 'Inter';
+      font-size: 14px;
+      margin-bottom: 8px;
+      width: 100%;
+    }
+
+    .admin-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 1px #8eff71;
+    }
+
+    .admin-btn {
+      background: linear-gradient(135deg, #8eff71 0%, #2ff801 100%);
+      color: #064200;
+      font-weight: 800;
+      padding: 10px 20px;
+      border-radius: 8px;
+      text-transform: uppercase;
+      font-size: 12px;
+      cursor: pointer;
+      transition: transform 0.1s;
+      letter-spacing: 1px;
+      font-family: 'Space Grotesk';
+    }
+
+    .admin-btn:hover {
+      transform: scale(0.98);
+    }
+
+    .deleteBtn {
+      background: #ff7351;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: bold;
+      text-transform: uppercase;
+      font-family: 'Space Grotesk';
+    }
+
+    /* Mobile sidebar overlay */
+    #sidebarOverlay {
+      display: none;
+    }
+
+    #sidebarOverlay.active {
+      display: block;
+    }
+
+    /* STYLES UNTUK SLIDESHOW FADE IN/OUT */
+    #dashboardFeaturedMatch {
+      position: relative;
+      width: 100%;
+      min-height: 450px;
+      overflow: hidden;
+      background-color: #070e1c;
+      /* Memastikan konten dimulai setelah header jika header bersifat sticky/fixed */
+      margin-top: 0; 
+    }
+
+    .headline-background {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      /* Di belakang teks */
+    }
+
+    .headline-image {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      /* FIX: object-position top agar bagian atas gambar tidak hilang di balik header */
+      object-fit: cover;
+      object-position: center top; 
+      opacity: 0;
+      transition: opacity 2s ease-in-out;
+    }
+
+    .headline-image.active {
+      opacity: 0.6; /* Transparansi gambar agar teks terbaca */
+    }
+    
+    .headline-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, #070e1c 5%, rgba(7, 14, 28, 0.4) 40%, transparent 100%);
+      z-index: 5; /* Di atas gambar, di bawah konten */
+    }
+    
+    .headline-content {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+    }
+    
+  </style>
 </head>
-<body>
-<div class="app-shell min-h-screen grid grid-cols-1 xl:grid-cols-[270px_1fr]">
-  <aside class="app-sidebar glass xl:min-h-screen p-5">
-    <p class="mono text-xs tracking-widest text-teal-300">KURAMASH</p>
-    <div class="brand-title mt-2">
-      <h1 class="text-2xl font-extrabold">ERP TEAM</h1>
-      <button onclick="openNotifModal()" class="notif-bell-btn" type="button" aria-label="Buka notifikasi">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-          <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 1 1-6 0m6 0H9"/>
-        </svg>
-        <span id="notif-dot" class="hidden notif-dot"></span>
+
+<body class="bg-background text-on-surface selection:bg-primary selection:text-on-primary min-h-screen flex flex-col">
+
+  <div id="sidebarOverlay" class="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm transition-opacity" data-action="toggleSidebar"></div>
+
+  <header class="bg-[#070e1c]/80 backdrop-blur-xl docked full-width top-0 sticky z-30 bg-gradient-to-b from-[#161f32]/50 to-transparent shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex justify-between items-center px-6 md:px-8 h-20 w-full font-['Space_Grotesk'] tracking-tight font-bold uppercase">
+    <div class="flex items-center gap-4 md:gap-8">
+      <button class="lg:hidden text-primary p-1 hover:bg-[#1c263a] rounded-md transition-colors" data-action="toggleSidebar">
+        <span class="material-symbols-outlined text-3xl">menu</span>
       </button>
+      <span class="text-2xl font-black italic tracking-tighter text-[#8eff71]">LIGA KING</span>
+      <nav class="hidden lg:flex items-center gap-6 ml-8 text-sm">
+      </nav>
     </div>
-    <p class="text-slate-400 text-sm mt-1">Team Work Console</p>
-    <button type="button" class="mobile-drawer-close" onclick="toggleMobileDrawer(true)" aria-label="Tutup menu">&#10005;</button>
-    <div class="app-nav mt-6 space-y-2">
-      <button onclick="switchPage('landing')" data-nav="landing" class="nav btn w-full text-left">Work Landing</button>
-      <button onclick="switchPage('portal')" data-nav="portal" class="nav btn w-full text-left">Artist Portal</button>
-      <button onclick="switchPage('admin')" data-nav="admin" data-admin-only="true" class="nav btn w-full text-left">Admin Monitor</button>
-      <button onclick="switchPage('payroll')" data-nav="payroll" data-admin-only="true" class="nav btn w-full text-left">Payroll Team</button>
-      <button onclick="switchPage('setup')" data-nav="setup" data-admin-only="true" class="nav btn w-full text-left">Setup Artist & Paket</button>
-      <button onclick="switchPage('data')" data-nav="data" data-admin-only="true" class="nav btn w-full text-left">Data Transfer</button>
-    </div>
-    <div class="app-access mt-8 pt-5 border-t border-white/10">
-      <p class="mono text-[10px] tracking-widest text-slate-500">AKSES AKTIF</p>
-      <select id="role" onchange="setRole(this.value)" class="mt-2 w-full bg-slate-800 rounded-xl p-3 text-sm">
-        <option value="admin">Admin / Operator</option>
-        <option value="artist">Artist</option>
-      </select>
-      <select id="active-artist" onchange="saveSession(); renderAll()" class="mt-3 w-full bg-slate-800 rounded-xl p-3 text-sm"></select>
-      <div id="active-artist-display" class="hidden mt-3 rounded-xl border border-white/10 bg-slate-900 p-3">
-        <p class="text-[10px] mono tracking-widest text-slate-500">ARTIST LOGIN</p>
-        <p id="active-artist-name" class="font-bold mt-1"></p>
+    <div class="flex items-center gap-4">
+      <div class="relative hidden sm:block">
+        <input class="bg-[#1c263a] border-none rounded-full py-2 pl-10 pr-6 text-sm w-64 focus:ring-2 focus:ring-[#8eff71] placeholder:text-[#a4abbe]/50 text-white font-label normal-case" placeholder="Search players, teams..." type="text" />
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#a4abbe] text-lg">search</span>
       </div>
-      <button id="pin-btn" onclick="openPinModal()" class="btn w-full mt-3">Ubah PIN Saya</button>
-      <button id="logout-btn" onclick="logoutTools()" class="danger btn w-full mt-3 hidden">Logout</button>
+      <button class="p-2 text-[#a4abbe] hover:bg-[#1c263a] rounded-lg transition-all active:scale-95"><span class="material-symbols-outlined">notifications</span></button>
+      <button class="p-2 text-[#a4abbe] hover:bg-[#1c263a] rounded-lg transition-all active:scale-95 hidden md:block" data-action="openTab" data-tab="admin"><span class="material-symbols-outlined">settings</span></button>
+      <img alt="User profile" class="w-10 h-10 rounded-full border-2 border-[#8eff71]/30 hidden md:block" src="https://i.imgur.com/xnTuRnl.png" />
     </div>
-    <div class="sidebar-theme mt-5 pt-4 border-t border-white/10">
-      <p class="mono text-[10px] tracking-widest text-slate-500 mb-2">TAMPILAN</p>
-      <button id="theme-toggle" onclick="toggleThemeMode()" class="btn theme-toggle" type="button" aria-label="Ganti mode tampilan">
-        <span class="theme-toggle-track" aria-hidden="true">
-          <span class="theme-toggle-knob">
-            <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
-              <circle cx="12" cy="12" r="4"/>
-              <path d="M12 2v2.5M12 19.5V22M4.93 4.93 6.7 6.7M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07 6.7 17.3M17.3 6.7l1.77-1.77"/>
-            </svg>
-            <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
-              <path d="M20.4 14.6A8.2 8.2 0 0 1 9.4 3.6 8.8 8.8 0 1 0 20.4 14.6Z"/>
-            </svg>
-          </span>
-        </span>
-        <span id="theme-toggle-label" class="sr-only">Mode Malam</span>
-      </button>
-    </div>
-  </aside>
-  <button type="button" class="mobile-drawer-open" onclick="toggleMobileDrawer(false)" aria-label="Buka menu">&#9776;</button>
-  <div class="mobile-tabbar">
-    <button onclick="switchPage('landing')" data-nav="landing" class="mobile-tab nav">Home</button>
-    <button onclick="switchPage('admin')" data-nav="admin" data-admin-only="true" class="mobile-tab nav">Standings</button>
-    <button onclick="switchPage('portal')" data-nav="portal" class="mobile-tab mobile-tab-center nav"><span>Portal</span></button>
-    <button onclick="switchPage('payroll')" data-nav="payroll" data-admin-only="true" class="mobile-tab nav">Schedule</button>
-    <button onclick="switchPage('data')" data-nav="data" data-admin-only="true" class="mobile-tab nav">Profile</button>
-  </div>
-  <main class="app-main p-5 xl:p-8 overflow-x-hidden">
-    <section class="glass rounded-2xl p-5 mb-6">
-      <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+  </header>
+
+  <div class="flex flex-1 relative">
+    <aside id="sidebar" class="h-screen w-64 fixed left-0 top-0 overflow-y-auto bg-[#070e1c] border-r border-[#414858]/15 flex flex-col py-6 gap-2 z-50 font-['Space_Grotesk'] font-medium transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+      <div class="px-6 mb-8 mt-2 lg:mt-0 flex justify-between items-center">
         <div>
-          <h2 class="text-2xl font-extrabold mono">KURAMASH ERP TEAM</h2>
-          <p class="text-slate-400 text-sm mt-1">Untuk input pekerjaan tim lengkap sampai pembayaran klien. Payroll dan payslip tetap diproses di Studio.</p>
+          <h1 class="text-[#8eff71] font-black tracking-widest text-2xl">LIGA KING</h1>
+          <p class="text-on-surface-variant text-xs uppercase tracking-tighter">Elite Series</p>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <button onclick="openProjectModal()" data-admin-only="true" class="primary btn">+ Input Project</button>
-          <button onclick="triggerImportSeed()" data-admin-only="true" class="btn">Import dari Studio</button>
-          <button onclick="openExportModal()" data-admin-only="true" class="btn">Export</button>
-          <input id="seed-file" type="file" accept=".json,application/json" class="hidden" onchange="importSeedFile(this)">
+        <button class="lg:hidden text-[#a4abbe] hover:text-white" data-action="toggleSidebar">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <nav class="flex flex-col gap-1 px-3">
+        <div class="tab active flex items-center gap-3 px-4 py-3 rounded-lg text-[#a4abbe] hover:bg-[#161f32] hover:text-[#8eff71] transition-all duration-300 cursor-pointer" data-action="openTab" data-tab="dashboard">
+          <span class="material-symbols-outlined pointer-events-none" style="font-variation-settings: 'FILL' 1;">dashboard</span><span class="pointer-events-none">Dashboard</span>
+        </div>
+        <div class="tab flex items-center gap-3 px-4 py-3 rounded-lg text-[#a4abbe] hover:bg-[#161f32] hover:text-[#8eff71] transition-all duration-300 cursor-pointer" data-action="openTab" data-tab="teams">
+          <span class="material-symbols-outlined pointer-events-none">groups</span><span class="pointer-events-none">Teams</span>
+        </div>
+        <div class="tab flex items-center gap-3 px-4 py-3 rounded-lg text-[#a4abbe] hover:bg-[#161f32] hover:text-[#8eff71] transition-all duration-300 cursor-pointer" data-action="openTab" data-tab="schedule">
+          <span class="material-symbols-outlined pointer-events-none">calendar_today</span><span class="pointer-events-none">Schedule</span>
+        </div>
+        <div class="tab flex items-center gap-3 px-4 py-3 rounded-lg text-[#a4abbe] hover:bg-[#161f32] hover:text-[#8eff71] transition-all duration-300 cursor-pointer" data-action="openTab" data-tab="standings">
+          <span class="material-symbols-outlined pointer-events-none">leaderboard</span><span class="pointer-events-none">Standings</span>
+        </div>
+        <div class="tab flex items-center gap-3 px-4 py-3 rounded-lg text-[#a4abbe] hover:bg-[#161f32] hover:text-[#8eff71] transition-all duration-300 cursor-pointer" data-action="openTab" data-tab="knockout">
+          <span class="material-symbols-outlined pointer-events-none">account_tree</span><span class="pointer-events-none">Knockout</span>
+        </div>
+        <div class="tab flex items-center gap-3 px-4 py-3 rounded-lg text-[#a4abbe] hover:bg-[#161f32] hover:text-[#8eff71] transition-all duration-300 cursor-pointer" data-action="openTab" data-tab="scorers">
+          <span class="material-symbols-outlined pointer-events-none">sports_soccer</span><span class="pointer-events-none">Top Scorers</span>
+        </div>
+        <div class="tab flex items-center gap-3 px-4 py-3 rounded-lg text-[#a4abbe] hover:bg-[#161f32] hover:text-[#8eff71] transition-all duration-300 cursor-pointer" data-action="openTab" data-tab="halloffame">
+        <span class="material-symbols-outlined pointer-events-none">history_edu</span>
+        <span class="pointer-events-none">Hall of Fame</span>
+      </div>
+      </nav>
+    </aside>
+
+    <main class="flex-1 lg:ml-64 w-full flex flex-col min-h-screen">
+      <div id="dashboard" class="section active">
+        <section id="dashboardFeaturedMatch" class="aspect-[21/9] flex items-end">
+  <div class="headline-background" id="headlineBackground"></div>
+  
+  <div class="headline-overlay"></div>
+  
+  <div class="headline-content max-w-7xl mx-auto w-full px-6 md:px-8 pb-12 flex flex-col md:flex-row justify-between items-end gap-8" id="headlineContent">
+    </div>
+</section>
+
+        <section class="max-w-7xl mx-auto w-full px-6 md:px-8 py-12 grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-4 space-y-6">
+            <div class="surface-container-high rounded-2xl p-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+              <div class="flex justify-between items-center mb-6">
+                <h3 class="font-headline text-xl font-bold italic tracking-tight uppercase">Standings</h3>
+                <a class="text-primary text-xs font-bold font-label hover:underline cursor-pointer" data-action="openTab" data-tab="standings">VIEW FULL TABLE</a>
+              </div>
+              <div class="space-y-1">
+                <div class="grid grid-cols-12 px-4 py-2 text-[10px] font-label text-on-surface-variant font-bold uppercase tracking-widest">
+                  <span class="col-span-2">RANK</span>
+                  <span class="col-span-8">TEAM</span>
+                  <span class="col-span-2 text-right">PTS</span>
+                </div>
+                <div id="dashboardStandings"></div>
+              </div>
+            </div>
+            <div class="surface-container-high rounded-2xl p-6">
+              <h3 class="font-headline text-xl font-bold italic tracking-tight mb-6 uppercase">Golden Boot Race</h3>
+              <div id="dashboardScorers" class="space-y-4"></div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-8 space-y-6">
+            <div>
+              <div class="flex justify-between items-center mb-6">
+                <h3 class="font-headline text-xl font-bold italic tracking-tight uppercase">Active Pitches</h3>
+                <div class="flex gap-2">
+                  <button class="w-8 h-8 rounded-full surface-container-highest flex items-center justify-center text-[#a4abbe] hover:bg-primary hover:text-on-primary transition-all"><span class="material-symbols-outlined text-sm">chevron_left</span></button>
+                  <button class="w-8 h-8 rounded-full surface-container-highest flex items-center justify-center text-[#a4abbe] hover:bg-primary hover:text-on-primary transition-all"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+                </div>
+              </div>
+              <div id="liveMatches" class="flex gap-4 overflow-x-auto pb-4 no-scrollbar"></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div id="newsControls" style="display:none;" class="md:col-span-2 surface-container-high p-6 rounded-[2rem] border border-outline-variant/20 shadow-xl">
+                <h3 class="font-headline font-bold text-lg mb-4 text-primary">Post News Update</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <input id="newsTitle" class="admin-input mb-0" placeholder="Headline">
+                  <input id="newsImage" class="admin-input mb-0" placeholder="Image URL">
+                  <button class="admin-btn h-full" data-action="addNews">Publish Story</button>
+                </div>
+                <input id="newsContent" class="admin-input mb-0 w-full" placeholder="Article summary...">
+              </div>
+              <div id="newsList" class="contents"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div id="teams" class="section p-6 md:p-12">
+        <div class="max-w-7xl mx-auto">
+          <header class="mb-12">
+            <div class="flex items-center gap-2 text-primary mb-2">
+              <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">stars</span>
+              <span class="text-xs font-label font-bold uppercase tracking-[0.2em]">Franchise Registry</span>
+            </div>
+            <h1 class="text-4xl md:text-6xl font-headline font-black uppercase tracking-tighter text-glow-primary">Registered Clubs</h1>
+          </header>
+
+          <div id="adminTeamControls" style="display:none;" class="bg-surface-container-high p-8 rounded-3xl mb-12 border border-outline-variant/10 shadow-2xl">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <h3 class="font-headline font-bold text-xl mb-4 text-tertiary">Club Management</h3>
+                <div class="flex gap-3 flex-col sm:flex-row">
+                  <input id="teamName" class="admin-input mb-0" placeholder="Club Name">
+                  <input id="teamLogo" class="admin-input mb-0" placeholder="Logo URL">
+                  <div class="mt-2">
+                  <label class="text-[10px] font-bold uppercase opacity-50">Team Strength (Stars)</label>
+                  <input id="teamStars" type="number" step="0.5" min="0.5" max="5" value="3.0" 
+                         class="admin-input" placeholder="e.g. 4.5">
+                </div>
+                  <button class="admin-btn" data-action="addTeam">Register</button>
+                </div>
+              </div>
+              <div class="border-t md:border-t-0 md:border-l border-outline-variant/20 pt-6 md:pt-0 md:pl-8">
+                <h3 class="font-headline font-bold text-xl mb-4 text-error">League Engine</h3>
+                <div class="flex gap-4">
+                  <button class="admin-btn w-full !bg-surface-container-highest !text-white border border-outline-variant/30 hover:!border-primary" data-action="generateLeague">Gen League</button>
+                  <button class="admin-btn w-full !bg-error !text-white" data-action="resetMatches">Hard Reset</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <ul id="teamList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></ul>
         </div>
       </div>
-    </section>
 
-    <section id="page-landing" class="page">
-      <div class="flex items-end justify-between gap-4 mb-4">
+      <div id="schedule" class="section">
+        <section class="px-6 md:px-8 pt-12 pb-8 max-w-7xl mx-auto">
+          <div class="relative overflow-hidden rounded-[3rem] bg-surface-container-low p-8 lg:p-12 mb-12 border border-outline-variant/10">
+            <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent"></div>
+            <div class="relative z-10">
+              <h2 class="text-5xl lg:text-7xl font-black font-headline uppercase italic tracking-tighter text-on-background mb-4">
+                Match <span class="text-primary">Calendar</span>
+              </h2>
+              <p class="text-on-surface-variant font-medium text-lg max-w-2xl">Experience every moment of the Elite Series. Track the path to glory.</p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-6 mb-10">
+            <div class="flex flex-wrap gap-4">
+              <div class="flex items-center gap-2 bg-surface-container-highest rounded-full px-4 py-2 border border-outline-variant/20">
+                <span class="material-symbols-outlined text-sm text-on-surface-variant">filter_list</span>
+                <select id="filterTeam1" class="bg-transparent border-none text-xs font-bold uppercase tracking-widest focus:ring-0 text-on-surface p-0" data-action="filterMatches">
+                  <option value="">All Teams</option>
+                </select>
+              </div>
+              <div class="flex items-center gap-2 bg-surface-container-highest rounded-full px-4 py-2 border border-outline-variant/20">
+                <span class="material-symbols-outlined text-sm text-on-surface-variant">filter_list</span>
+                <select id="filterTeam2" class="bg-transparent border-none text-xs font-bold uppercase tracking-widest focus:ring-0 text-on-surface p-0" data-action="filterMatches">
+                  <option value="">Vs Team</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div id="matchControls" style="display:none;" class="bg-surface-container-high p-6 rounded-[2rem] mb-12 border border-primary/20 shadow-xl">
+            <h3 class="font-headline font-bold text-xl mb-4 text-primary">Schedule New Match</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 items-end">
+              <div><label class="text-[10px] uppercase font-bold text-on-surface-variant block mb-2">Home</label><select id="team1" class="admin-input mb-0"></select></div>
+              <div><label class="text-[10px] uppercase font-bold text-on-surface-variant block mb-2">Away</label><select id="team2" class="admin-input mb-0"></select></div>
+              <div><label class="text-[10px] uppercase font-bold text-on-surface-variant block mb-2">Matchweek</label><select id="matchMatchweek" class="admin-input mb-0"></select></div>
+              <div><label class="text-[10px] uppercase font-bold text-on-surface-variant block mb-2">Date / Time</label><input id="date" class="admin-input mb-0" placeholder="e.g. Dec 12, 20:45"></div>
+              <button class="admin-btn h-[42px]" data-action="addMatch">Save Match</button>
+            </div>
+          </div>
+          <div id="matchContainer" class="space-y-4"></div>
+        </section>
+      </div>
+
+      <div id="standings" class="section p-6 md:p-12">
+        <div class="max-w-7xl mx-auto">
+          <header class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <div class="flex items-center gap-2 text-primary mb-2">
+                <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">stars</span>
+                <span class="text-xs font-label font-bold uppercase tracking-[0.2em]">Tournament Progress</span>
+              </div>
+              <h1 class="text-4xl md:text-6xl font-headline font-black uppercase tracking-tighter text-glow-primary">League Standings</h1>
+            </div>
+          </header>
+
+          <section class="bg-surface-container-high rounded-[2rem] overflow-hidden shadow-2xl relative border border-outline-variant/10">
+            <div class="overflow-x-auto">
+              <table class="w-full border-collapse">
+                <thead>
+                  <tr class="bg-surface-container-highest/50 border-b border-outline-variant/10">
+                    <th class="py-6 px-6 text-left text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant">Rank</th>
+                    <th class="py-6 px-6 text-left text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant">Club</th>
+                    <th class="py-6 px-4 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant">MP</th>
+                    <th class="py-6 px-4 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant">W</th>
+                    <th class="py-6 px-4 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant">D</th>
+                    <th class="py-6 px-4 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant">L</th>
+                    <th class="py-6 px-4 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant">GF</th>
+                    <th class="py-6 px-4 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant">GA</th>
+                    <th class="py-6 px-4 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant">GD</th>
+                    <th class="py-6 px-6 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-primary">Pts</th>
+                  </tr>
+                </thead>
+                <tbody id="standingsTable" class="divide-y divide-outline-variant/5 font-label"></tbody>
+              </table>
+            </div>
+            <div class="p-6 bg-surface-container-lowest/50 border-t border-outline-variant/10 flex flex-wrap gap-6 items-center">
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full bg-primary shadow-[0_0_8px_rgba(142,255,113,0.5)]"></div><span class="text-[10px] uppercase tracking-widest font-label font-bold text-on-surface-variant">Champions Cup</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full bg-error shadow-[0_0_8px_rgba(255,115,81,0.5)]"></div><span class="text-[10px] uppercase tracking-widest font-label font-bold text-on-surface-variant">Zona Hina</span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+     <div id="knockout" class="section p-6 md:p-8">
+    <div id="knockoutControls" class="bg-[#161f32] p-6 rounded-[2rem] border border-white/10 shadow-2xl mb-8 w-full max-w-5xl" style="display:none">
+        <div class="flex flex-wrap items-center justify-start gap-6">
+            <div>
+                <h3 class="text-xl font-black text-primary uppercase italic leading-none">Bracket System</h3>
+                <p class="text-[10px] text-white/30 uppercase tracking-tighter mt-1">Management Panel</p>
+            </div>
+            
+            <div class="h-8 w-[1px] bg-white/10 hidden md:block"></div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <select id="koType" class="bg-black/40 border-white/10 rounded-xl text-white text-xs p-2 focus:ring-primary focus:border-primary">
+                    <option value="single">Single Elimination</option>
+                    <option value="double">Double Elimination (Top 4)</option>
+                </select>
+                <select id="koSize" class="bg-black/40 border-white/10 rounded-xl text-white text-xs p-2 focus:ring-primary focus:border-primary">
+                    <option value="auto">Auto (Champions Zone)</option>
+                    <option value="4">Top 4</option>
+                    <option value="8">Top 8</option>
+                    <option value="16">Top 16</option>
+                </select>
+                <button class="bg-primary hover:bg-primary/80 text-black px-5 py-2 rounded-xl font-black text-xs uppercase transition-all" data-action="generateBracket">
+                    Generate
+                </button>
+                <button class="bg-red-500/10 hover:bg-red-500/20 text-red-500 px-5 py-2 rounded-xl font-black text-xs uppercase border border-red-500/20 transition-all" data-action="clearKnockout">
+                    Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="w-full bg-[#0f172a] rounded-[2.5rem] border border-white/5 relative overflow-hidden" style="height: 75vh;">
+        <div id="knockout-viewport" class="overflow-auto w-full h-full p-10 custom-scroll">
+            <div id="knockoutBracket" class="min-w-max">
+                <p class="text-white/30 text-sm italic">Belum ada bracket. Generate dari panel admin.</p>
+            </div>
+        </div>
+    </div>
+</div>
+      
+      <div id="scorers" class="section p-6 md:p-8">
+        <div class="max-w-7xl mx-auto space-y-8">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div id="topScorerHero" class="lg:col-span-8 group relative overflow-hidden rounded-[3rem] bg-surface-container-high h-[450px]"></div>
+
+            <div class="lg:col-span-4 grid grid-cols-1 gap-4">
+              <div class="bg-surface-container-high p-6 rounded-[2rem] flex flex-col justify-center border-l-4 border-primary shadow-xl">
+                <span class="text-xs font-label uppercase text-on-surface-variant tracking-widest font-bold">Search Player</span>
+                <input id="searchScorer" class="admin-input mt-4 w-full rounded-full" placeholder="Type name..." data-action="searchScorer">
+              </div>
+
+              <div id="scorerControls" style="display:none;" class="bg-surface-container-high p-6 rounded-[2rem] border-l-4 border-secondary shadow-xl">
+                <h4 class="font-headline font-bold text-secondary mb-4 uppercase tracking-widest text-xs">Add Scorer Database</h4>
+                <input id="playerName" class="admin-input mb-2 text-sm py-2" placeholder="Player Name">
+                <input id="playerImage" class="admin-input mb-2 text-sm py-2" placeholder="Image URL">
+                <input id="scorerPoster" class="admin-input mb-2 text-sm py-2" placeholder="Poster URL">
+                <div class="flex gap-2 mb-4">
+                  <select id="playerTeam" class="admin-input mb-0 flex-1 text-sm py-2"></select>
+                  <input id="playerGoals" type="number" class="admin-input mb-0 w-20 text-sm py-2" placeholder="GLS">
+                  <input id="playerAssists" type="number" class="admin-input mb-0 w-20 text-sm py-2" placeholder="AST">
+                </div>
+                <button class="admin-btn w-full !py-2" data-action="addScorer">Save</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 xl:grid-cols-2 gap-12 pt-4">
+            <div>
+              <div class="flex items-end justify-between mb-8">
+                <h3 class="text-3xl font-black font-headline tracking-tight uppercase"><span class="text-primary">Goals</span> Leaderboard</h3>
+                <p class="text-on-surface-variant text-xs uppercase font-label tracking-widest font-bold">Top Performance</p>
+              </div>
+              <div id="scorerTable" class="space-y-3"></div>
+            </div>
+            <div id="assistTable" class="space-y-3"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="halloffame" class="section p-6 md:p-8">
+  <div class="max-w-7xl mx-auto space-y-8">
+    
+    <div class="flex justify-between items-end mb-8">
+      <div>
+        <h1 class="text-5xl font-black italic uppercase text-white tracking-tighter font-['Space_Grotesk']">Hall of Fame</h1>
+        <p class="text-[#8eff71] text-xs font-bold tracking-[0.3em] uppercase mt-2">The Immortals of Liga King</p>
+      </div>
+      <div id="hofcontrols" style="display:none;" >
+      <button data-action="openHofModal" class="admin-btn bg-[#8eff71] text-black px-8 py-3 rounded-full font-black text-xs uppercase hover:scale-105 transition-all shadow-lg shadow-[#8eff71]/20">Add History</button>
+    </div>
+    </div>
+
+    <section class="bg-[#11192a] rounded-[2rem] border border-white/10 p-6 md:p-8 shadow-2xl space-y-6">
+      <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
-          <p class="mono text-xs tracking-widest text-teal-300">WORK LANDING</p>
-          <h2 class="text-3xl font-extrabold mono">Pekerjaan Aktif</h2>
-          <p class="text-slate-400 text-sm mt-1">Ringkas per artist, tanpa data keuangan.</p>
+          <p class="text-[#8eff71] text-[10px] font-black tracking-[0.28em] uppercase">Dynasty Ranking</p>
+          <h2 class="text-3xl md:text-4xl font-black italic uppercase tracking-tight text-white font-['Space_Grotesk']">Top Managers</h2>
+          <p class="text-white/50 text-xs mt-2 uppercase tracking-widest">League Titles + Cup Titles</p>
         </div>
-        <input id="search" oninput="renderLanding()" class="bg-slate-800 rounded-xl p-3 text-sm w-full max-w-sm" placeholder="Cari artist, klien, project...">
       </div>
-      <div id="summary" class="grid grid-cols-2 xl:grid-cols-5 gap-3 mb-4"></div>
-      <div id="landing-filter-chips" class="flex flex-wrap gap-2 mb-3">
-        <button onclick="setLandingFilter('all')" data-landing-filter="all" class="btn py-2 text-xs">Semua</button>
-        <button onclick="setLandingFilter('submitted')" data-landing-filter="submitted" class="btn py-2 text-xs">Menunggu Admin</button>
-        <button onclick="setLandingFilter('approved')" data-landing-filter="approved" class="btn py-2 text-xs">Sudah Approved</button>
-        <button onclick="setLandingFilter('dependency')" data-landing-filter="dependency" class="btn py-2 text-xs">Dependency</button>
-        <button onclick="setLandingFilter('issue')" data-landing-filter="issue" class="btn py-2 text-xs">Kendala</button>
-      </div>
-      <div id="landing-board"></div>
-    </section>
 
-    <section id="page-portal" class="page">
-      <div class="flex items-end justify-between gap-4 mb-4">
-        <div>
-          <p class="mono text-xs tracking-widest text-teal-300">ARTIST PORTAL</p>
-          <h2 class="text-3xl font-extrabold mono">Update Pekerjaan Saya</h2>
-          <p class="text-slate-400 text-sm mt-1">Mulai kerja, isi progress, submit link, atau catat kendala.</p>
+      <div id="hofManagerControls" style="display:none;" class="bg-black/20 border border-white/10 rounded-2xl p-4">
+        <h3 class="font-headline font-bold text-secondary mb-3 uppercase tracking-widest text-xs">Add / Update Manager</h3>
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <input id="hofManagerName" class="admin-input mb-0" placeholder="Manager Name">
+          <input id="hofManagerPhoto" class="admin-input mb-0" placeholder="Photo URL">
+          <input id="hofManagerLeagueTitles" type="number" min="0" class="admin-input mb-0" placeholder="League Titles">
+          <input id="hofManagerCupTitles" type="number" min="0" class="admin-input mb-0" placeholder="Cup Titles">
+          <button class="admin-btn !py-2" data-action="addHofManager">Save Manager</button>
         </div>
-        <input id="portal-search" data-admin-only="true" oninput="renderPortal()" class="hidden bg-slate-800 rounded-xl p-3 text-sm w-full max-w-sm" placeholder="Cari artist, klien, project...">
       </div>
-      <div id="portal-board"></div>
-    </section>
 
-    <section id="page-admin" class="page">
-      <div class="flex items-end justify-between gap-4 mb-4">
-        <div>
-          <p class="mono text-xs tracking-widest text-amber-300">ADMIN MONITOR</p>
-          <h2 class="text-3xl font-extrabold mono">Pantau Update Artist</h2>
-          <p class="text-slate-400 text-sm mt-1">Approve, beri feedback, atau kembalikan untuk revisi.</p>
-        </div>
-        <div class="flex flex-col sm:flex-row gap-2 w-full max-w-xl">
-          <input id="admin-search" oninput="renderAdmin()" class="bg-slate-800 rounded-xl p-3 text-sm w-full" placeholder="Cari artist, client, project...">
-          <select id="admin-filter" onchange="renderAdmin()" class="bg-slate-800 rounded-xl p-3 text-sm sm:w-52">
-            <option value="All">Semua Status</option><option>Submitted</option><option>In Progress</option><option>Blocked</option><option>Approved</option>
-          </select>
-        </div>
-      </div>
-      <div id="admin-bulk-tools" class="glass rounded-xl p-3 mb-4 hidden"></div>
-      <div id="admin-board"></div>
-    </section>
-
-    <section id="page-payroll" class="page">
-      <div class="flex items-end justify-between gap-4 mb-4">
-        <div>
-          <p class="mono text-xs tracking-widest text-emerald-300">PAYROLL TEAM</p>
-          <h2 class="text-3xl font-extrabold mono">Siap Masuk Studio</h2>
-          <p class="text-slate-400 text-sm mt-1">Gunakan Payable + bulan untuk export ke Studio. Status Paid diproses di Studio setelah pembayaran selesai.</p>
-        </div>
-      </div>
-      <div id="team-payroll-board"></div>
-    </section>
-
-    <section id="page-data" class="page">
-      <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <div class="glass rounded-2xl p-6">
-          <p class="mono text-xs tracking-widest text-teal-300">IMPORT</p>
-          <h3 class="font-bold text-xl mt-1">Import Data Dari Studio</h3>
-          <p class="text-slate-400 text-sm mt-2">Opsional. Team juga bisa input project langsung dari nol, lalu hasilnya dikirim ke Studio.</p>
-          <button onclick="triggerImportSeed()" class="primary btn mt-4">Pilih File Data Team</button>
-        </div>
-        <div class="glass rounded-2xl p-6">
-          <p class="mono text-xs tracking-widest text-sky-300">EXPORT</p>
-          <h3 class="font-bold text-xl mt-1">Kirim Data Ke ERP Studio</h3>
-          <p class="text-slate-400 text-sm mt-2">Setelah admin/artist input atau update kerjaan, export file ini lalu import di Control Center Studio.</p>
-          <button onclick="openExportModal()" data-admin-only="true" class="btn mt-4">Pilih Export</button>
-        </div>
-      </div>
-      <div class="glass rounded-2xl p-6 mt-5">
-        <p class="mono text-xs tracking-widest text-slate-400">DATA SAAT INI</p>
-        <div id="data-status" class="text-slate-300 text-sm mt-3"></div>
+      <div id="hofManagerList" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <p class="text-white/25 italic text-sm">Belum ada data manajer.</p>
       </div>
     </section>
 
-    <section id="page-setup" class="page">
-      <div class="flex items-end justify-between gap-4 mb-4">
-        <div>
-          <p class="mono text-xs tracking-widest text-fuchsia-300">SETUP TEAM</p>
-          <h2 class="text-3xl font-extrabold mono">Artist & Jenis Paket</h2>
-          <p class="text-slate-400 text-sm mt-1">Team menyimpan daftar artist dan template split kerja. Nominal payroll tetap diatur di Studio.</p>
+    <div id="hofGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+       <p class="text-white/20 italic col-span-full text-center py-10">Menghubungkan ke Database...</p>
+    </div>
+
+  </div>
+</div>
+
+      <div id="admin" class="section">
+        <div class="max-w-md mx-auto mt-20 bg-surface-container-high p-8 md:p-10 rounded-[2rem] shadow-2xl border border-outline-variant/10 relative overflow-hidden">
+          <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary via-tertiary to-secondary"></div>
+          <h2 class="text-3xl font-headline font-black uppercase mb-8 text-center">System <span class="text-primary">Access</span></h2>
+
+          <div class="space-y-4">
+            <div>
+              <label class="text-[10px] uppercase font-bold text-on-surface-variant block mb-2 tracking-widest">Admin ID</label>
+              <input id="email" type="text" class="admin-input py-3 w-full" placeholder="Enter admin identifier" autocomplete="off">
+            </div>
+            <div>
+              <label class="text-[10px] uppercase font-bold text-on-surface-variant block mb-2 tracking-widest">Passcode</label>
+              <input id="password" type="password" class="admin-input py-3 w-full" placeholder="Enter passcode" autocomplete="new-password">
+            </div>
+          </div>
+
+          <div class="flex gap-4 mt-8">
+            <button class="admin-btn flex-1 py-4 text-sm" data-action="login">Authenticate</button>
+            <button class="admin-btn flex-1 py-4 text-sm !bg-surface-container-highest !text-white hover:!bg-error" data-action="logout">Logout</button>
+          </div>
+              <div id="liveBannerControls" style="display:none;" class="pt-8 border-t border-outline-variant/20 mt-6">
+      <h3 class="font-headline font-bold text-secondary uppercase mb-4 tracking-widest">Slideshow Images</h3>
+      <div class="space-y-4">
+        <input id="liveImg1" class="admin-input" placeholder="URL Gambar 1 (Utama)">
+        <input id="liveImg2" class="admin-input" placeholder="URL Gambar 2">
+        <input id="liveImg3" class="admin-input" placeholder="URL Gambar 3">
+        <input id="liveImg4" class="admin-input" placeholder="URL Gambar 4">
+        <input id="liveImg5" class="admin-input" placeholder="URL Gambar 5">
+        <input id="liveImg6" class="admin-input" placeholder="URL Gambar 6">
+        <input id="liveImg7" class="admin-input" placeholder="URL Gambar 7">
+        <input id="liveImg8" class="admin-input" placeholder="URL Gambar 8">
+        <button onclick="updateLiveBanner()" class="admin-btn w-full mt-2">Simpan Gambar</button>
+      </div>
+    </div>
+
+          <div id="adminTools" style="display:none;" class="mt-10 pt-8 border-t border-outline-variant/20">
+            <h3 class="font-headline font-bold text-xl mb-6 text-tertiary uppercase">League Configuration</h3>
+            <div class="grid grid-cols-2 gap-4 mb-6">
+              <div class="bg-surface-container p-4 rounded-xl">
+                <label class="text-[10px] uppercase font-bold text-primary block mb-2">Champ. Zone (Top X)</label>
+                <input type="number" id="championsInput" min="1" class="admin-input mb-0 text-center text-xl font-black font-headline">
+              </div>
+              <div class="bg-surface-container p-4 rounded-xl">
+                <label class="text-[10px] uppercase font-bold text-error block mb-2">Playoff Zone (Bot X)</label>
+                <input type="number" id="playoffInput" min="1" class="admin-input mb-0 text-center text-xl font-black font-headline">
+              </div>
+            </div>
+            <button class="admin-btn w-full mb-8" data-action="saveCutoffs">Commit Rules</button>
+
+            <h3 class="font-headline font-bold text-sm mb-4 text-on-surface-variant uppercase tracking-widest">Database Operations</h3>
+            <div class="space-y-3">
+              <button class="admin-btn w-full !bg-[#1c263a] !text-[#ffd709] border border-[#ffd709]/30" data-action="exportBackup">Export JSON Backup</button>
+              <input type="file" accept=".json" class="block w-full text-xs text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-[#1c263a] file:text-white hover:file:bg-surface-container transition-all cursor-pointer" data-action="importBackup">
+            </div>
+          </div>
+
+          <div class="mt-8 bg-surface-container rounded-xl p-4 text-center border border-outline-variant/10">
+            <p class="text-xs font-label uppercase tracking-widest text-on-surface-variant">Active Status</p>
+            <p id="status" class="font-headline font-black text-lg text-white mt-1">Viewer Mode</p>
+          </div>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <button onclick="openArtistModal()" class="primary btn">+ Artist</button>
-          <button onclick="triggerImportArtistCatalog()" class="btn">Import Artist Catalog</button>
-          <button onclick="openPackageModal()" class="btn">+ Paket</button>
-          <button onclick="triggerImportPackageTemplates()" class="btn">Import Data Paket</button>
-          <button onclick="exportSetupData()" class="btn">Export Data</button>
-          <input id="artist-catalog-file" type="file" accept=".json,application/json" class="hidden" onchange="importArtistCatalogFile(this)">
-          <input id="package-import-file" type="file" accept=".json,application/json" class="hidden" onchange="importPackageTemplatesFile(this)">
+      </div>
+
+      <footer class="w-full py-8 mt-auto border-t border-[#414858]/15 bg-[#000000] flex flex-col items-center justify-center gap-4">
+        <div class="flex gap-8">
+          <a class="font-['Inter'] text-xs uppercase tracking-widest text-[#a4abbe] hover:text-[#8eff71] transition-opacity duration-200" href="#">Privacy Policy</a>
+          <a class="font-['Inter'] text-xs uppercase tracking-widest text-[#a4abbe] hover:text-[#8eff71] transition-opacity duration-200" href="#">Terms of Service</a>
+          <a class="font-['Inter'] text-xs uppercase tracking-widest text-[#a4abbe] hover:text-[#8eff71] transition-opacity duration-200" href="#">Tournament Rules</a>
         </div>
-      </div>
-      <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <div class="glass rounded-2xl p-5">
-          <h3 class="font-bold mono mb-3">Daftar Artist</h3>
-          <div id="setup-artist-list" class="space-y-2"></div>
-        </div>
-        <div class="glass rounded-2xl p-5">
-          <h3 class="font-bold mono mb-3">Jenis Paket / Template Split</h3>
-          <div id="setup-package-list" class="space-y-2"></div>
-        </div>
-      </div>
-    </section>
-  </main>
-</div>
-
-<div id="notif-modal" class="modal fixed inset-0 z-[65] bg-black/75 items-center justify-center p-4">
-  <div class="glass rounded-2xl p-6 max-w-2xl w-full max-h-[88vh] overflow-y-auto">
-    <div class="flex justify-between gap-4 mb-4">
-      <div>
-        <p class="mono text-xs text-rose-300">NOTIFIKASI</p>
-        <h3 class="font-bold text-xl mt-1">Riwayat Perubahan Project</h3>
-      </div>
-      <div class="flex gap-2">
-        <button id="desktop-notif-toggle" onclick="toggleDesktopNotifications()" class="btn text-xs">Desktop Off</button>
-        <button id="sound-notif-toggle" onclick="toggleNotificationSound()" class="btn text-xs">Sound On</button>
-        <button onclick="clearVisibleNotificationHistory()" class="danger btn text-xs">Clear All</button>
-        <button onclick="closeNotifModal()" class="btn">Close</button>
-      </div>
-    </div>
-    <div id="notif-list" class="space-y-2"></div>
+        <p class="font-['Inter'] text-xs uppercase tracking-widest text-[#a4abbe]">© 2026 Liga King. The Stadium Broadcast Experience.</p>
+      </footer>
+    </main>
   </div>
-</div>
 
-<div id="project-modal" class="modal fixed inset-0 z-[60] bg-black/75 items-center justify-center p-4">
-  <div class="glass rounded-2xl p-6 max-w-5xl w-full max-h-[92vh] overflow-y-auto" onkeydown="if(event.key==='Escape'){event.stopPropagation()}">
-    <div class="flex justify-between gap-4 mb-4">
-      <div><p class="mono text-xs text-teal-300">TEAM INPUT</p><h3 class="font-bold text-xl">Input Project / Pekerjaan</h3></div>
-      <button onclick="closeProjectModal()" class="btn">Close</button>
-    </div>
-    <input id="tp-edit-id" type="hidden" autocomplete="off" data-lpignore="true">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-      <input id="tp-client" class="bg-slate-800 rounded-xl p-3 text-sm" placeholder="Nama klien" autocomplete="off">
-      <input id="tp-name" class="bg-slate-800 rounded-xl p-3 text-sm" placeholder="Nama project / order" autocomplete="off">
-      <label class="bg-slate-800 rounded-xl p-3 text-sm text-slate-300 md:col-span-2">
-        <span class="block mono text-[10px] text-slate-400 mb-1">JENIS PAKET / TIPE ORDER</span>
-        <select id="tp-package-type" onchange="applyPackageTemplate(this.value)" class="w-full bg-transparent text-sm">
-          <option>Premium</option><option>Professional</option><option>Standard</option><option>Art Only</option><option>Rigging Only</option><option>BGM / Add-on</option><option>Overlay / Layout</option><option>Freebie Only</option><option>Custom</option>
-        </select>
-      </label>
-      <label class="bg-slate-800 rounded-xl p-3 text-sm text-slate-300">
-        <span class="block mono text-[10px] text-slate-400 mb-1">DEADLINE PROJECT</span>
-        <input id="tp-deadline" type="date" class="w-full bg-transparent text-sm">
-      </label>
-      <label class="bg-slate-800 rounded-xl p-3 text-sm text-slate-300">
-        <span class="block mono text-[10px] text-slate-400 mb-1">STATUS LINK REQUIREMENT</span>
-        <select id="tp-brief-status" class="w-full bg-transparent text-sm"><option>Draft</option><option>Need Clarification</option><option>Ready</option><option>Approved by Client</option></select>
-      </label>
-      <input id="tp-budget-usd" type="number" min="0" step="0.01" class="bg-slate-800 rounded-xl p-3 text-sm" placeholder="Budget USD">
-      <input id="tp-budget-idr" type="number" min="0" step="1000" class="bg-slate-800 rounded-xl p-3 text-sm" placeholder="Budget IDR">
-      <label class="bg-slate-800 rounded-xl p-3 text-sm text-slate-300">
-        <span class="block mono text-[10px] text-slate-400 mb-1">PLATFORM PEMBAYARAN</span>
-        <select id="tp-platform" class="w-full bg-transparent text-sm"><option>Direct</option><option>Fiverr</option><option>VGen</option><option>PayPal</option><option>Custom</option></select>
-      </label>
-      <label class="bg-slate-800 rounded-xl p-3 text-sm text-slate-300">
-        <span class="block mono text-[10px] text-slate-400 mb-1">STATUS PEMBAYARAN KLIEN</span>
-        <select id="tp-payment-status" class="w-full bg-transparent text-sm"><option>Belum Bayar</option><option>DP / Partial</option><option>Lunas</option><option>Tertahan Platform</option><option>Refund / Issue</option></select>
-      </label>
-      <input id="tp-paid-usd" type="number" min="0" step="0.01" class="bg-slate-800 rounded-xl p-3 text-sm" placeholder="Paid USD / DP">
-      <input id="tp-paid-idr" type="number" min="0" step="1000" class="bg-slate-800 rounded-xl p-3 text-sm" placeholder="Paid IDR / DP">
-      <label class="bg-slate-800 rounded-xl p-3 text-sm text-slate-300">
-        <span class="block mono text-[10px] text-slate-400 mb-1">TANGGAL BAYAR / DP</span>
-        <input id="tp-payment-date" type="date" class="w-full bg-transparent text-sm">
-      </label>
-      <label class="bg-slate-800 rounded-xl p-3 text-sm text-slate-300">
-        <span class="block mono text-[10px] text-slate-400 mb-1">ESTIMASI DANA CAIR</span>
-        <input id="tp-expected-release-date" type="date" class="w-full bg-transparent text-sm">
-      </label>
-      <input id="tp-payment-note" class="bg-slate-800 rounded-xl p-3 text-sm" placeholder="Catatan pembayaran" autocomplete="off">
-      <input id="tp-brief-link" class="bg-slate-800 rounded-xl p-3 text-sm md:col-span-2" placeholder="Link Google Drive brief / requirement utama" autocomplete="off" data-lpignore="true">
-      <input id="tp-freebie-link" class="bg-slate-800 rounded-xl p-3 text-sm md:col-span-2" placeholder="Link Google Drive requirement freebie / ekspresi tambahan" autocomplete="off" data-lpignore="true">
-      <label class="bg-slate-800 rounded-xl p-3 text-sm text-slate-300 md:col-span-2">
-        <span class="block mono text-[10px] text-slate-400 mb-1">UPLOAD PDF BRIEF (OPSIONAL)</span>
-        <input id="tp-brief-pdf" type="file" accept="application/pdf,.pdf" class="w-full text-sm">
-      </label>
-      <label class="bg-slate-800 rounded-xl p-3 text-sm text-slate-300 md:col-span-2">
-        <span class="block mono text-[10px] text-slate-400 mb-1">UPLOAD PDF REQUIREMENT FREEBIE (OPSIONAL)</span>
-        <input id="tp-freebie-pdf" type="file" accept="application/pdf,.pdf" class="w-full text-sm">
-      </label>
-      <p id="tp-pdf-info" class="text-xs text-slate-400 md:col-span-2"></p>
-      <textarea id="tp-instruction" class="bg-slate-800 rounded-xl p-3 text-sm md:col-span-2" rows="2" placeholder="Instruksi untuk artist" autocomplete="off"></textarea>
-    </div>
-    <div class="mt-5">
-      <div class="flex items-center justify-between mb-2">
-        <h4 class="font-bold mono text-sm">Worker Split</h4>
-        <button onclick="addTempAlloc()" class="btn text-xs">+ Worker</button>
-      </div>
-      <div id="temp-allocs" class="space-y-2"></div>
-    </div>
-    <button onclick="saveTeamProject()" class="primary btn w-full mt-5">Simpan Project Team</button>
-  </div>
-</div>
-
-<div id="artist-modal" class="modal fixed inset-0 z-[60] bg-black/75 items-center justify-center p-4">
-  <div class="glass rounded-2xl p-6 max-w-md w-full">
-    <p class="mono text-xs text-teal-300">TEAM ARTIST</p>
-    <h3 id="artist-modal-title" class="font-bold text-xl mt-1">Tambah Artist</h3>
-    <input id="ta-edit-id" type="hidden" autocomplete="off" data-lpignore="true">
-    <input id="ta-name" class="mt-4 w-full bg-slate-800 rounded-xl p-3 text-sm" placeholder="Nama artist" autocomplete="off" data-lpignore="true">
-    <div id="ta-role-list" class="mt-3 grid grid-cols-2 gap-2"></div>
-    <input id="ta-pin" type="text" inputmode="numeric" class="mt-3 w-full bg-slate-800 rounded-xl p-3 text-sm" placeholder="PIN artist - hanya angka (wajib saat tambah, opsional saat edit)" autocomplete="off" data-lpignore="true">
-    <div class="flex gap-2 mt-4"><button id="ta-save-btn" onclick="saveTeamArtist()" class="primary btn flex-1">Simpan</button><button onclick="closeArtistModal()" class="btn">Batal</button></div>
-  </div>
-</div>
-
-<div id="package-modal" class="modal fixed inset-0 z-[60] bg-black/75 items-center justify-center p-4">
-  <div class="glass rounded-2xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-    <div class="flex justify-between gap-4 mb-4">
-      <div>
-        <p class="mono text-xs text-fuchsia-300">TEMPLATE PAKET</p>
-        <h3 id="package-modal-title" class="font-bold text-xl mt-1">Tambah Paket</h3>
-      </div>
-      <button onclick="closePackageModal()" class="btn">Close</button>
-    </div>
-    <input id="pk-edit-name-old" type="hidden">
-    <input id="pk-name" class="w-full bg-slate-800 rounded-xl p-3 text-sm" placeholder="Nama paket (contoh: Premium Plus)">
-    <div class="mt-4 flex items-center justify-between">
-      <h4 class="font-bold mono text-sm">Baris Worker Split</h4>
-      <button onclick="addTempPackageRow()" class="btn text-xs">+ Row</button>
-    </div>
-    <div id="package-rows" class="space-y-2 mt-2"></div>
-    <button onclick="savePackageTemplate()" class="primary btn w-full mt-4">Simpan Paket</button>
-  </div>
-</div>
-
-<div id="brief-modal" class="modal fixed inset-0 z-50 bg-black/75 items-center justify-center p-4">
-  <div class="glass rounded-2xl p-6 max-w-3xl w-full max-h-[90vh] flex flex-col">
-    <div class="flex justify-between gap-4 mb-4">
-      <div><p class="mono text-xs text-teal-300">BRIEF</p><h3 id="brief-title" class="font-bold text-xl"></h3></div>
-      <button onclick="closeBrief()" class="btn">Close</button>
-    </div>
-    <div id="brief-body" class="space-y-3 text-sm text-slate-300 overflow-y-auto flex-1 pr-2"></div>
-  </div>
-</div>
-
-<div id="pin-modal" class="modal fixed inset-0 z-50 bg-black/75 items-center justify-center p-4">
-  <div class="glass rounded-2xl p-6 max-w-md w-full">
-    <p class="mono text-xs text-teal-300">ARTIST PIN</p>
-    <h3 class="font-bold text-xl mt-1">Ubah PIN Saya</h3>
-    <input id="new-pin" type="password" class="mt-4 w-full bg-slate-800 rounded-xl p-3 text-sm" placeholder="PIN baru">
-    <div class="flex gap-2 mt-4"><button onclick="saveOwnPin()" class="primary btn flex-1">Simpan</button><button onclick="closePinModal()" class="btn">Batal</button></div>
-  </div>
-</div>
-
-<div id="submit-type-modal" class="modal fixed inset-0 z-50 bg-black/75 items-center justify-center p-4">
-  <div class="glass rounded-2xl p-6 max-w-md w-full">
-    <p class="mono text-xs text-teal-300">SUBMIT PEKERJAAN</p>
-    <h3 class="font-bold text-xl mt-1">Pilih Tipe Submit</h3>
-    <div class="space-y-3 mt-4">
-      <button onclick="submitJobWithType('progress')" class="w-full btn bg-blue-900/50 hover:bg-blue-800 text-left p-4 rounded-xl border border-blue-500/50">
-        <p class="font-semibold">Submit Progress</p>
-        <p class="text-xs text-slate-400 mt-1">Update progress kerja, admin bisa review tanpa revisi formal</p>
-      </button>
-      <button onclick="submitJobWithType('final')" class="w-full btn bg-amber-900/50 hover:bg-amber-800 text-left p-4 rounded-xl border border-amber-500/50">
-        <p class="font-semibold">Submit Final</p>
-        <p class="text-xs text-slate-400 mt-1">Submit hasil final, siap untuk approval</p>
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-[#070e1c]/90 backdrop-blur-xl border-t border-[#414858]/20 flex justify-around items-center h-16 z-50">
+    <a class="flex flex-col items-center text-[#ffd709] mobile-tab" href="#" data-action="openTab" data-tab="dashboard">
+      <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+      <span class="text-[8px] mt-1 font-bold">HOME</span>
+    </a>
+    <a class="flex flex-col items-center text-[#a4abbe] mobile-tab" href="#" data-action="openTab" data-tab="standings">
+      <span class="material-symbols-outlined">leaderboard</span>
+      <span class="text-[8px] mt-1 font-bold">STANDINGS</span>
+    </a>
+    <div class="relative -top-4 cursor-pointer mobile-tab" data-action="openTab" data-tab="scorers">
+      <button class="w-12 h-12 pitch-gradient rounded-full shadow-lg shadow-primary/40 flex items-center justify-center text-on-primary pointer-events-none">
+        <span class="material-symbols-outlined">sports_soccer</span>
       </button>
     </div>
-    <button onclick="closeSubmitTypeModal()" class="btn w-full mt-4">Batal</button>
-  </div>
+    <a class="flex flex-col items-center text-[#a4abbe] mobile-tab" href="#" data-action="openTab" data-tab="schedule">
+      <span class="material-symbols-outlined">calendar_today</span>
+      <span class="text-[8px] mt-1 font-bold">SCHEDULE</span>
+    </a>
+    <a class="flex flex-col items-center text-[#a4abbe] mobile-tab" href="#" data-action="openTab" data-tab="admin">
+      <span class="material-symbols-outlined">person</span>
+      <span class="text-[8px] mt-1 font-bold">PROFILE</span>
+    </a>
+  </nav>
+
+  
+  <script type="module" src="./js/main.js"></script>
+
+  
+  <!-- Hall of Fame Modal -->
+  <div id="hofModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+    <div class="bg-surface-container-high w-full max-w-md rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden">
+        <div class="p-8">
+            <h3 class="text-2xl font-black font-headline uppercase italic text-white mb-6">Add Legend Entry</h3>
+            
+            <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                <div>
+                    <label class="text-[10px] font-bold uppercase tracking-widest text-primary">Season Name</label>
+                    <input type="text" id="hofSeason" placeholder="e.g. Season 1" class="admin-input w-full mt-1">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Winner Team</label>
+                        <input type="text" id="hofWinnerTeam" placeholder="Real Madrid" class="admin-input w-full mt-1">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">PES Player</label>
+                        <input type="text" id="hofWinnerPlayer" placeholder="Andi" class="admin-input w-full mt-1">
+                    </div>
+                </div>
+                        <div>
+              <label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Season Description</label>
+              <textarea id="hofDescription" placeholder="Ceritakan keseruan season ini..." class="admin-input w-full mt-1 h-20 py-3"></textarea>
+          </div>
+                <div>
+                    <label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Team Logo (URL)</label>
+                    <input type="text" id="hofWinnerLogo" placeholder="https://..." class="admin-input w-full mt-1">
+                </div>
+                <div class="grid grid-cols-2 gap-4 border-t border-white/5 pt-4">
+                    <div>
+                        <label class="text-[10px] font-bold uppercase tracking-widest text-yellow-400">Stars (Titles)</label>
+                        <input type="number" id="hofWinnerStars" value="1" class="admin-input w-full mt-1">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold uppercase tracking-widest text-secondary">Cup Winner</label>
+                        <input type="text" id="hofCupWinner" placeholder="Optional" class="admin-input w-full mt-1">
+                    </div>
+                </div>
+              <div>
+    <label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Top Scorer Photo (URL)</label>
+    <input type="text" id="hofScorerPhoto" placeholder="Link foto pemain..." class="admin-input w-full mt-1">
+</div>
+                <div class="grid grid-cols-2 gap-4 border-t border-white/5 pt-4">
+                    <div>
+                        <label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Top Scorer</label>
+                        <input type="text" id="hofTopScorer" placeholder="C. Ronaldo" class="admin-input w-full mt-1">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Goals</label>
+                        <input type="number" id="hofGoals" placeholder="0" class="admin-input w-full mt-1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-8">
+                <button onclick="document.getElementById('hofModal').classList.add('hidden')" class="flex-1 py-3 rounded-2xl font-bold text-xs uppercase bg-white/5 text-white">Cancel</button>
+                <button id="saveHofBtn" onclick="saveHofEntry()" class="flex-1 py-3 rounded-2xl font-black text-xs uppercase bg-primary text-background hover:scale-105 transition-transform">Save Legend</button>
+            </div>
+        </div>
+    </div>
+</div>
+  <div id="hofDetailModal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4 bg-background/90 backdrop-blur-2xl transition-all duration-300 opacity-0 active:opacity-100">
+    <div class="bg-surface-container-high w-full max-w-5xl rounded-[3rem] border border-white/10 shadow-2xl overflow-hidden relative active:scale-100 scale-95 transition-transform duration-300">
+        
+        <button onclick="const m = document.getElementById('hofDetailModal'); m.classList.add('hidden'); m.classList.remove('flex'); m.classList.remove('opacity-100'); m.classList.add('opacity-0');" 
+                class="absolute top-6 right-6 z-50 bg-white/10 hover:bg-white/20 hover:rotate-90 w-12 h-12 rounded-full flex items-center justify-center text-white transition-all">
+            <span class="material-symbols-outlined">close</span>
+        </button>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 h-full max-h-[90vh] overflow-y-auto custom-scrollbar">
+            
+            <div id="detailScorerHero" class="lg:col-span-6 relative bg-[#0a1120] min-h-[450px] lg:h-full flex items-center justify-center overflow-hidden border-r border-white/5">
+                <span class="material-symbols-outlined absolute text-[250px] opacity-[0.03] text-secondary rotate-[-15deg] z-0 pointer-events-none">sports_soccer</span>
+                
+                <div id="scorerPhotoContainer" class="relative z-10 w-full h-full flex items-center justify-center p-8">
+                    </div>
+            </div>
+
+            <div class="lg:col-span-6 p-10 lg:p-14 space-y-10 font-['Space_Grotesk']">
+                
+                <div class="flex items-center gap-6">
+                    <div class="w-24 h-24 rounded-3xl bg-surface-container-highest flex items-center justify-center p-4 border border-white/5 shadow-inner">
+                        <img id="detailWinnerLogo" src="" class="w-full h-full object-contain drop-shadow-xl">
+                    </div>
+                    
+                    <div class="flex-1 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <h4 id="detailSeasonName" class="text-[#8eff71] font-black uppercase tracking-[0.3em] text-xs italic"></h4>
+                            <div id="detailWinnerStars" class="flex gap-1 text-yellow-400"></div>
+                        </div>
+                        <h2 id="detailWinnerTeam" class="text-4xl md:text-5xl font-black text-white uppercase italic leading-none tracking-tighter text-glow-primary"></h2>
+                        <p class="text-on-surface-variant text-[11px] font-bold uppercase tracking-widest pt-1">Manager: <span id="detailWinnerPlayer" class="text-white font-black italic"></span></p>
+                    </div>
+                </div>
+
+                <div class="space-y-3 bg-white/5 p-6 rounded-3xl border border-white/5">
+                    <div class="flex items-center gap-2 opacity-30">
+                        <span class="material-symbols-outlined text-sm">history_edu</span>
+                        <h5 class="text-white font-bold uppercase text-[10px] tracking-widest">Season Story</h5>
+                    </div>
+                    <p id="detailDescription" class="text-on-surface-variant text-sm leading-relaxed italic font-light"></p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-5">
+                    <div class="bg-[#1c263a] p-5 rounded-2xl border border-white/5 shadow-lg relative overflow-hidden group">
+                        <span class="material-symbols-outlined absolute -right-3 -bottom-3 text-7xl opacity-[0.05] text-primary group-hover:scale-110 transition-transform">sports_soccer</span>
+                        <p class="text-[9px] font-bold text-primary uppercase tracking-widest mb-1.5 relative z-10">Golden Boot</p>
+                        <p id="detailTopScorer" class="text-xl font-black text-white uppercase italic leading-none relative z-10"></p>
+                        <p id="detailGoals" class="text-[10px] text-on-surface-variant font-bold mt-1 uppercase relative z-10"></p>
+                    </div>
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-lg relative overflow-hidden group">
+                         <span class="material-symbols-outlined absolute -right-3 -bottom-3 text-7xl opacity-[0.05] text-secondary group-hover:scale-110 transition-transform">workspace_premium</span>
+                        <p class="text-[9px] font-bold text-secondary uppercase tracking-widest mb-1.5 relative z-10">Cup Winner</p>
+                        <p id="detailCupWinner" class="text-xl font-black text-white uppercase italic leading-none relative z-10"></p>
+                        <p class="text-[10px] text-on-surface-variant font-bold mt-1 uppercase relative z-10">Champion</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
 </div>
 
-<div id="export-modal" class="modal fixed inset-0 z-[60] bg-black/80 items-center justify-center p-4">
-  <div class="glass rounded-2xl p-6 max-w-md w-full">
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <p class="mono text-xs text-sky-300">EXPORT DATA</p>
-        <h3 class="font-bold text-xl mt-1">Pilih Jenis Export</h3>
-      </div>
-      <button onclick="closeExportModal()" class="btn text-xs">Tutup</button>
+  <!-- Detail News Modal -->
+  <div id="newsModal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/90 backdrop-blur-md" id="closeBackdrop"></div>
+    <div class="relative bg-[#161f32] w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-[2rem] border border-white/10 shadow-2xl p-6 md:p-10 text-white">
+        <button class="absolute top-6 right-6 text-gray-400 hover:text-white" id="closeModalBtn">
+            <span class="material-symbols-outlined">close</span>
+        </button>
+        <div id="modalDetailContent"></div>
     </div>
-    <div class="space-y-3 mt-4">
-      <button onclick="exportOnlyFromModal()" class="w-full btn text-left p-4 rounded-xl">
-        <p class="font-semibold">Export saja</p>
-        <p class="text-xs text-slate-400 mt-1">Download data Team tanpa menghapus project aktif.</p>
-      </button>
-      <button onclick="exportPayrollMonthFromModal()" class="w-full btn text-left p-4 rounded-xl">
-        <p class="font-semibold">Export payroll per bulan</p>
-        <p class="text-xs text-slate-400 mt-1">Download task Approved / Payable / Paid hanya untuk bulan payable yang dipilih.</p>
-      </button>
-      <button onclick="exportAndClearFromModal()" class="w-full danger btn text-left p-4 rounded-xl">
-        <p class="font-semibold">Export + hapus approved</p>
-        <p class="text-xs text-white/80 mt-1">Download data lalu hapus project yang semua task-nya sudah Approved / Payable / Paid.</p>
-      </button>
-    </div>
-  </div>
 </div>
-
-<div id="payroll-export-preview-modal" class="modal fixed inset-0 z-[65] bg-black/80 items-center justify-center p-4">
-  <div class="glass rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <p class="mono text-xs text-emerald-300">PREVIEW EXPORT</p>
-        <h3 id="payroll-export-preview-title" class="font-bold text-xl mt-1">Preview Payroll</h3>
-        <p id="payroll-export-preview-meta" class="text-slate-400 text-sm mt-1"></p>
-      </div>
-      <button onclick="closePayrollExportPreview()" class="btn text-xs">Tutup</button>
-    </div>
-    <div id="payroll-export-preview-body" class="space-y-3 mt-4"></div>
-    <div class="flex flex-col sm:flex-row gap-2 mt-5">
-      <button id="payroll-export-confirm-btn" onclick="confirmPayrollMonthExport()" class="primary btn flex-1">Download</button>
-      <button onclick="closePayrollExportPreview()" class="btn">Batal</button>
-    </div>
-  </div>
-</div>
-
-<div id="revision-modal" class="modal fixed inset-0 z-[60] bg-black/80 items-center justify-center p-4">
-  <div class="glass rounded-2xl p-6 max-w-xl w-full">
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <p class="mono text-xs text-red-200">REVISI ARTIST</p>
-        <h3 id="revision-title" class="font-bold text-xl mt-1">Minta Revisi</h3>
-        <p id="revision-context" class="text-slate-400 text-sm mt-1"></p>
-      </div>
-      <button onclick="closeRevisionModal()" class="btn text-xs">Tutup</button>
-    </div>
-    <textarea id="revision-note" class="mt-4 w-full bg-slate-800 rounded-xl p-3 text-sm min-h-[140px]" placeholder="Tulis catatan revisi untuk artist..."></textarea>
-    <div class="flex flex-col sm:flex-row gap-2 mt-4">
-      <button onclick="saveRevisionModal()" class="primary btn flex-1">Simpan & Minta Revisi</button>
-      <button onclick="closeRevisionModal()" class="btn">Batal</button>
-    </div>
-  </div>
-</div>
-
-<div id="login-modal" class="modal fixed inset-0 z-[70] bg-black/85 items-center justify-center p-4">
-  <div class="glass rounded-2xl p-6 max-w-4xl w-full">
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <p class="mono text-xs text-teal-300 tracking-widest">KURAMASH ERP TEAM</p>
-        <h3 class="text-2xl font-extrabold mono mt-2">Masuk sebagai apa?</h3>
-      </div>
-      <button onclick="closeLogin(true)" class="btn text-xs">Tutup</button>
-    </div>
-    <p class="text-slate-400 text-sm mt-1">TEAM untuk input pekerjaan, link Drive requirement, dan data pembayaran order. Studio membaca hasil akhirnya.</p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
-      <div class="glass rounded-2xl p-5">
-        <p class="mono text-xs text-amber-300">ADMIN / OPERATOR</p>
-        <h4 class="font-bold text-lg mt-1">Admin Monitor</h4>
-        <p class="text-slate-400 text-sm mt-2">Bisa melihat semua pekerjaan tim dan memberi approve/feedback.</p>
-        <input id="login-admin-email" type="email" class="mt-4 w-full bg-slate-800 rounded-xl p-3 text-sm" placeholder="Email Admin">
-        <input id="login-admin-pin" type="password" class="mt-3 w-full bg-slate-800 rounded-xl p-3 text-sm" placeholder="Password Admin">
-        <button id="login-admin-btn" data-login-role="admin" onclick="loginTools('admin')" class="primary btn w-full mt-3">Masuk Admin</button>
-      </div>
-      <div class="glass rounded-2xl p-5">
-        <p class="mono text-xs text-teal-300">ARTIST</p>
-        <h4 class="font-bold text-lg mt-1">Pekerjaan Saya</h4>
-        <p class="text-slate-400 text-sm mt-2">Artist login dengan pilih nama artist lalu masukkan PIN pribadi.</p>
-        <select id="login-artist-select" class="mt-4 w-full bg-slate-800 rounded-xl p-3 text-sm"></select>
-        <input id="login-artist-pin" type="password" class="mt-3 w-full bg-slate-800 rounded-xl p-3 text-sm" placeholder="PIN Artist">
-        <button id="login-artist-btn" data-login-role="artist" onclick="loginTools('artist')" class="primary btn w-full mt-3">Masuk Artist</button>
-      </div>
-    </div>
-    <p id="login-status" class="hidden mt-3 text-xs rounded-lg px-3 py-2 border"></p>
-    <p class="text-slate-500 text-xs mt-4">Admin login email + password Supabase Auth. Artist login via PIN (tanpa email). PIN diamankan di Supabase (hash), tidak diexport di JSON Team.</p>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="./js/00-config-state.js"></script>
-<script src="./js/10-notifications-auth.js"></script>
-<script src="./js/20-data-sync.js"></script>
-<script src="./js/30-setup-projects.js"></script>
-<script src="./js/40-pages-payroll.js"></script>
-<script src="./js/50-actions-init.js"></script>
+  
 </body>
+
 </html>
