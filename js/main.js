@@ -36,10 +36,43 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     // --- UTILS ---
     const normalizeKey = (str) => (str || "").toString().trim().toLowerCase();
     const safe = (val, fallback = "") => val ?? fallback;
+    const placeholderImage = "https://i.imgur.com/xnTuRnl.png";
+
+    const findManagerPhoto = (managerName, directPhoto = "") => {
+      const cleanPhoto = (directPhoto || "").trim();
+      if (cleanPhoto) return cleanPhoto;
+
+      const key = normalizeKey(managerName);
+      if (!key) return "";
+
+      const manual = hofManagers.find((manager) => (
+        normalizeKey(manager.name) === key &&
+        (manager.photo || "").trim()
+      ));
+      if (manual) return manual.photo.trim();
+
+      const fromLeague = hallOfFameData.find((item) => (
+        normalizeKey(item.winnerPlayer) === key &&
+        (item.winnerPlayerPhoto || "").trim()
+      ));
+      if (fromLeague) return fromLeague.winnerPlayerPhoto.trim();
+
+      const fromCup = hallOfFameData.find((item) => (
+        normalizeKey(item.cupWinnerManager) === key &&
+        (item.cupWinnerManagerPhoto || "").trim()
+      ));
+      if (fromCup) return fromCup.cupWinnerManagerPhoto.trim();
+
+      return "";
+    };
+
+    const resolveManagerPhoto = (managerName, directPhoto = "") => {
+      return findManagerPhoto(managerName, directPhoto) || placeholderImage;
+    };
 
     const resolveTeam = (name) => {
       const team = teams.find(t => normalizeKey(t.name) === normalizeKey(name));
-      return team ? { ...team, disqualified: false } : { name, logo: "https://i.imgur.com/xnTuRnl.png", disqualified: true };
+      return team ? { ...team, disqualified: false } : { name, logo: placeholderImage, disqualified: true };
     };
 
     const sameExternalMatch = (a, b) => normalizeKey(a || "") && normalizeKey(a) === normalizeKey(b);
@@ -763,9 +796,9 @@ const renderHof = (data) => {
     for(let i=0; i < (parseInt(h.winnerStars) || 1); i++) {
       stars += `<span class="material-symbols-outlined text-[14px] text-yellow-400">star</span>`;
     }
-    const winnerManagerPhoto = h.winnerPlayerPhoto || 'https://i.imgur.com/xnTuRnl.png';
+    const winnerManagerPhoto = resolveManagerPhoto(h.winnerPlayer, h.winnerPlayerPhoto);
     const cupManager = (h.cupWinnerManager || "").trim();
-    const cupManagerPhoto = h.cupWinnerManagerPhoto || 'https://i.imgur.com/xnTuRnl.png';
+    const cupManagerPhoto = resolveManagerPhoto(cupManager, h.cupWinnerManagerPhoto);
 
     return `
     <div onclick="showHofDetail('${h.id}')" class="cursor-pointer group bg-[#161f32]/40 rounded-[2.5rem] border border-white/5 overflow-hidden flex flex-col shadow-2xl transition-all hover:border-[#8eff71]/30 hover:scale-[1.02] active:scale-95">
@@ -776,7 +809,7 @@ const renderHof = (data) => {
       </div>
 
       <div class="p-8 flex flex-col items-center">
-        <img src="${h.winnerLogo || 'https://i.imgur.com/xnTuRnl.png'}" class="w-20 h-20 object-contain mb-4 drop-shadow-2xl group-hover:rotate-6 transition-transform">
+        <img src="${h.winnerLogo || placeholderImage}" class="w-20 h-20 object-contain mb-4 drop-shadow-2xl group-hover:rotate-6 transition-transform">
         <h3 class="text-xl font-black text-white uppercase italic text-center leading-none font-['Space_Grotesk']">${h.winnerTeam}</h3>
         <div class="mt-3 flex items-center gap-2">
           <img src="${winnerManagerPhoto}" class="w-8 h-8 rounded-xl object-cover border border-white/10 bg-[#1c263a]">
@@ -846,14 +879,14 @@ const renderHofManagers = () => {
   hallOfFameData.forEach((item) => {
     const leagueManager = ensureHistoryManager(item.winnerPlayer);
     if (leagueManager) {
-      leagueManager.photo = leagueManager.photo || (item.winnerPlayerPhoto || "").trim();
+      leagueManager.photo = leagueManager.photo || resolveManagerPhoto(item.winnerPlayer, item.winnerPlayerPhoto);
       leagueManager.leagueTitles += 1;
     }
 
     const hasCupWinner = item.cupWinner && item.cupWinner !== "N/A";
     const cupManager = hasCupWinner ? ensureHistoryManager(item.cupWinnerManager) : null;
     if (cupManager) {
-      cupManager.photo = cupManager.photo || (item.cupWinnerManagerPhoto || "").trim();
+      cupManager.photo = cupManager.photo || resolveManagerPhoto(item.cupWinnerManager, item.cupWinnerManagerPhoto);
       cupManager.cupTitles += 1;
     }
   });
@@ -902,10 +935,7 @@ const renderHofManagers = () => {
     }).join("");
 
     return `
-      <div>
-        <p class="mb-2 text-[9px] uppercase tracking-widest text-white/40 font-black">${label}</p>
-        <div class="flex flex-wrap gap-2">${items}</div>
-      </div>
+      <div class="flex flex-wrap gap-2">${items}</div>
     `;
   };
 
@@ -925,14 +955,13 @@ const renderHofManagers = () => {
       <article class="relative rounded-[1.6rem] border ${rank === 1 ? "border-[#8eff71]/40 bg-[#0f1d30]" : "border-white/10 bg-black/20"} p-5 shadow-xl">
         <div class="flex items-start gap-4">
           <div class="relative">
-            <img src="${manager.photo || 'https://i.imgur.com/xnTuRnl.png'}" alt="${manager.name}" class="w-16 h-16 rounded-2xl object-cover border border-white/10 bg-[#161f32]">
+            <img src="${resolveManagerPhoto(manager.name, manager.photo)}" alt="${manager.name}" class="w-16 h-16 rounded-2xl object-cover border border-white/10 bg-[#161f32]">
             <span class="absolute -bottom-2 -right-2 w-7 h-7 rounded-full bg-[#8eff71] text-[#053100] text-[10px] font-black flex items-center justify-center shadow-md">${rank}</span>
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
                 <h3 class="text-white text-lg font-black uppercase tracking-tight truncate">${manager.name}</h3>
-                <p class="mt-1 text-[10px] uppercase tracking-widest text-white/40 font-bold">Hall of Fame Cabinet</p>
               </div>
               ${isAdmin && manager.id && !manager.id.startsWith("auto-")
                 ? `<button class="deleteBtn !text-[9px] !px-2 !py-1" data-action="deleteHofManager" data-id="${manager.id}">Delete</button>`
@@ -941,7 +970,6 @@ const renderHofManagers = () => {
             </div>
 
             <div class="mt-4 rounded-2xl bg-[#1c263a] p-3 border border-white/5">
-              <p class="mb-3 text-[10px] uppercase tracking-widest text-white/45 font-black">Trophy Cabinet</p>
               <div class="space-y-4">
                 ${trophyShelf || `<div class="rounded-xl bg-black/20 p-3 border border-white/5 text-white/35 text-[10px] uppercase tracking-widest font-bold">No Trophy</div>`}
               </div>
@@ -1988,16 +2016,21 @@ window.saveHofEntry = async () => {
         return;
     }
 
+    const winnerPlayer = document.getElementById('hofWinnerPlayer').value;
+    const cupWinnerManager = document.getElementById('hofCupWinnerManager').value || "";
+    const winnerPlayerPhoto = document.getElementById('hofWinnerPlayerPhoto').value || "";
+    const cupWinnerManagerPhoto = document.getElementById('hofCupWinnerManagerPhoto').value || "";
+
     const data = {
       season: season,
       winnerTeam: winnerTeam,
-      winnerPlayer: document.getElementById('hofWinnerPlayer').value,
-      winnerPlayerPhoto: document.getElementById('hofWinnerPlayerPhoto').value || "",
+      winnerPlayer,
+      winnerPlayerPhoto: findManagerPhoto(winnerPlayer, winnerPlayerPhoto),
       winnerLogo: document.getElementById('hofWinnerLogo').value,
       winnerStars: parseInt(document.getElementById('hofWinnerStars').value) || 1,
       cupWinner: document.getElementById('hofCupWinner').value || "N/A",
-      cupWinnerManager: document.getElementById('hofCupWinnerManager').value || "",
-      cupWinnerManagerPhoto: document.getElementById('hofCupWinnerManagerPhoto').value || "",
+      cupWinnerManager,
+      cupWinnerManagerPhoto: cupWinnerManager ? findManagerPhoto(cupWinnerManager, cupWinnerManagerPhoto) : "",
       topScorer: document.getElementById('hofTopScorer').value,
       goals: parseInt(document.getElementById('hofGoals').value) || 0,
       scorerPhoto: document.getElementById('hofScorerPhoto').value || "", // Pastikan ID ini ada di HTML
@@ -2037,7 +2070,7 @@ window.showHofDetail = (id) => {
     document.getElementById('detailCupWinner').innerText = item.cupWinner && item.cupWinner !== "N/A" ? item.cupWinner : "No Cup Held";
     const detailWinnerPlayerPhoto = document.getElementById('detailWinnerPlayerPhoto');
     if (detailWinnerPlayerPhoto) {
-        detailWinnerPlayerPhoto.src = item.winnerPlayerPhoto || 'https://i.imgur.com/xnTuRnl.png';
+        detailWinnerPlayerPhoto.src = resolveManagerPhoto(item.winnerPlayer, item.winnerPlayerPhoto);
     }
     const detailCupWinnerManager = document.getElementById('detailCupWinnerManager');
     if (detailCupWinnerManager) {
@@ -2045,7 +2078,7 @@ window.showHofDetail = (id) => {
     }
     const detailCupWinnerManagerPhoto = document.getElementById('detailCupWinnerManagerPhoto');
     if (detailCupWinnerManagerPhoto) {
-        detailCupWinnerManagerPhoto.src = item.cupWinnerManagerPhoto || 'https://i.imgur.com/xnTuRnl.png';
+        detailCupWinnerManagerPhoto.src = resolveManagerPhoto(item.cupWinnerManager, item.cupWinnerManagerPhoto);
     }
     
     // 3. Isi Deskripsi (Dengan penanganan jika kosong)
@@ -2057,7 +2090,7 @@ window.showHofDetail = (id) => {
     // 4. Update Logo Tim Juara
     const logoEl = document.getElementById('detailWinnerLogo');
     if (logoEl) {
-        logoEl.src = item.winnerLogo || 'https://i.imgur.com/xnTuRnl.png'; // Placeholder jika logo kosong
+        logoEl.src = item.winnerLogo || placeholderImage; // Placeholder jika logo kosong
     }
 
     // 5. Render Bintang Juara (Baru)
@@ -2076,7 +2109,7 @@ window.showHofDetail = (id) => {
         // Kita menggunakan object-contain agar foto selalu fit di area,
         // dan menambahkan drop-shadow neon hijau agar menyala.
         photoContainer.innerHTML = `
-            <img src="${item.scorerPhoto || 'https://i.imgur.com/xnTuRnl.png'}" 
+            <img src="${item.scorerPhoto || placeholderImage}" 
                  class="max-h-full max-w-full object-contain relative z-10 drop-shadow-[0_0_40px_rgba(142,255,113,0.5)] transition-all duration-500 group-hover:scale-105"
                  alt="Top Scorer ${item.topScorer}">
         `;
