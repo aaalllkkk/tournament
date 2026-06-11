@@ -991,35 +991,18 @@ const renderAllTimeHofScorers = () => {
   const container = document.getElementById("hofAllTimeScorers");
   if (!container) return;
 
-  const scorerMap = {};
-  hallOfFameData.forEach((item) => {
-    const player = (item.topScorer || "").trim();
-    if (!player) return;
-    const key = normalizeKey(player);
-    if (!scorerMap[key]) {
-      scorerMap[key] = {
-        player,
-        goals: 0,
-        seasons: 0,
-        photo: "",
-        bestSeason: "",
-        bestGoals: 0
-      };
-    }
-
-    const goals = parseInt(item.goals) || 0;
-    scorerMap[key].goals += goals;
-    scorerMap[key].seasons += 1;
-    scorerMap[key].photo = scorerMap[key].photo || (item.scorerPhoto || "").trim();
-    if (goals > scorerMap[key].bestGoals) {
-      scorerMap[key].bestGoals = goals;
-      scorerMap[key].bestSeason = item.season || "";
-    }
-  });
-
-  const leaderboard = Object.values(scorerMap).sort((a, b) => {
+  const leaderboard = hallOfFameData
+    .map((item) => ({
+      id: item.id,
+      player: (item.topScorer || "").trim(),
+      goals: parseInt(item.goals) || 0,
+      season: item.season || "",
+      photo: (item.scorerPhoto || "").trim()
+    }))
+    .filter((item) => item.player && item.goals > 0)
+    .sort((a, b) => {
     if (b.goals !== a.goals) return b.goals - a.goals;
-    if (b.bestGoals !== a.bestGoals) return b.bestGoals - a.bestGoals;
+    if ((b.season || "").localeCompare(a.season || "") !== 0) return (b.season || "").localeCompare(a.season || "");
     return a.player.localeCompare(b.player);
   });
 
@@ -1041,8 +1024,8 @@ const renderAllTimeHofScorers = () => {
           <span class="inline-flex rounded-full bg-[#f6c453] px-3 py-1 text-[9px] font-black uppercase tracking-widest text-[#221500]">#1 All-Time</span>
           <h3 class="mt-4 text-3xl md:text-4xl font-black uppercase italic leading-none text-white font-['Space_Grotesk']">${leader.player}</h3>
           <p class="mt-3 text-5xl font-black text-[#f6c453] leading-none">${leader.goals}</p>
-          <p class="mt-1 text-[10px] uppercase tracking-widest text-white/55 font-bold">Total Goals</p>
-          <p class="mt-4 text-[10px] uppercase tracking-widest text-white/35 font-bold">${leader.seasons} season record${leader.bestSeason ? ` / Best: ${leader.bestGoals} in ${leader.bestSeason}` : ""}</p>
+          <p class="mt-1 text-[10px] uppercase tracking-widest text-white/55 font-bold">Goals In One Season</p>
+          <p class="mt-4 text-[10px] uppercase tracking-widest text-white/35 font-bold">${leader.season || "Recorded Season"}</p>
         </div>
       </div>
     </article>
@@ -1056,7 +1039,7 @@ const renderAllTimeHofScorers = () => {
           </div>
           <div class="min-w-0 flex-1">
             <h4 class="truncate text-sm font-black uppercase text-white">${scorer.player}</h4>
-            <p class="mt-1 text-[10px] uppercase tracking-widest text-white/40 font-bold">${scorer.seasons} season record</p>
+            <p class="mt-1 text-[10px] uppercase tracking-widest text-white/40 font-bold">${scorer.season || "Recorded Season"}</p>
           </div>
           <div class="text-right">
             <p class="text-2xl font-black text-[#f6c453] leading-none">${scorer.goals}</p>
