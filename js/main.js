@@ -571,6 +571,7 @@ onSnapshot(query(collection(db, "halloffame"), orderBy("createdAt", "desc")), (s
     window.hallOfFameData = hallOfFameData;
     renderHof(hallOfFameData);
     renderHofManagers();
+    renderAllTimeHofScorers();
 });
 
 onSnapshot(collection(db, "hofManagers"), (snapshot) => {
@@ -952,16 +953,21 @@ const renderHofManagers = () => {
     ].filter(Boolean).join("");
 
     return `
-      <article class="relative rounded-[1.6rem] border ${rank === 1 ? "border-[#8eff71]/40 bg-[#0f1d30]" : "border-white/10 bg-black/20"} p-5 shadow-xl">
+      <article class="relative overflow-hidden rounded-[1.4rem] border ${rank === 1 ? "border-[#f6c453]/70 bg-[#171421]" : "border-[#f6c453]/20 bg-[#111827]/80"} p-5 shadow-[0_18px_55px_rgba(0,0,0,0.35)]">
+        <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f6c453]/70 to-transparent"></div>
         <div class="flex items-start gap-4">
           <div class="relative">
-            <img src="${resolveManagerPhoto(manager.name, manager.photo)}" alt="${manager.name}" class="w-16 h-16 rounded-2xl object-cover border border-white/10 bg-[#161f32]">
-            <span class="absolute -bottom-2 -right-2 w-7 h-7 rounded-full bg-[#8eff71] text-[#053100] text-[10px] font-black flex items-center justify-center shadow-md">${rank}</span>
+            <img src="${resolveManagerPhoto(manager.name, manager.photo)}" alt="${manager.name}" class="w-16 h-16 rounded-2xl object-cover border border-[#f6c453]/30 bg-[#161f32]">
+            <span class="absolute -bottom-2 -right-2 w-7 h-7 rounded-full bg-[#f6c453] text-[#221500] text-[10px] font-black flex items-center justify-center shadow-md">${rank}</span>
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <h3 class="text-white text-lg font-black uppercase tracking-tight truncate">${manager.name}</h3>
+                <div class="flex flex-wrap items-center gap-2">
+                  <h3 class="text-white text-lg font-black uppercase tracking-tight truncate">${manager.name}</h3>
+                  ${manager.leagueTitles > 0 ? `<span class="rounded-full border border-[#f6c453]/30 bg-[#f6c453]/10 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-[#f6c453]">${manager.leagueTitles}x league champions</span>` : ""}
+                  ${manager.cupTitles > 0 ? `<span class="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-white/60">${manager.cupTitles}x cup winner</span>` : ""}
+                </div>
               </div>
               ${isAdmin && manager.id && !manager.id.startsWith("auto-")
                 ? `<button class="deleteBtn !text-[9px] !px-2 !py-1" data-action="deleteHofManager" data-id="${manager.id}">Delete</button>`
@@ -969,7 +975,7 @@ const renderHofManagers = () => {
               }
             </div>
 
-            <div class="mt-4 rounded-2xl bg-[#1c263a] p-3 border border-white/5">
+            <div class="mt-4 rounded-2xl bg-black/25 p-3 border border-[#f6c453]/10">
               <div class="space-y-4">
                 ${trophyShelf || `<div class="rounded-xl bg-black/20 p-3 border border-white/5 text-white/35 text-[10px] uppercase tracking-widest font-bold">No Trophy</div>`}
               </div>
@@ -979,6 +985,87 @@ const renderHofManagers = () => {
       </article>
     `;
   }).join("");
+};
+
+const renderAllTimeHofScorers = () => {
+  const container = document.getElementById("hofAllTimeScorers");
+  if (!container) return;
+
+  const scorerMap = {};
+  hallOfFameData.forEach((item) => {
+    const player = (item.topScorer || "").trim();
+    if (!player) return;
+    const key = normalizeKey(player);
+    if (!scorerMap[key]) {
+      scorerMap[key] = {
+        player,
+        goals: 0,
+        seasons: 0,
+        photo: "",
+        bestSeason: "",
+        bestGoals: 0
+      };
+    }
+
+    const goals = parseInt(item.goals) || 0;
+    scorerMap[key].goals += goals;
+    scorerMap[key].seasons += 1;
+    scorerMap[key].photo = scorerMap[key].photo || (item.scorerPhoto || "").trim();
+    if (goals > scorerMap[key].bestGoals) {
+      scorerMap[key].bestGoals = goals;
+      scorerMap[key].bestSeason = item.season || "";
+    }
+  });
+
+  const leaderboard = Object.values(scorerMap).sort((a, b) => {
+    if (b.goals !== a.goals) return b.goals - a.goals;
+    if (b.bestGoals !== a.bestGoals) return b.bestGoals - a.bestGoals;
+    return a.player.localeCompare(b.player);
+  });
+
+  if (!leaderboard.length) {
+    container.innerHTML = `<p class="text-white/25 italic text-sm lg:col-span-12">Belum ada data top scorer season.</p>`;
+    return;
+  }
+
+  const leader = leaderboard[0];
+  const rest = leaderboard.slice(1, 9);
+
+  container.innerHTML = `
+    <article class="lg:col-span-5 relative min-h-[360px] overflow-hidden rounded-[1.6rem] border border-[#f6c453]/40 bg-[#15131f] shadow-[0_18px_55px_rgba(0,0,0,0.4)]">
+      <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f6c453] to-transparent"></div>
+      <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(246,196,83,0.18),transparent_45%)]"></div>
+      <div class="relative z-10 flex h-full flex-col justify-end p-6">
+        <img src="${leader.photo || placeholderImage}" alt="${leader.player}" class="absolute bottom-0 right-2 h-[92%] max-w-[68%] object-contain object-bottom drop-shadow-[0_20px_45px_rgba(0,0,0,0.65)]">
+        <div class="relative max-w-[58%]">
+          <span class="inline-flex rounded-full bg-[#f6c453] px-3 py-1 text-[9px] font-black uppercase tracking-widest text-[#221500]">#1 All-Time</span>
+          <h3 class="mt-4 text-3xl md:text-4xl font-black uppercase italic leading-none text-white font-['Space_Grotesk']">${leader.player}</h3>
+          <p class="mt-3 text-5xl font-black text-[#f6c453] leading-none">${leader.goals}</p>
+          <p class="mt-1 text-[10px] uppercase tracking-widest text-white/55 font-bold">Total Goals</p>
+          <p class="mt-4 text-[10px] uppercase tracking-widest text-white/35 font-bold">${leader.seasons} season record${leader.bestSeason ? ` / Best: ${leader.bestGoals} in ${leader.bestSeason}` : ""}</p>
+        </div>
+      </div>
+    </article>
+
+    <div class="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-3">
+      ${rest.length ? rest.map((scorer, index) => `
+        <article class="flex items-center gap-3 rounded-[1.2rem] border border-white/10 bg-black/20 p-3">
+          <div class="relative">
+            <img src="${scorer.photo || placeholderImage}" alt="${scorer.player}" class="w-14 h-14 rounded-2xl object-cover object-top border border-[#f6c453]/20 bg-[#161f32]">
+            <span class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#f6c453]/90 text-[9px] font-black text-[#221500]">${index + 2}</span>
+          </div>
+          <div class="min-w-0 flex-1">
+            <h4 class="truncate text-sm font-black uppercase text-white">${scorer.player}</h4>
+            <p class="mt-1 text-[10px] uppercase tracking-widest text-white/40 font-bold">${scorer.seasons} season record</p>
+          </div>
+          <div class="text-right">
+            <p class="text-2xl font-black text-[#f6c453] leading-none">${scorer.goals}</p>
+            <p class="text-[8px] uppercase tracking-widest text-white/35 font-bold">Goals</p>
+          </div>
+        </article>
+      `).join("") : `<div class="rounded-[1.2rem] border border-white/10 bg-black/20 p-5 text-white/35 text-xs uppercase tracking-widest font-bold">Belum ada scorer lain.</div>`}
+    </div>
+  `;
 };
     
     const calculateStandings = () => {
