@@ -58,6 +58,215 @@
       background-color: #070e1c;
       color: #e2e8fc;
       overflow-x: hidden;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    .theme-toggle {
+      position: relative;
+      width: 58px;
+      height: 32px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      background: rgba(28, 38, 58, 0.9);
+      padding: 3px;
+      cursor: pointer;
+      transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .theme-toggle-track {
+      display: block;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+    }
+
+    .theme-toggle-thumb {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #8eff71;
+      color: #064200;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+      transition: transform 0.28s cubic-bezier(.2,.8,.2,1), background 0.25s ease, color 0.25s ease;
+      pointer-events: none;
+    }
+
+    .theme-toggle-icon {
+      font-size: 15px;
+      pointer-events: none;
+    }
+
+    body.light-theme .theme-toggle {
+      background: #dfe7f3;
+      border-color: rgba(8, 24, 47, 0.12);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+    }
+
+    body.light-theme .theme-toggle-thumb {
+      transform: translateX(26px);
+      background: #f6c453;
+      color: #332100;
+    }
+
+    body.light-theme {
+      background-color: #f3f6fb;
+      color: #152033;
+    }
+
+    body.light-theme .text-white,
+    body.light-theme .text-on-surface,
+    body.light-theme .text-on-background {
+      color: #152033 !important;
+    }
+
+    body.light-theme .text-on-surface-variant,
+    body.light-theme .text-\[\#a4abbe\],
+    body.light-theme .text-white\/40,
+    body.light-theme .text-white\/45,
+    body.light-theme .text-white\/50,
+    body.light-theme .text-white\/55,
+    body.light-theme .text-white\/60 {
+      color: #667085 !important;
+    }
+
+    body.light-theme .text-white\/20,
+    body.light-theme .text-white\/25,
+    body.light-theme .text-white\/30,
+    body.light-theme .text-white\/35 {
+      color: #8b95a7 !important;
+    }
+
+    body.light-theme .text-primary,
+    body.light-theme .text-\[\#8eff71\] {
+      color: #2f7d32 !important;
+    }
+
+    body.light-theme .text-secondary,
+    body.light-theme .text-\[\#ffd709\] {
+      color: #9a6a00 !important;
+    }
+
+    body.light-theme .text-error {
+      color: #c2412c !important;
+    }
+
+    body.light-theme .bg-background,
+    body.light-theme .bg-surface,
+    body.light-theme .bg-\[\#070e1c\],
+    body.light-theme .bg-surface-dim {
+      background-color: #f3f6fb !important;
+    }
+
+    body.light-theme .bg-surface-container-low,
+    body.light-theme .bg-\[\#0b1323\] {
+      background-color: #edf2f8 !important;
+    }
+
+    body.light-theme .bg-surface-container,
+    body.light-theme .bg-\[\#11192a\],
+    body.light-theme .bg-\[\#11192a\]\/80 {
+      background-color: #ffffff !important;
+    }
+
+    body.light-theme .bg-surface-container-high,
+    body.light-theme .bg-\[\#161f32\],
+    body.light-theme .bg-\[\#161f32\]\/40,
+    body.light-theme .bg-\[\#161f32\]\/60 {
+      background-color: #ffffff !important;
+    }
+
+    body.light-theme .bg-surface-container-highest,
+    body.light-theme .bg-\[\#1c263a\],
+    body.light-theme .bg-\[\#1c263a\]\/60 {
+      background-color: #e8eef7 !important;
+    }
+
+    body.light-theme .bg-black\/20,
+    body.light-theme .bg-black\/25,
+    body.light-theme .bg-black\/40,
+    body.light-theme .bg-white\/5,
+    body.light-theme .bg-white\/10 {
+      background-color: rgba(255, 255, 255, 0.74) !important;
+    }
+
+    body.light-theme .border-white\/5,
+    body.light-theme .border-white\/10,
+    body.light-theme .border-outline-variant\/10,
+    body.light-theme .border-outline-variant\/20 {
+      border-color: rgba(40, 55, 82, 0.12) !important;
+    }
+
+    body.light-theme header {
+      background: rgba(255, 255, 255, 0.82) !important;
+      box-shadow: 0 16px 38px rgba(34, 49, 75, 0.12) !important;
+    }
+
+    body.light-theme #sidebar {
+      background: #ffffff !important;
+      border-color: rgba(40, 55, 82, 0.12) !important;
+      box-shadow: 18px 0 50px rgba(34, 49, 75, 0.08);
+    }
+
+    body.light-theme nav.fixed.bottom-0 {
+      background: rgba(255, 255, 255, 0.92) !important;
+      border-color: rgba(40, 55, 82, 0.12) !important;
+      box-shadow: 0 -16px 38px rgba(34, 49, 75, 0.12);
+    }
+
+    body.light-theme .tab:hover {
+      background-color: #edf2f8 !important;
+      color: #496a21 !important;
+    }
+
+    body.light-theme .tab.active {
+      background-color: #edf2f8;
+      color: #5c4a00;
+      border-color: #f6c453;
+    }
+
+    body.light-theme .glass-card {
+      background: rgba(255, 255, 255, 0.72);
+      color: #152033;
+      border-color: rgba(40, 55, 82, 0.12);
+    }
+
+    body.light-theme .headline-overlay {
+      background: linear-gradient(to top, #f3f6fb 5%, rgba(243, 246, 251, 0.72) 42%, rgba(243, 246, 251, 0.08) 100%);
+    }
+
+    body.light-theme .admin-input {
+      background: #ffffff;
+      border-color: rgba(40, 55, 82, 0.18);
+      color: #152033;
+    }
+
+    body.light-theme .admin-input::placeholder {
+      color: #8b95a7;
+    }
+
+    body.light-theme select[data-action="filterMatches"],
+    body.light-theme #matchweekFilter,
+    body.light-theme #teamFilter {
+      background-color: #ffffff !important;
+      color: #152033 !important;
+      border-color: rgba(40, 55, 82, 0.16) !important;
+    }
+
+    body.light-theme select[data-action="filterMatches"] option {
+      background-color: #ffffff;
+      color: #152033;
+    }
+
+    body.light-theme .shadow-2xl,
+    body.light-theme .shadow-xl {
+      box-shadow: 0 18px 48px rgba(34, 49, 75, 0.12) !important;
     }
 
     .font-headline {
@@ -669,14 +878,15 @@ select[data-action="filterMatches"]:focus {
       <nav class="hidden lg:flex items-center gap-6 ml-8 text-sm">
       </nav>
     </div>
-    <div class="flex items-center gap-4">
-      <div class="relative hidden sm:block">
-        <input class="bg-[#1c263a] border-none rounded-full py-2 pl-10 pr-6 text-sm w-64 focus:ring-2 focus:ring-[#8eff71] placeholder:text-[#a4abbe]/50 text-white font-label normal-case" placeholder="Search players, teams..." type="text" />
-        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#a4abbe] text-lg">search</span>
-      </div>
-      <button class="p-2 text-[#a4abbe] hover:bg-[#1c263a] rounded-lg transition-all active:scale-95"><span class="material-symbols-outlined">notifications</span></button>
+    <div class="flex items-center gap-3">
+      <button id="themeToggle" class="theme-toggle" data-action="toggleTheme" aria-label="Toggle light mode" type="button">
+        <span class="theme-toggle-track">
+          <span class="theme-toggle-thumb">
+            <span class="material-symbols-outlined theme-toggle-icon">dark_mode</span>
+          </span>
+        </span>
+      </button>
       <button class="p-2 text-[#a4abbe] hover:bg-[#1c263a] rounded-lg transition-all active:scale-95 hidden md:block" data-action="openTab" data-tab="admin"><span class="material-symbols-outlined">settings</span></button>
-      <img alt="User profile" class="w-10 h-10 rounded-full border-2 border-[#8eff71]/30 hidden md:block" src="https://i.imgur.com/xnTuRnl.png" />
     </div>
   </header>
 
@@ -893,7 +1103,10 @@ select[data-action="filterMatches"]:focus {
             </div>
             <div class="p-6 bg-surface-container-lowest/50 border-t border-outline-variant/10 flex flex-wrap gap-6 items-center">
               <div class="flex items-center gap-2">
-                <div class="w-3 h-3 rounded-full bg-primary shadow-[0_0_8px_rgba(142,255,113,0.5)]"></div><span class="text-[10px] uppercase tracking-widest font-label font-bold text-on-surface-variant">Champions Cup</span>
+                <div class="w-3 h-3 rounded-full bg-primary shadow-[0_0_8px_rgba(142,255,113,0.5)]"></div><span class="text-[10px] uppercase tracking-widest font-label font-bold text-on-surface-variant">Zona Champions</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full bg-secondary shadow-[0_0_8px_rgba(255,215,9,0.5)]"></div><span class="text-[10px] uppercase tracking-widest font-label font-bold text-on-surface-variant">Zona Play-off</span>
               </div>
               <div class="flex items-center gap-2">
                 <div class="w-3 h-3 rounded-full bg-error shadow-[0_0_8px_rgba(255,115,81,0.5)]"></div><span class="text-[10px] uppercase tracking-widest font-label font-bold text-on-surface-variant">Zona Hina</span>
@@ -916,11 +1129,13 @@ select[data-action="filterMatches"]:focus {
             <div class="flex flex-wrap items-center gap-3">
                 <select id="koType" class="bg-black/40 border-white/10 rounded-xl text-white text-xs p-2 focus:ring-primary focus:border-primary">
                     <option value="single">Single Elimination</option>
-                    <option value="double">Double Elimination (Top 4)</option>
+                    <option value="double">Double Elimination</option>
                 </select>
                 <select id="koSize" class="bg-black/40 border-white/10 rounded-xl text-white text-xs p-2 focus:ring-primary focus:border-primary">
-                    <option value="auto">Auto (Champions Zone)</option>
+                    <option value="auto">Auto (Zona Play-off)</option>
+                    <option value="champions">Zona Champions</option>
                     <option value="4">Top 4</option>
+                    <option value="6">Top 6</option>
                     <option value="8">Top 8</option>
                     <option value="16">Top 16</option>
                 </select>
@@ -1085,14 +1300,21 @@ select[data-action="filterMatches"]:focus {
 
           <div id="adminTools" style="display:none;" class="mt-10 pt-8 border-t border-outline-variant/20">
             <h3 class="font-headline font-bold text-xl mb-6 text-tertiary uppercase">League Configuration</h3>
-            <div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
               <div class="bg-surface-container p-4 rounded-xl">
-                <label class="text-[10px] uppercase font-bold text-primary block mb-2">Champ. Zone (Top X)</label>
+                <label class="text-[10px] uppercase font-bold text-primary block mb-2">Zona Champions</label>
                 <input type="number" id="championsInput" min="1" class="admin-input mb-0 text-center text-xl font-black font-headline">
+                <p class="mt-2 text-[9px] uppercase tracking-widest text-on-surface-variant font-bold">Default top 4</p>
               </div>
               <div class="bg-surface-container p-4 rounded-xl">
-                <label class="text-[10px] uppercase font-bold text-error block mb-2">Playoff Zone (Bot X)</label>
+                <label class="text-[10px] uppercase font-bold text-secondary block mb-2">Zona Play-off</label>
                 <input type="number" id="playoffInput" min="1" class="admin-input mb-0 text-center text-xl font-black font-headline">
+                <p class="mt-2 text-[9px] uppercase tracking-widest text-on-surface-variant font-bold">Default top 6</p>
+              </div>
+              <div class="bg-surface-container p-4 rounded-xl">
+                <label class="text-[10px] uppercase font-bold text-error block mb-2">Zona Hina</label>
+                <input type="number" id="relegationInput" min="0" class="admin-input mb-0 text-center text-xl font-black font-headline">
+                <p class="mt-2 text-[9px] uppercase tracking-widest text-on-surface-variant font-bold">Default bottom 1</p>
               </div>
             </div>
             <button class="admin-btn w-full mb-8" data-action="saveCutoffs">Commit Rules</button>

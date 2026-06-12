@@ -8,15 +8,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { team1, team2, score } = req.body;
+    const { team1, team2, score, penaltyScore, matchType, stage } = req.body;
+    const isKnockout = String(matchType || "").toLowerCase() === "knockout";
+    const stageText = stage || (isKnockout ? "Knockout Match" : "League Match");
+    const scoreLine = penaltyScore ? `${score} (${penaltyScore})` : score;
 
     const prompt = `
-Generate a single short paragraph football news update. Make it dramatic, high tension,big place the Score, and easy to read. 
-Avoid all player names completely. Refer only to teams or general positions (e.g., striker, goalkeeper). 
-The tone should feel like a breaking news headline expanded into one paragraph. No analysis, no commentary, no second paragraph.Strictly limit to 2–3 sentences maximum.
+Generate a single short paragraph football news update. Make it dramatic, high tension, place the score prominently, and keep it easy to read.
+Avoid all player names completely. Refer only to teams or general positions, such as striker or goalkeeper.
+The tone should feel like a breaking news headline expanded into one paragraph. No analysis, no commentary, no second paragraph. Strictly limit to 2-3 sentences maximum.
+${isKnockout ? "This is a knockout match, so emphasize survival, elimination pressure, and progression to the next round." : "This is a league match, so emphasize points, momentum, and table pressure."}
 
 Match: ${team1} vs ${team2}
-Score: ${score}
+Stage: ${stageText}
+Score: ${scoreLine}
 `;
 
     const response = await fetch(
@@ -45,7 +50,6 @@ Score: ${score}
       "No result";
 
     res.status(200).json({ text });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });

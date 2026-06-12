@@ -17,7 +17,8 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     let knockout = { format: "single", bracketSize: 0, rounds: [] };
     let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
     let championsCutoff = 4;
-    let playoffCutoff = 8;
+    let playoffCutoff = 6;
+    let relegationCutoff = 1;
     let hallOfFameData = []; 
     let hofManagers = [];
     let trophyCabinetSettings = {
@@ -29,11 +30,26 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     let matchesSnapshotReady = false;
     const knownLiveByMatchId = new Map();
     const autoNewsInFlight = new Set();
+    let knockoutScheduleSyncing = false;
+    let knockoutScoreSyncing = false;
     
     // Variabel Global untuk Slideshow
     let slideshowInterval = null;
 
     // --- UTILS ---
+    const applyTheme = (theme) => {
+      const mode = theme === "light" ? "light" : "dark";
+      document.body.classList.toggle("light-theme", mode === "light");
+      document.documentElement.classList.toggle("dark", mode === "dark");
+      document.documentElement.classList.toggle("light", mode === "light");
+      localStorage.setItem("ligaTheme", mode);
+
+      const icon = document.querySelector("#themeToggle .theme-toggle-icon");
+      if (icon) icon.textContent = mode === "light" ? "light_mode" : "dark_mode";
+    };
+
+    applyTheme(localStorage.getItem("ligaTheme") || "dark");
+
     const normalizeKey = (str) => (str || "").toString().trim().toLowerCase();
     const safe = (val, fallback = "") => val ?? fallback;
     const placeholderImage = "https://i.imgur.com/xnTuRnl.png";
@@ -114,6 +130,89 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       match.s2 !== ""
     );
 
+    const hasPenaltyScore = (match) => (
+      match &&
+      match.p1 !== null &&
+      match.p1 !== undefined &&
+      match.p1 !== "" &&
+      match.p2 !== null &&
+      match.p2 !== undefined &&
+      match.p2 !== ""
+    );
+
+    const formatPenaltyScore = (match) => hasPenaltyScore(match) ? `${match.p1}-${match.p2} pens` : "";
+
+    const getMatchSortValue = (match) => (
+      parseInt(match.bridgeImportedAtMs) ||
+      parseInt(match.autoNewsGeneratedAt) ||
+      parseInt(match.autoNewsRequestedAt) ||
+      parseInt(match.Matchweek) ||
+      0
+    );
+
+    const getTeamForm = (teamName, limit = 5) => matches
+      .filter((match) => (
+        match.type !== "knockout" &&
+        hasFinalScore(match) &&
+        (normalizeKey(match.team1) === normalizeKey(teamName) || normalizeKey(match.team2) === normalizeKey(teamName))
+      ))
+      .sort((a, b) => getMatchSortValue(b) - getMatchSortValue(a))
+      .slice(0, limit)
+      .map((match) => {
+        const isHome = normalizeKey(match.team1) === normalizeKey(teamName);
+        const own = parseInt(isHome ? match.s1 : match.s2) || 0;
+        const opp = parseInt(isHome ? match.s2 : match.s1) || 0;
+        if (own > opp) return "W";
+        if (own < opp) return "L";
+        return "D";
+      });
+
+    const renderFormGuide = (teamName) => {
+      const form = getTeamForm(teamName);
+      if (!form.length) return "";
+      const colorFor = (result) => (
+        result === "W" ? "bg-primary/15 text-primary border-primary/20" :
+        result === "L" ? "bg-error/15 text-error border-error/20" :
+        "bg-secondary/15 text-secondary border-secondary/20"
+      );
+      return `
+        <div class="mt-2 flex items-center gap-1">
+          ${form.map((result) => `<span class="flex h-5 w-5 items-center justify-center rounded-md border text-[9px] font-black ${colorFor(result)}">${result}</span>`).join("")}
+        </div>
+      `;
+    };
+
+    const getKnockoutBracketMatch = (matchId) => {
+      if (!matchId || !knockout?.rounds?.length) return null;
+      for (const round of knockout.rounds) {
+        const found = (round.matches || []).find((match) => match.id === matchId);
+        if (found) return found;
+      }
+      return null;
+    };
+
+    const renderKnockoutAdminStatus = (match) => {
+      if (!isAdmin || match.type !== "knockout") return "";
+      const linked = getKnockoutBracketMatch(match.knockoutMatchId);
+      const synced = linked && String(linked.s1 ?? "") === String(match.s1 ?? "") && String(linked.s2 ?? "") === String(match.s2 ?? "") && hasFinalScore(match);
+      const items = [];
+
+      if (match.live) {
+        items.push({ label: "Live from PES", cls: "bg-error/10 text-error border-error/20" });
+      } else if (hasFinalScore(match)) {
+        items.push({ label: synced ? "Synced to Bracket" : "Ready to Sync", cls: synced ? "bg-primary/10 text-primary border-primary/20" : "bg-secondary/10 text-secondary border-secondary/20" });
+        items.push({ label: "Locked Final", cls: "bg-white/5 text-on-surface-variant border-white/10" });
+      } else {
+        items.push({ label: "Waiting PES", cls: "bg-secondary/10 text-secondary border-secondary/20" });
+      }
+
+      return `
+        <div class="mt-4 flex flex-wrap justify-center gap-2">
+          ${items.map((item) => `<span class="rounded-full border px-2 py-1 text-[8px] font-black uppercase tracking-widest ${item.cls}">${item.label}</span>`).join("")}
+        </div>
+      `;
+    };
+
     const pickNewsImageForMatch = (match) => {
       const t1 = resolveTeam(match.team1);
       const t2 = resolveTeam(match.team2);
@@ -130,7 +229,10 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       autoNewsInFlight.add(match.id);
       const matchRef = doc(db, "matches", match.id);
       const score = `${match.s1}-${match.s2}`;
-      const title = `${match.team1} ${score} ${match.team2}`;
+      const penaltyScore = formatPenaltyScore(match);
+      const stage = match.type === "knockout" ? (match.knockoutRoundName || "Knockout") : "League Match";
+      const titlePrefix = match.type === "knockout" ? `${stage}: ` : "";
+      const title = `${titlePrefix}${match.team1} ${score}${penaltyScore ? ` (${penaltyScore})` : ""} ${match.team2}`;
 
       try {
         await updateDoc(matchRef, {
@@ -145,7 +247,10 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
           body: JSON.stringify({
             team1: match.team1,
             team2: match.team2,
-            score
+            score,
+            penaltyScore,
+            matchType: match.type || "league",
+            stage
           })
         });
 
@@ -169,7 +274,10 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
           source: "web-generate-news-api",
           team1: match.team1,
           team2: match.team2,
-          score
+          score,
+          penaltyScore,
+          matchType: match.type || "league",
+          stage
         });
 
         await updateDoc(matchRef, {
@@ -371,6 +479,10 @@ const getStarIcons = (rating) => {
       if (isAdmin) {
         document.getElementById("championsInput").value = championsCutoff;
         document.getElementById("playoffInput").value = playoffCutoff;
+        const relegationInput = document.getElementById("relegationInput");
+        if (relegationInput) relegationInput.value = relegationCutoff;
+        syncKnockoutScoresFromSchedule(matches);
+        ensureKnockoutScheduleMatches();
       }
       toggleAdminUI();
       renderMatches();
@@ -528,6 +640,7 @@ const getStarIcons = (rating) => {
     onSnapshot(collection(db, "matches"), snap => {
       const incomingMatches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       handleFinishedMatchNewsTriggers(incomingMatches);
+      syncKnockoutScoresFromSchedule(incomingMatches);
       matches = incomingMatches;
       renderMatches();
       renderLiveMatches();
@@ -587,13 +700,17 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
     onSnapshot(doc(db, "config", "standings"), snap => {
       if (snap.exists()) {
         championsCutoff = snap.data().championsCutoff || 4;
-        playoffCutoff = snap.data().playoffCutoff || 8;
+        playoffCutoff = snap.data().playoffCutoff || 6;
+        relegationCutoff = snap.data().relegationCutoff || 1;
         if (isAdmin) {
           document.getElementById("championsInput").value = championsCutoff;
           document.getElementById("playoffInput").value = playoffCutoff;
+          const relegationInput = document.getElementById("relegationInput");
+          if (relegationInput) relegationInput.value = relegationCutoff;
         }
       }
       renderStandings();
+      renderKnockout();
     });
 
    
@@ -623,10 +740,22 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       await addDoc(collection(db, "matches"), { team1, team2, Matchweek, date, s1: null, s2: null, y1: 0, y2: 0, live: false });
     };
 
+    const isScoreEmpty = (value) => value === null || value === undefined || value === "";
+
     const updateScore = async (id, val, side) => {
       if (!isAdmin) return;
       const num = isNaN(parseInt(val)) ? null : parseInt(val);
-      await updateDoc(doc(db, "matches", id), { [side]: num });
+      const payload = { [side]: num };
+      const match = matches.find((item) => item.id === id);
+      if (match?.type === "knockout" && isScoreEmpty(num)) {
+        payload.live = false;
+        payload.bridgeLocked = false;
+        payload.externalMatchId = "";
+        payload.liveClockMinute = null;
+        payload.liveClockSecond = null;
+        payload.livePeriod = "";
+      }
+      await updateDoc(doc(db, "matches", id), payload);
     };
 
     const toggleLive = async (id, newState) => {
@@ -668,9 +797,14 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
     };
 
     const saveCutoffs = async () => {
+      const readZoneNumber = (id, fallback) => {
+        const value = parseInt(document.getElementById(id)?.value, 10);
+        return Number.isFinite(value) && value >= 0 ? value : fallback;
+      };
       if (isAdmin) await setDoc(doc(db, "config", "standings"), {
-        championsCutoff: parseInt(document.getElementById("championsInput").value),
-        playoffCutoff: parseInt(document.getElementById("playoffInput").value)
+        championsCutoff: readZoneNumber("championsInput", 4),
+        playoffCutoff: readZoneNumber("playoffInput", 6),
+        relegationCutoff: readZoneNumber("relegationInput", 1)
       });
     };
 
@@ -726,15 +860,18 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       container.innerHTML = Object.keys(grouped).sort((a, b) => a - b).map(mw => `
                 <div class="flex items-center gap-4 mb-6 mt-12 cursor-pointer group" data-action="toggleFolder" data-mw="${mw}">
                     <div class="h-px flex-1 bg-outline-variant/20"></div>
-                    <h3 class="font-headline text-2xl font-bold uppercase tracking-widest text-primary italic pointer-events-none">Matchday ${mw} <span class="text-sm ml-2 group-hover:text-secondary inline-block transition-transform ${collapsed[mw] ? '-rotate-90' : 'rotate-0'}">▼</span></h3>
+                    <h3 class="font-headline text-2xl font-bold uppercase tracking-widest text-primary italic pointer-events-none">${grouped[mw].every(m => m.type === "knockout") ? "Knockout Schedule" : `Matchday ${mw}`} <span class="text-sm ml-2 group-hover:text-secondary inline-block transition-transform ${collapsed[mw] ? '-rotate-90' : 'rotate-0'}">▼</span></h3>
                     <div class="h-px flex-1 bg-outline-variant/20"></div>
                 </div>
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mw-${mw} mw-row" style="${collapsed[mw] ? 'display:none' : ''}">
                     ${grouped[mw].map(m => {
                         const t1 = resolveTeam(m.team1), t2 = resolveTeam(m.team2), isFinished = m.s1 !== null && !m.live;
                         const liveClock = formatLiveClock(m);
+                        const penaltyScore = formatPenaltyScore(m);
+                        const adminKoStatus = renderKnockoutAdminStatus(m);
                         const badge = m.live ? `<span class="px-3 py-1 bg-error/10 text-error font-bold text-[10px] uppercase tracking-widest rounded-full border border-error/20 flex items-center gap-1 w-max"><span class="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span> LIVE</span>`
                             : isFinished ? `<span class="px-3 py-1 bg-outline-variant/20 text-on-surface-variant font-bold text-[10px] uppercase tracking-widest rounded-full w-max">Full Time</span>`
+                            : m.type === "knockout" ? `<span class="px-3 py-1 bg-secondary/10 text-secondary font-bold text-[10px] uppercase tracking-widest rounded-full border border-secondary/20 w-max">${m.knockoutRoundName || "Knockout"}</span>`
                             : `<span class="px-3 py-1 bg-primary/10 text-primary font-bold text-[10px] uppercase tracking-widest rounded-full border border-primary/20 w-max">Upcoming</span>`;
 
                         return `
@@ -757,13 +894,15 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
                                             <input type="number" class="w-12 bg-transparent text-center text-xl font-headline font-black text-white p-0 border-none focus:ring-0" value="${m.s1 ?? ""}" data-action="updateScore" data-side="s1" data-id="${m.id}">
                                             <span class="text-on-surface-variant font-black">-</span>
                                             <input type="number" class="w-12 bg-transparent text-center text-xl font-headline font-black text-white p-0 border-none focus:ring-0" value="${m.s2 ?? ""}" data-action="updateScore" data-side="s2" data-id="${m.id}">
-                                        </div>` : `
+                                        </div>
+                                        ${penaltyScore ? `<p class="mt-2 text-[10px] uppercase tracking-widest text-secondary font-black">${penaltyScore}</p>` : ""}` : `
                                         ${(m.live || isFinished) ? `
                                             <div class="flex items-center gap-4 md:gap-6">
                                                 <span class="score-font text-4xl md:text-5xl ${m.live ? 'text-error' : m.s1 > m.s2 ? 'text-primary' : 'text-white'}">${m.s1}</span>
                                                 <span class="text-on-surface-variant font-headline text-xl opacity-30 italic font-black">-</span>
                                                 <span class="score-font text-4xl md:text-5xl ${m.live ? 'text-error' : m.s2 > m.s1 ? 'text-primary' : 'text-white'}">${m.s2}</span>
-                                            </div>` : `
+                                            </div>
+                                            ${penaltyScore ? `<p class="mt-2 text-[10px] uppercase tracking-widest text-secondary font-black">${penaltyScore}</p>` : ""}` : `
                                             <div class="glass-card px-4 py-2 rounded-xl border border-outline-variant/20"><span class="font-headline text-2xl font-black italic text-secondary">VS</span></div>`}
                                     `}
                                 </div>
@@ -772,6 +911,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
                                     <span class="font-bold font-headline text-center uppercase tracking-tight text-sm md:text-base">${t2.name}</span>
                                 </div>
                             </div>
+                            ${adminKoStatus}
                             ${renderMatchTimeline(m)}
                             ${isAdmin ? `
                                 <div class="mt-6 pt-4 border-t border-outline-variant/10 flex justify-between gap-2">
@@ -1054,6 +1194,7 @@ const renderAllTimeHofScorers = () => {
     const calculateStandings = () => {
       let table = teams.reduce((acc, t) => ({ ...acc, [t.name]: { team: t.name, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 } }), {});
       matches.forEach(m => {
+        if (m.type === "knockout") return;
         if (!m.team1 || !m.team2 || m.s1 === null || m.s2 === null) return;
         const h = table[m.team1],
           a = table[m.team2];
@@ -1089,9 +1230,9 @@ const renderAllTimeHofScorers = () => {
   const standingsTable = document.getElementById("standingsTable");
   if (!standingsTable) return;
 
-  // Pastikan nilai cutoff adalah angka, jika tidak ada default ke 0
-  const cCut = parseInt(championsCutoff) || 0;
-  const pCut = parseInt(playoffCutoff) || 0;
+  const cCut = Math.max(parseInt(championsCutoff) || 4, 0);
+  const pCut = Math.max(parseInt(playoffCutoff) || 6, cCut);
+  const hCut = Math.max(parseInt(relegationCutoff) || 1, 0);
 
   standingsTable.innerHTML = data.map((t, i) => {
     const rank = i + 1;
@@ -1099,22 +1240,25 @@ const renderAllTimeHofScorers = () => {
     
     let bgGradient = "";
     let borderClass = "";
+    let zoneBadge = "";
+    const isChampionsZone = rank <= cCut;
+    const isPlayoffZone = rank > cCut && rank <= pCut;
+    const isHinaZone = hCut > 0 && rank > data.length - hCut;
 
-    // 1. ZONA CHAMPIONS (Biru)
-    if (i < cCut) {
-      bgGradient = "bg-gradient-to-r from-primary/5 to-transparent" ; // Menggunakan warna standar agar pasti muncul
-      borderClass = "border-l-4 border-green-500";
+    if (isChampionsZone) {
+      bgGradient = "bg-gradient-to-r from-primary/10 to-transparent";
+      borderClass = "border-l-4 border-primary";
+      zoneBadge = `<span class="hidden md:inline-flex rounded-full bg-primary/10 border border-primary/20 px-2 py-1 text-[8px] uppercase tracking-widest text-primary font-black">Champions</span>`;
     } 
-    // 2. ZONA PLAYOFF (Kuning/Oranye)
-    // Logika: Jika peringkat lebih besar dari Champions tapi masih di bawah atau sama dengan Playoff
-    else if (i < pCut) {
-      bgGradient = "bg-gradient-to-r from-error/5 to-transparent"; 
-      borderClass = "border-l-4 border-red-500";
+    else if (isPlayoffZone) {
+      bgGradient = "bg-gradient-to-r from-secondary/10 to-transparent"; 
+      borderClass = "border-l-4 border-secondary";
+      zoneBadge = `<span class="hidden md:inline-flex rounded-full bg-secondary/10 border border-secondary/20 px-2 py-1 text-[8px] uppercase tracking-widest text-secondary font-black">Play-off</span>`;
     }
-    // 3. ZONA BAHAYA (Merah) - Otomatis 3 terbawah
-    else if (i >= data.length - 1 && data.length > 3) {
-      bgGradient = "bg-red-500/5";
-      borderClass = "border-l-4 border-red-500/30";
+    else if (isHinaZone && data.length > hCut) {
+      bgGradient = "bg-error/10";
+      borderClass = "border-l-4 border-error";
+      zoneBadge = `<span class="hidden md:inline-flex rounded-full bg-error/10 border border-error/20 px-2 py-1 text-[8px] uppercase tracking-widest text-error font-black">Zona Hina</span>`;
     }
 
     return `
@@ -1126,7 +1270,13 @@ const renderAllTimeHofScorers = () => {
               ${isTeamLive(t.team) ? `<div class="absolute -top-1 -right-1"><span class="liveDot"></span></div>` : ""}
               <img src="${resolveTeam(t.team).logo}" class="w-full h-full object-contain">
             </div>
-            <span class="font-headline font-bold text-on-surface whitespace-nowrap">${t.team}</span>
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-headline font-bold text-on-surface whitespace-nowrap">${t.team}</span>
+                ${zoneBadge}
+              </div>
+              ${renderFormGuide(t.team)}
+            </div>
           </div>
         </td>
         <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.p}</td>
@@ -1234,6 +1384,7 @@ const initSlideshow = (urls) => {
 
       const t1 = resolveTeam(m.team1);
       const t2 = resolveTeam(m.team2);
+      const penaltyScore = formatPenaltyScore(m);
 
       // Calculate the real probability
       const prob = calculateWinProbability(t1.stars, t2.stars, m.s1, m.s2);
@@ -1252,6 +1403,7 @@ const initSlideshow = (urls) => {
                 <div class="flex flex-col items-center">
                     ${m.live || (m.s1!==null) ? `<span class="font-headline text-5xl md:text-8xl font-black text-error italic score-font">${m.s1} - ${m.s2}</span>` 
                     : `<span class="font-headline text-3xl md:text-5xl font-black text-on-surface-variant opacity-50 italicVS">VS</span>`}
+                    ${penaltyScore ? `<span class="mt-2 text-secondary font-headline text-lg font-black uppercase tracking-widest">${penaltyScore}</span>` : ""}
                     <span class="font-label text-on-surface-variant font-bold mt-2 uppercase text-xs">${safe(m.date, '90\' MINUTES')}</span>
                 </div>
                 <div class="text-center flex-1">
@@ -1319,8 +1471,9 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
     if (docSnap.exists()) {
         knockout = sanitizeKnockout(docSnap.data());
         renderKnockout();
+        ensureKnockoutScheduleMatches();
     } else {
-        knockout = { format: "single", bracketSize: 0, rounds: [] };
+        knockout = { format: "single", bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
         renderKnockout();
     }
 });
@@ -1601,7 +1754,7 @@ const createSeedOrder = (size) => {
 
 const sanitizeKnockout = (raw) => {
   if (!raw || !Array.isArray(raw.rounds)) {
-    return { format: "single", bracketSize: 0, rounds: [] };
+    return { format: "single", bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
   }
 
   const rounds = raw.rounds.map((round, roundIndex) => ({
@@ -1623,6 +1776,8 @@ const sanitizeKnockout = (raw) => {
   return {
     format: raw.format === "double" ? "double" : "single",
     bracketSize: parseInt(raw.bracketSize) || 0,
+    qualifierZone: raw.qualifierZone || "",
+    qualifiedCount: parseInt(raw.qualifiedCount) || parseInt(raw.bracketSize) || 0,
     rounds
   };
 };
@@ -1724,6 +1879,159 @@ const buildDoubleEliminationTop4 = (rankedTeams) => {
   ];
 };
 
+const buildDoubleEliminationTop6 = (rankedTeams) => {
+  const seeds = rankedTeams.slice(0, 6);
+  return [
+    {
+      id: "d1",
+      name: "Upper Bracket - Play-in",
+      matches: [
+        { id: "wb1", seed1: seeds[2] || "", seed2: seeds[5] || "", source1: null, source2: null, s1: null, s2: null },
+        { id: "wb2", seed1: seeds[3] || "", seed2: seeds[4] || "", source1: null, source2: null, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d2",
+      name: "Upper Bracket - Semifinal",
+      matches: [
+        { id: "wb3", seed1: seeds[0] || "", seed2: "", source1: null, source2: { matchId: "wb2", outcome: "winner" }, s1: null, s2: null },
+        { id: "wb4", seed1: seeds[1] || "", seed2: "", source1: null, source2: { matchId: "wb1", outcome: "winner" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d3",
+      name: "Lower Bracket - Round 1",
+      matches: [
+        { id: "lb1", seed1: "", seed2: "", source1: { matchId: "wb1", outcome: "loser" }, source2: { matchId: "wb2", outcome: "loser" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d4",
+      name: "Lower Bracket - Round 2",
+      matches: [
+        { id: "lb2", seed1: "", seed2: "", source1: { matchId: "wb3", outcome: "loser" }, source2: { matchId: "lb1", outcome: "winner" }, s1: null, s2: null },
+        { id: "lb3", seed1: "", seed2: "", source1: { matchId: "wb4", outcome: "loser" }, source2: null, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d5",
+      name: "Upper Bracket - Final",
+      matches: [
+        { id: "wb5", seed1: "", seed2: "", source1: { matchId: "wb3", outcome: "winner" }, source2: { matchId: "wb4", outcome: "winner" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d6",
+      name: "Lower Bracket - Semifinal",
+      matches: [
+        { id: "lb4", seed1: "", seed2: "", source1: { matchId: "lb2", outcome: "winner" }, source2: { matchId: "lb3", outcome: "winner" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d7",
+      name: "Lower Bracket - Final",
+      matches: [
+        { id: "lb5", seed1: "", seed2: "", source1: { matchId: "lb4", outcome: "winner" }, source2: { matchId: "wb5", outcome: "loser" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d8",
+      name: "Grand Final",
+      matches: [
+        { id: "gf1", seed1: "", seed2: "", source1: { matchId: "wb5", outcome: "winner" }, source2: { matchId: "lb5", outcome: "winner" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d9",
+      name: "Grand Final Reset",
+      matches: [
+        { id: "gf2", seed1: "", seed2: "", source1: { matchId: "gf1", outcome: "winnerSeed1" }, source2: { matchId: "gf1", outcome: "winnerSeed2" }, s1: null, s2: null, isReset: true, visible: false }
+      ]
+    }
+  ];
+};
+
+const buildDoubleEliminationTop8 = (rankedTeams) => {
+  const seeds = rankedTeams.slice(0, 8);
+  return [
+    {
+      id: "d1",
+      name: "Upper Bracket - Quarterfinal",
+      matches: [
+        { id: "wb1", seed1: seeds[0] || "", seed2: seeds[7] || "", source1: null, source2: null, s1: null, s2: null },
+        { id: "wb2", seed1: seeds[3] || "", seed2: seeds[4] || "", source1: null, source2: null, s1: null, s2: null },
+        { id: "wb3", seed1: seeds[1] || "", seed2: seeds[6] || "", source1: null, source2: null, s1: null, s2: null },
+        { id: "wb4", seed1: seeds[2] || "", seed2: seeds[5] || "", source1: null, source2: null, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d2",
+      name: "Lower Bracket - Round 1",
+      matches: [
+        { id: "lb1", seed1: "", seed2: "", source1: { matchId: "wb1", outcome: "loser" }, source2: { matchId: "wb2", outcome: "loser" }, s1: null, s2: null },
+        { id: "lb2", seed1: "", seed2: "", source1: { matchId: "wb3", outcome: "loser" }, source2: { matchId: "wb4", outcome: "loser" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d3",
+      name: "Upper Bracket - Semifinal",
+      matches: [
+        { id: "wb5", seed1: "", seed2: "", source1: { matchId: "wb1", outcome: "winner" }, source2: { matchId: "wb2", outcome: "winner" }, s1: null, s2: null },
+        { id: "wb6", seed1: "", seed2: "", source1: { matchId: "wb3", outcome: "winner" }, source2: { matchId: "wb4", outcome: "winner" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d4",
+      name: "Lower Bracket - Round 2",
+      matches: [
+        { id: "lb3", seed1: "", seed2: "", source1: { matchId: "lb1", outcome: "winner" }, source2: { matchId: "wb6", outcome: "loser" }, s1: null, s2: null },
+        { id: "lb4", seed1: "", seed2: "", source1: { matchId: "lb2", outcome: "winner" }, source2: { matchId: "wb5", outcome: "loser" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d5",
+      name: "Upper Bracket - Final",
+      matches: [
+        { id: "wb7", seed1: "", seed2: "", source1: { matchId: "wb5", outcome: "winner" }, source2: { matchId: "wb6", outcome: "winner" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d6",
+      name: "Lower Bracket - Semifinal",
+      matches: [
+        { id: "lb5", seed1: "", seed2: "", source1: { matchId: "lb3", outcome: "winner" }, source2: { matchId: "lb4", outcome: "winner" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d7",
+      name: "Lower Bracket - Final",
+      matches: [
+        { id: "lb6", seed1: "", seed2: "", source1: { matchId: "lb5", outcome: "winner" }, source2: { matchId: "wb7", outcome: "loser" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d8",
+      name: "Grand Final",
+      matches: [
+        { id: "gf1", seed1: "", seed2: "", source1: { matchId: "wb7", outcome: "winner" }, source2: { matchId: "lb6", outcome: "winner" }, s1: null, s2: null }
+      ]
+    },
+    {
+      id: "d9",
+      name: "Grand Final Reset",
+      matches: [
+        { id: "gf2", seed1: "", seed2: "", source1: { matchId: "gf1", outcome: "winnerSeed1" }, source2: { matchId: "gf1", outcome: "winnerSeed2" }, s1: null, s2: null, isReset: true, visible: false }
+      ]
+    }
+  ];
+};
+
+const buildDoubleEliminationRounds = (rankedTeams, teamCount) => {
+  if (teamCount <= 4) return buildDoubleEliminationTop4(rankedTeams);
+  if (teamCount <= 6) return buildDoubleEliminationTop6(rankedTeams);
+  return buildDoubleEliminationTop8(rankedTeams);
+};
+
 const resolveKnockout = (state) => {
   const safe = sanitizeKnockout(state);
   const rounds = safe.rounds.map((round) => ({
@@ -1778,10 +2086,10 @@ const resolveKnockout = (state) => {
   if (safe.format === "double") {
     const gf1 = matchMap.gf1;
     const gf2 = matchMap.gf2;
-    const lb2 = matchMap.lb2;
+    const lowerFinal = gf1?.source2?.matchId ? matchMap[gf1.source2.matchId] : null;
 
-    if (gf1 && gf2 && lb2) {
-      const needReset = !!gf1.winner && gf1.winner === lb2.winner;
+    if (gf1 && gf2 && lowerFinal) {
+      const needReset = !!gf1.winner && gf1.winner === lowerFinal.winner;
       gf2.visible = needReset;
       if (!needReset) {
         gf2.s1 = null;
@@ -1895,7 +2203,8 @@ const renderKnockout = () => {
   container.innerHTML = `
     <div class="mb-5 flex flex-wrap items-center gap-3 text-xs uppercase tracking-widest font-bold">
       <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70">Format: ${resolved.format === "double" ? "Double Elimination" : "Single Elimination"}</span>
-      <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70">Bracket: Top ${resolved.bracketSize || "-"}</span>
+      <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70">Qualified: ${resolved.qualifierZone || `Top ${resolved.bracketSize || "-"}`}</span>
+      <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70">Teams: ${resolved.qualifiedCount || resolved.bracketSize || "-"}</span>
       ${champion ? `<span class="px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary">Champion: ${champion}</span>` : ""}
     </div>
     ${championPanel}
@@ -1904,6 +2213,122 @@ const renderKnockout = () => {
     </div>
   `;
 };
+
+const knockoutScheduleDocId = (matchId) => `knockout-${normalizeKey(matchId).replace(/[^a-z0-9_-]+/g, "-")}`;
+
+async function cleanupGeneratedKnockoutSchedules(activeIds) {
+  const snap = await getDocs(collection(db, "matches"));
+  const deletions = snap.docs
+    .filter((item) => {
+      const data = item.data() || {};
+      return data.type === "knockout" && data.knockoutGenerated === true && !activeIds.has(item.id);
+    })
+    .map((item) => deleteDoc(item.ref));
+  await Promise.all(deletions);
+}
+
+async function ensureKnockoutScheduleMatches(options = {}) {
+  if (!isAdmin || knockoutScheduleSyncing) return;
+  const resetScores = !!options.resetScores;
+  const cleanupStale = !!options.cleanupStale;
+  const resolved = resolveKnockout(knockout);
+  const activeIds = new Set();
+  const writes = [];
+
+  resolved.rounds.forEach((round) => {
+    round.matches.forEach((match) => {
+      if (match.visible === false) return;
+      if (!match.team1 || !match.team2) return;
+
+      const matchDocId = knockoutScheduleDocId(match.id);
+      activeIds.add(matchDocId);
+      const matchRef = doc(db, "matches", matchDocId);
+      const payload = {
+        team1: match.team1,
+        team2: match.team2,
+        type: "knockout",
+        knockoutGenerated: true,
+        knockoutMatchId: match.id,
+        knockoutRoundId: round.id,
+        knockoutRoundName: round.name,
+        knockoutFormat: resolved.format,
+        knockoutQualifierZone: resolved.qualifierZone || "",
+        Matchweek: 900,
+        date: `Knockout - ${round.name}`,
+        live: false
+      };
+
+      writes.push((async () => {
+        const existing = await getDoc(matchRef);
+        if (resetScores || !existing.exists()) {
+          await setDoc(matchRef, {
+            ...payload,
+            s1: null,
+            s2: null,
+            p1: null,
+            p2: null,
+            bridgeLocked: false,
+            externalMatchId: ""
+          }, { merge: false });
+        } else {
+          await setDoc(matchRef, payload, { merge: true });
+        }
+      })());
+    });
+  });
+
+  knockoutScheduleSyncing = true;
+  try {
+    if (cleanupStale) await cleanupGeneratedKnockoutSchedules(activeIds);
+    await Promise.all(writes);
+  } catch (error) {
+    console.error("Gagal sync schedule knockout:", error);
+  } finally {
+    knockoutScheduleSyncing = false;
+  }
+}
+
+async function syncKnockoutScoresFromSchedule(incomingMatches = matches) {
+  if (!isAdmin || knockoutScoreSyncing || !knockout?.rounds?.length) return;
+
+  const scheduleItems = incomingMatches.filter((match) => (
+    match.type === "knockout" &&
+    match.knockoutMatchId &&
+    match.knockoutGenerated === true
+  ));
+  if (!scheduleItems.length) return;
+
+  const resolved = resolveKnockout(knockout);
+  let changed = false;
+
+  scheduleItems.forEach((schedule) => {
+    resolved.rounds.forEach((round) => {
+      round.matches.forEach((match) => {
+        if (match.id !== schedule.knockoutMatchId) return;
+        const nextS1 = isScoreEmpty(schedule.s1) ? null : parseInt(schedule.s1);
+        const nextS2 = isScoreEmpty(schedule.s2) ? null : parseInt(schedule.s2);
+        if (match.s1 !== nextS1 || match.s2 !== nextS2) {
+          match.s1 = Number.isFinite(nextS1) ? nextS1 : null;
+          match.s2 = Number.isFinite(nextS2) ? nextS2 : null;
+          changed = true;
+        }
+      });
+    });
+  });
+
+  if (!changed) return;
+  knockoutScoreSyncing = true;
+  try {
+    knockout = resolved;
+    await saveKnockout();
+    await ensureKnockoutScheduleMatches();
+    renderKnockout();
+  } catch (error) {
+    console.error("Gagal sync skor knockout dari schedule:", error);
+  } finally {
+    knockoutScoreSyncing = false;
+  }
+}
 
 async function saveKnockout() {
   if (!isAdmin) return;
@@ -1946,21 +2371,41 @@ async function generateBracket() {
 
   const format = document.getElementById("koType")?.value || "single";
   const sizeSelection = document.getElementById("koSize")?.value || "auto";
-  const requestedSize = sizeSelection === "auto" ? (parseInt(championsCutoff) || 4) : (parseInt(sizeSelection) || 4);
   const rankedTeams = calculateStandings().map((row) => row.team);
+  const championsSize = Math.max(parseInt(championsCutoff) || 4, 2);
+  const playoffSize = Math.max(parseInt(playoffCutoff) || 6, championsSize);
+  const requestedSize =
+    sizeSelection === "auto" ? playoffSize :
+    sizeSelection === "champions" ? championsSize :
+    (parseInt(sizeSelection) || playoffSize);
+
+  const qualifierLabel =
+    sizeSelection === "champions" ? `Zona Champions Top ${championsSize}` :
+    sizeSelection === "auto" ? `Zona Play-off Top ${playoffSize}` :
+    `Manual Top ${requestedSize}`;
 
   if (format === "double") {
-    if (rankedTeams.length < 4) {
-      alert("Double elimination minimal butuh 4 tim.");
+    const doubleTeamCount = Math.max(4, Math.min(requestedSize, rankedTeams.length, 8));
+    const normalizedDoubleTeamCount = doubleTeamCount <= 4 ? 4 : doubleTeamCount <= 6 ? 6 : 8;
+    if (rankedTeams.length < normalizedDoubleTeamCount) {
+      alert(`Double elimination butuh minimal ${normalizedDoubleTeamCount} tim untuk pilihan ini.`);
       return;
     }
-    if (!confirm("Generate Double Elimination bracket untuk Top 4 tim?")) return;
+    const doubleLabel =
+      sizeSelection === "champions" ? `Zona Champions Top ${normalizedDoubleTeamCount}` :
+      sizeSelection === "auto" ? `Zona Play-off Top ${normalizedDoubleTeamCount}` :
+      `Manual Top ${normalizedDoubleTeamCount}`;
+
+    if (!confirm(`Generate Double Elimination bracket untuk ${doubleLabel}?`)) return;
     knockout = {
       format: "double",
-      bracketSize: 4,
-      rounds: buildDoubleEliminationTop4(rankedTeams)
+      bracketSize: normalizedDoubleTeamCount,
+      qualifierZone: doubleLabel,
+      qualifiedCount: normalizedDoubleTeamCount,
+      rounds: buildDoubleEliminationRounds(rankedTeams, normalizedDoubleTeamCount)
     };
     await saveKnockout();
+    await ensureKnockoutScheduleMatches({ resetScores: true, cleanupStale: true });
     renderKnockout();
     return;
   }
@@ -1969,22 +2414,26 @@ async function generateBracket() {
   const seeded = rankedTeams.slice(0, teamCount);
   const bracketSize = nextPowerOfTwo(teamCount);
 
-  if (!confirm(`Generate Single Elimination untuk Top ${teamCount} tim (bracket ${bracketSize})?`)) return;
+  if (!confirm(`Generate Single Elimination untuk ${qualifierLabel} (${teamCount} tim, bracket ${bracketSize})?`)) return;
 
   knockout = {
     format: "single",
     bracketSize: teamCount,
+    qualifierZone: qualifierLabel,
+    qualifiedCount: teamCount,
     rounds: buildSingleEliminationRounds(seeded, bracketSize)
   };
 
   await saveKnockout();
+  await ensureKnockoutScheduleMatches({ resetScores: true, cleanupStale: true });
   renderKnockout();
 }
 
 const clearKnockoutData = async () => {
   if (!isAdmin) return;
-  knockout = { format: "single", bracketSize: 0, rounds: [] };
+  knockout = { format: "single", bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
   await saveKnockout();
+  await cleanupGeneratedKnockoutSchedules(new Set());
   renderKnockout();
 };
 
@@ -2373,6 +2822,10 @@ document.addEventListener('click', async (e) => {
     // 2. Auth
     else if (action === 'login') await login();
     else if (action === 'logout') logout(); 
+    else if (action === 'toggleTheme') {
+        const nextTheme = document.body.classList.contains("light-theme") ? "dark" : "light";
+        applyTheme(nextTheme);
+    }
     
     // 3. Teams
     else if (action === 'addTeam') await addTeam();
