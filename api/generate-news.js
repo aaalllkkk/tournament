@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     const prompt = `
 Generate a single short paragraph football news update. Make it dramatic, high tension, place the score prominently, and keep it easy to read.
 Avoid all player names completely. Refer only to teams or general positions, such as striker or goalkeeper.
-The tone should feel like a breaking news headline expanded into one paragraph. No analysis, no commentary, no second paragraph. Strictly limit to 2-3 sentences maximum.
+The tone should feel like a breaking news headline expanded into one paragraph. Include one quick turning point or what the result means. No analysis section, no commentary, no second paragraph. Strictly limit to 2-3 sentences maximum.
 ${isKnockout ? "This is a knockout match, so emphasize survival, elimination pressure, and progression to the next round." : "This is a league match, so emphasize points, momentum, and table pressure."}
 
 Match: ${team1} vs ${team2}

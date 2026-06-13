@@ -3,7 +3,7 @@
 import { db, auth } from './firebase-config.js';
 
 // 2. Panggil fitur-fitur Firebase yang dibutuhkan
-import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, deleteDoc, setDoc, getDocs, getDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, deleteDoc, setDoc, getDocs, getDoc, Timestamp, writeBatch, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 // --- STATE ---
@@ -210,6 +210,121 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
         <div class="mt-4 flex flex-wrap justify-center gap-2">
           ${items.map((item) => `<span class="rounded-full border px-2 py-1 text-[8px] font-black uppercase tracking-widest ${item.cls}">${item.label}</span>`).join("")}
         </div>
+      `;
+    };
+
+    const getUpcomingMatches = () => matches
+      .filter((match) => !match.live && !hasFinalScore(match) && match.team1 && match.team2)
+      .sort((a, b) => {
+        if (a.type === "knockout" && b.type !== "knockout") return -1;
+        if (a.type !== "knockout" && b.type === "knockout") return 1;
+        return getMW(a) - getMW(b);
+      });
+
+    const renderDashboardNextMatch = () => {
+      const container = document.getElementById("dashboardNextMatch");
+      if (!container) return;
+      const match = getUpcomingMatches()[0];
+      if (!match) {
+        container.innerHTML = "";
+        return;
+      }
+
+      const t1 = resolveTeam(match.team1);
+      const t2 = resolveTeam(match.team2);
+      const form1 = renderFormGuide(match.team1);
+      const form2 = renderFormGuide(match.team2);
+      const label = match.type === "knockout" ? (match.knockoutRoundName || "Knockout") : `Matchday ${getMW(match)}`;
+
+      container.innerHTML = `
+        <article class="rounded-[1.6rem] border border-outline-variant/10 bg-surface-container-high p-5 shadow-xl">
+          <div class="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p class="text-[10px] uppercase tracking-[0.22em] text-secondary font-black">Next Match Preview</p>
+              <h4 class="mt-1 font-headline text-lg font-black uppercase text-white">${label}</h4>
+            </div>
+            <button class="hidden md:inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary" data-action="openTab" data-tab="schedule">Schedule</button>
+          </div>
+          <div class="grid grid-cols-[1fr_auto_1fr] items-start gap-4">
+            <div class="min-w-0 text-center">
+              <img src="${t1.logo}" class="mx-auto h-14 w-14 object-contain">
+              <p class="mt-2 truncate font-headline text-sm font-black uppercase text-white">${t1.name}</p>
+              <div class="flex justify-center">${form1}</div>
+            </div>
+            <div class="pt-8 font-headline text-xl font-black italic text-secondary">VS</div>
+            <div class="min-w-0 text-center">
+              <img src="${t2.logo}" class="mx-auto h-14 w-14 object-contain">
+              <p class="mt-2 truncate font-headline text-sm font-black uppercase text-white">${t2.name}</p>
+              <div class="flex justify-center">${form2}</div>
+            </div>
+          </div>
+        </article>
+      `;
+    };
+
+    const renderPesBridgePanel = () => {
+      const container = document.getElementById("pesBridgePanel");
+      if (!container) return;
+
+      if (!isAdmin) {
+        container.innerHTML = `
+          <div class="rounded-[2rem] border border-outline-variant/10 bg-surface-container-high p-8 text-center shadow-xl">
+            <p class="font-headline text-2xl font-black uppercase text-white">Admin Only</p>
+            <p class="mt-2 text-sm text-on-surface-variant">Login sebagai admin untuk melihat status PES Bridge.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const knockoutSchedules = matches.filter((match) => match.type === "knockout" && match.knockoutGenerated);
+      const liveItems = matches.filter((match) => match.live);
+      const lockedItems = knockoutSchedules.filter((match) => hasFinalScore(match) && !match.live);
+      const waitingItems = knockoutSchedules.filter((match) => !hasFinalScore(match) && !match.live);
+      const lastBridgeItem = matches
+        .filter((match) => match.bridgeImportedAtMs)
+        .sort((a, b) => (parseInt(b.bridgeImportedAtMs) || 0) - (parseInt(a.bridgeImportedAtMs) || 0))[0];
+
+      const statCard = (label, value, tone = "text-primary") => `
+        <div class="rounded-[1.4rem] border border-outline-variant/10 bg-surface-container-high p-5 shadow-xl">
+          <p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-black">${label}</p>
+          <p class="mt-2 font-headline text-4xl font-black ${tone}">${value}</p>
+        </div>
+      `;
+
+      const row = (match) => {
+        const status = match.live ? "Live from PES" : hasFinalScore(match) ? "Locked Final" : "Waiting PES";
+        const score = hasFinalScore(match) ? `${match.s1}-${match.s2}${formatPenaltyScore(match) ? ` (${formatPenaltyScore(match)})` : ""}` : "vs";
+        return `
+          <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 items-center rounded-2xl border border-outline-variant/10 bg-black/20 p-4">
+            <div class="min-w-0">
+              <p class="truncate font-headline text-sm font-black uppercase text-white">${match.team1} ${score} ${match.team2}</p>
+              <p class="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">${match.knockoutRoundName || match.date || "Match"}</p>
+            </div>
+            <span class="rounded-full border border-secondary/20 bg-secondary/10 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-secondary">${status}</span>
+            <button class="admin-btn !py-2 !px-3" data-action="openTab" data-tab="schedule">Open</button>
+          </div>
+        `;
+      };
+
+      container.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          ${statCard("Live", liveItems.length, "text-error")}
+          ${statCard("Waiting PES", waitingItems.length, "text-secondary")}
+          ${statCard("Locked Final", lockedItems.length, "text-primary")}
+          ${statCard("KO Schedules", knockoutSchedules.length, "text-on-surface")}
+        </div>
+        <section class="mt-6 rounded-[2rem] border border-outline-variant/10 bg-surface-container-high p-6 shadow-xl">
+          <div class="mb-4 flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+            <div>
+              <p class="text-[10px] uppercase tracking-[0.22em] text-secondary font-black">Latest Bridge Match</p>
+              <h3 class="font-headline text-2xl font-black uppercase text-white">${lastBridgeItem ? `${lastBridgeItem.team1} vs ${lastBridgeItem.team2}` : "No bridge import yet"}</h3>
+            </div>
+            ${lastBridgeItem ? `<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">${new Date(parseInt(lastBridgeItem.bridgeImportedAtMs)).toLocaleString()}</p>` : ""}
+          </div>
+          <div class="space-y-3">
+            ${(knockoutSchedules.length ? knockoutSchedules : matches.filter((match) => match.live).slice(0, 5)).slice(0, 8).map(row).join("") || `<p class="text-sm italic text-on-surface-variant">Belum ada schedule knockout/live dari PES.</p>`}
+          </div>
+        </section>
       `;
     };
 
@@ -489,6 +604,8 @@ const getStarIcons = (rating) => {
       renderScorers();
       renderKnockout();
       renderTeams();
+      renderDashboardNextMatch();
+      renderPesBridgePanel();
     });
 
      // --- Generate League ---
@@ -621,6 +738,10 @@ const getStarIcons = (rating) => {
             if (typeof renderKnockout === 'function') renderKnockout();
         }, 100);
     }
+
+    if (id === 'pesbridge') {
+        renderPesBridgePanel();
+    }
 };
 
     const toggleFolder = (mw) => {
@@ -635,6 +756,7 @@ const getStarIcons = (rating) => {
       renderTeams();
       renderStandings();
       renderDashboardStandings();
+      renderDashboardNextMatch();
     });
 
     onSnapshot(collection(db, "matches"), snap => {
@@ -647,6 +769,8 @@ const getStarIcons = (rating) => {
       renderStandings();
       renderDashboardStandings();
       renderDashboardHeroContent(); // Hanya update teks, bukan gambar
+      renderDashboardNextMatch();
+      renderPesBridgePanel();
     });
 
     onSnapshot(collection(db, "liveMatchStates"), snap => {
@@ -654,6 +778,7 @@ const getStarIcons = (rating) => {
       renderMatches();
       renderLiveMatches();
       renderDashboardHeroContent();
+      renderPesBridgePanel();
     });
 
     onSnapshot(collection(db, "matchEvents"), snap => {
@@ -671,6 +796,7 @@ const getStarIcons = (rating) => {
       matchEvents = incomingEvents;
       renderMatches();
       renderLiveMatches();
+      renderPesBridgePanel();
     });
 
     onSnapshot(collection(db, "scorers"), snap => {
@@ -727,7 +853,37 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
     };
 
     const deleteTeam = async (id) => {
-      if (isAdmin && confirm("Delete team?")) await deleteDoc(doc(db, "teams", id));
+      if (!isAdmin) return;
+      const team = teams.find((item) => item.id === id);
+      const teamName = team?.name || "";
+      const teamKey = teamName.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      if (!confirm(`Delete team${teamName ? ` "${teamName}"` : ""}? Roster dan gambar Supabase team ini juga akan dibersihkan.`)) return;
+
+      try {
+        const playerDocs = new Map();
+        if (teamName) {
+          const byName = await getDocs(query(collection(db, "players"), where("team", "==", teamName)));
+          byName.docs.forEach((item) => playerDocs.set(item.id, item));
+        }
+        if (teamKey) {
+          const byKey = await getDocs(query(collection(db, "players"), where("teamKey", "==", teamKey)));
+          byKey.docs.forEach((item) => playerDocs.set(item.id, item));
+        }
+
+        const storagePaths = [];
+        const deleteOps = [];
+        playerDocs.forEach((item) => {
+          const data = item.data();
+          if (data.faceStoragePath) storagePaths.push(data.faceStoragePath);
+          deleteOps.push((batch) => batch.delete(item.ref));
+        });
+        if (storagePaths.length) await deleteSupabaseFaces(storagePaths);
+        await commitBatchChunks(deleteOps);
+        await deleteDoc(doc(db, "teams", id));
+      } catch (error) {
+        console.error("Delete team cleanup failed:", error);
+        alert("Gagal hapus team lengkap: " + error.message);
+      }
     };
 
     const addMatch = async () => {
@@ -2121,6 +2277,35 @@ const getKnockoutChampion = (resolved) => {
   return finalMatch?.winner || "";
 };
 
+const renderKnockoutPath = (resolved, champion) => {
+  if (!champion) return "";
+  const pathMatches = resolved.rounds
+    .flatMap((round) => round.matches.map((match) => ({ ...match, roundName: round.name })))
+    .filter((match) => match.winner === champion)
+    .filter((match) => match.team1 && match.team2 && hasFinalScore(match));
+
+  if (!pathMatches.length) return "";
+
+  return `
+    <div class="mb-6 rounded-2xl border border-secondary/20 bg-secondary/5 p-5">
+      <p class="text-[10px] uppercase tracking-[0.24em] font-black text-secondary mb-3">Path To Glory</p>
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+        ${pathMatches.map((match) => {
+          const opponent = match.team1 === champion ? match.team2 : match.team1;
+          const score = `${match.s1}-${match.s2}${formatPenaltyScore(match) ? ` (${formatPenaltyScore(match)})` : ""}`;
+          return `
+            <div class="rounded-xl border border-white/10 bg-black/20 p-3">
+              <p class="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold">${match.roundName}</p>
+              <p class="mt-1 font-headline text-sm font-black uppercase text-white">vs ${opponent}</p>
+              <p class="mt-2 text-secondary font-black">${score}</p>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+};
+
 const renderKnockout = () => {
   const container = document.getElementById("knockoutBracket");
   if (!container) return;
@@ -2185,6 +2370,7 @@ const renderKnockout = () => {
   }).join("");
 
   const champion = getKnockoutChampion(resolved);
+  const pathPanel = renderKnockoutPath(resolved, champion);
   const championPanel = champion
     ? `
       <div class="mb-6 bg-[#11192a] border border-primary/20 rounded-2xl p-5 shadow-xl">
@@ -2208,6 +2394,7 @@ const renderKnockout = () => {
       ${champion ? `<span class="px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary">Champion: ${champion}</span>` : ""}
     </div>
     ${championPanel}
+    ${pathPanel}
     <div class="ko-grid">
       ${roundsHtml}
     </div>
@@ -2646,7 +2833,7 @@ window.showHofDetail = (id) => {
     }
 };
 
-    const BACKUP_COLLECTIONS = ["teams", "matches", "scorers", "news", "halloffame", "hofManagers"];
+    const BACKUP_COLLECTIONS = ["teams", "matches", "scorers", "players", "news", "halloffame", "hofManagers"];
     const BACKUP_DOCUMENTS = ["config/standings", "settings/liveBanner", "settings/trophyCabinet", "tournament/knockout"];
 
     const serializeForBackup = (value) => {
@@ -2683,6 +2870,37 @@ window.showHofDetail = (id) => {
       return value;
     };
 
+    const buildBackupPayload = async () => {
+      const collectionPairs = await Promise.all(
+        BACKUP_COLLECTIONS.map(async (name) => {
+          const snap = await getDocs(collection(db, name));
+          const docs = snap.docs.map((item) => ({
+            id: item.id,
+            data: serializeForBackup(item.data())
+          }));
+          return [name, docs];
+        })
+      );
+
+      const documentPairs = await Promise.all(
+        BACKUP_DOCUMENTS.map(async (path) => {
+          const ref = doc(db, ...path.split("/"));
+          const snap = await getDoc(ref);
+          return [path, snap.exists() ? serializeForBackup(snap.data()) : null];
+        })
+      );
+
+      return {
+        meta: {
+          app: "Liga King",
+          version: 3,
+          exportedAt: new Date().toISOString()
+        },
+        collections: Object.fromEntries(collectionPairs),
+        documents: Object.fromEntries(documentPairs)
+      };
+    };
+
     const exportBackup = async () => {
       if (!isAdmin) {
         alert("Hanya admin yang bisa export backup.");
@@ -2690,34 +2908,7 @@ window.showHofDetail = (id) => {
       }
 
       try {
-        const collectionPairs = await Promise.all(
-          BACKUP_COLLECTIONS.map(async (name) => {
-            const snap = await getDocs(collection(db, name));
-            const docs = snap.docs.map((item) => ({
-              id: item.id,
-              data: serializeForBackup(item.data())
-            }));
-            return [name, docs];
-          })
-        );
-
-        const documentPairs = await Promise.all(
-          BACKUP_DOCUMENTS.map(async (path) => {
-            const ref = doc(db, ...path.split("/"));
-            const snap = await getDoc(ref);
-            return [path, snap.exists() ? serializeForBackup(snap.data()) : null];
-          })
-        );
-
-        const payload = {
-          meta: {
-            app: "Liga King",
-            version: 2,
-            exportedAt: new Date().toISOString()
-          },
-          collections: Object.fromEntries(collectionPairs),
-          documents: Object.fromEntries(documentPairs)
-        };
+        const payload = await buildBackupPayload();
 
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
@@ -2734,6 +2925,33 @@ window.showHofDetail = (id) => {
       } catch (error) {
         console.error("Export backup failed:", error);
         alert("Gagal export backup: " + error.message);
+      }
+    };
+
+    const archiveSeason = async () => {
+      if (!isAdmin) {
+        alert("Hanya admin yang bisa archive season.");
+        return;
+      }
+
+      const defaultName = `Season Archive ${new Date().toLocaleDateString()}`;
+      const archiveName = prompt("Nama archive season:", defaultName);
+      if (!archiveName) return;
+      if (!confirm(`Archive "${archiveName}" sekarang?`)) return;
+      if (!confirm("Konfirmasi kedua: data akan disimpan ke seasonArchives. Lanjut?")) return;
+
+      try {
+        const payload = await buildBackupPayload();
+        await addDoc(collection(db, "seasonArchives"), {
+          name: archiveName,
+          createdAt: serverTimestamp(),
+          createdAtMs: Date.now(),
+          payload
+        });
+        alert("Season berhasil di-archive.");
+      } catch (error) {
+        console.error("Archive season failed:", error);
+        alert("Gagal archive season: " + error.message);
       }
     };
 
@@ -2801,6 +3019,196 @@ window.showHofDetail = (id) => {
       }
     };
 
+    const commitBatchChunks = async (operations, chunkSize = 450) => {
+      for (let i = 0; i < operations.length; i += chunkSize) {
+        const batch = writeBatch(db);
+        operations.slice(i, i + chunkSize).forEach((operation) => operation(batch));
+        await batch.commit();
+      }
+    };
+
+    const parseRosterImportPlayers = (parsed) => {
+      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed.players)) return parsed.players;
+      if (parsed.players && typeof parsed.players === "object") return Object.values(parsed.players);
+      throw new Error("Format roster tidak valid. Pilih firestore-import.json dari PES Roster Importer.");
+    };
+
+    const fileToBase64 = (file) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || "").split(",")[1] || "");
+      reader.onerror = () => reject(reader.error || new Error("Gagal membaca file."));
+      reader.readAsDataURL(file);
+    });
+
+    const buildFaceFileMap = () => {
+      const input = document.getElementById("rosterFaceFiles");
+      const files = Array.from(input?.files || []);
+      const map = new Map();
+      files.forEach((file) => {
+        const relative = (file.webkitRelativePath || file.name).replace(/\\/g, "/");
+        map.set(relative, file);
+      });
+      return map;
+    };
+
+    const findRosterFaceFile = (player, faceFileMap) => {
+      if (!faceFileMap.size || !player.faceFile) return null;
+      const candidates = [
+        player.facePath,
+        `${player.teamKey}/${player.faceFile}`,
+        player.faceFile
+      ].filter(Boolean).map((value) => String(value).replace(/\\/g, "/"));
+
+      for (const candidate of candidates) {
+        if (faceFileMap.has(candidate)) return faceFileMap.get(candidate);
+      }
+
+      const suffixes = [
+        `/${player.teamKey}/${player.faceFile}`,
+        `/${player.faceFile}`
+      ];
+      for (const [relativePath, file] of faceFileMap.entries()) {
+        if (suffixes.some((suffix) => relativePath.endsWith(suffix))) return file;
+      }
+      return null;
+    };
+
+    const uploadRosterFace = async (player, file) => {
+      const storagePath = `${player.teamKey}/${player.faceFile}`.replace(/\\/g, "/");
+      const base64 = await fileToBase64(file);
+      const response = await fetch("/api/supabase-upload-face", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: storagePath,
+          contentType: file.type || "image/png",
+          base64
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Upload gagal: ${storagePath}`);
+      return result;
+    };
+
+    const uploadRosterFaces = async (players, faceFileMap) => {
+      let uploaded = 0;
+      let missing = 0;
+      const cache = new Map();
+      const enhanced = [];
+
+      for (const player of players) {
+        const file = findRosterFaceFile(player, faceFileMap);
+        if (!file) {
+          if (player.faceFile) missing += 1;
+          enhanced.push(player);
+          continue;
+        }
+
+        const storagePath = `${player.teamKey}/${player.faceFile}`.replace(/\\/g, "/");
+        let uploadedFace = cache.get(storagePath);
+        if (!uploadedFace) {
+          uploadedFace = await uploadRosterFace(player, file);
+          cache.set(storagePath, uploadedFace);
+          uploaded += 1;
+        }
+
+        enhanced.push({
+          ...player,
+          faceUrl: uploadedFace.publicUrl,
+          image: uploadedFace.publicUrl,
+          faceStoragePath: uploadedFace.path,
+          faceStorageBucket: "player-faces"
+        });
+      }
+
+      return { players: enhanced, uploaded, missing };
+    };
+
+    const deleteSupabaseFaces = async (paths) => {
+      const uniquePaths = [...new Set((paths || []).filter(Boolean))];
+      if (!uniquePaths.length) return 0;
+      const response = await fetch("/api/supabase-delete-faces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paths: uniquePaths })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Gagal hapus gambar Supabase.");
+      return result.deleted || 0;
+    };
+
+    const importRosterPlayers = async (e) => {
+      if (!isAdmin) {
+        alert("Hanya admin yang bisa import roster PES.");
+        e.target.value = "";
+        return;
+      }
+
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        const incomingPlayers = parseRosterImportPlayers(parsed)
+          .filter((player) => player && (player.docId || player.playerId) && player.player && player.teamKey);
+
+        if (!incomingPlayers.length) {
+          throw new Error("Tidak ada player valid di file import.");
+        }
+
+        const faceFileMap = buildFaceFileMap();
+        const faceMessage = faceFileMap.size
+          ? `\n${faceFileMap.size} file gambar dipilih dan akan diupload ke Supabase.`
+          : "\nTidak ada folder faces dipilih; import hanya memakai path/URL yang sudah ada di JSON.";
+        const teamKeys = [...new Set(incomingPlayers.map((player) => player.teamKey).filter(Boolean))];
+        const teamLabel = teamKeys.length <= 5 ? teamKeys.join(", ") : `${teamKeys.length} teams`;
+        if (!confirm(`Import ${incomingPlayers.length} pemain untuk ${teamLabel}? Roster lama untuk team yang sama akan diganti.${faceMessage}`)) {
+          e.target.value = "";
+          return;
+        }
+
+        const uploadResult = faceFileMap.size
+          ? await uploadRosterFaces(incomingPlayers, faceFileMap)
+          : { players: incomingPlayers, uploaded: 0, missing: 0 };
+
+        const deleteOps = [];
+        const oldStoragePaths = [];
+        for (let i = 0; i < teamKeys.length; i += 10) {
+          const chunk = teamKeys.slice(i, i + 10);
+          const snap = await getDocs(query(collection(db, "players"), where("teamKey", "in", chunk)));
+          snap.docs.forEach((item) => {
+            const data = item.data();
+            if (data.faceStoragePath) oldStoragePaths.push(data.faceStoragePath);
+            deleteOps.push((batch) => batch.delete(item.ref));
+          });
+        }
+        if (oldStoragePaths.length) await deleteSupabaseFaces(oldStoragePaths);
+        await commitBatchChunks(deleteOps);
+
+        const importedAtMs = Date.now();
+        const writeOps = uploadResult.players.map((player) => {
+          const docId = String(player.docId || `${player.teamKey}_${player.playerKey || player.playerId}`).trim();
+          const payload = {
+            ...player,
+            docId,
+            importedAtMs,
+            source: player.source || "pes-roster-importer"
+          };
+          return (batch) => batch.set(doc(db, "players", docId), payload);
+        });
+        await commitBatchChunks(writeOps);
+
+        alert(`Roster import selesai. ${deleteOps.length} dokumen lama diganti, ${writeOps.length} pemain masuk. Gambar upload: ${uploadResult.uploaded}. Gambar tidak ketemu: ${uploadResult.missing}.`);
+      } catch (error) {
+        console.error("Import roster failed:", error);
+        alert("Gagal import roster: " + error.message);
+      } finally {
+        e.target.value = "";
+      }
+    };
+
     // --- EVENT DELEGATION HUB (MENGGANTIKAN SEMUA ONCLICK/ONCHANGE) ---
    // --- EVENT DELEGATION HUB ---
 document.addEventListener('click', async (e) => {
@@ -2860,6 +3268,7 @@ document.addEventListener('click', async (e) => {
     
     // 8. Backup & Settings
     else if (action === 'saveCutoffs') await saveCutoffs();
+    else if (action === 'archiveSeason') await archiveSeason();
     else if (action === 'exportBackup') await exportBackup();
 });
     
@@ -2875,6 +3284,7 @@ document.addEventListener('click', async (e) => {
     else if (action === 'updateScorerAssists') await updateScorerAssists(target.dataset.id, target.value);
     else if (action === 'updateScoreKO') await updateScoreKO(target.dataset.id, parseInt(target.dataset.side), target.value);
     else if (action === 'importBackup') await importBackup(e);
+    else if (action === 'importRosterPlayers') await importRosterPlayers(e);
 });
 
     document.addEventListener('input', (e) => {

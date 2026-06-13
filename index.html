@@ -188,6 +188,14 @@
       background-color: #e8eef7 !important;
     }
 
+    body.light-theme .bg-\[\#0f172a\],
+    body.light-theme .bg-\[\#0f1d30\],
+    body.light-theme .bg-\[\#15131f\],
+    body.light-theme .bg-\[\#171421\],
+    body.light-theme .bg-\[\#111827\]\/80 {
+      background-color: #ffffff !important;
+    }
+
     body.light-theme .bg-black\/20,
     body.light-theme .bg-black\/25,
     body.light-theme .bg-black\/40,
@@ -267,6 +275,40 @@
     body.light-theme .shadow-2xl,
     body.light-theme .shadow-xl {
       box-shadow: 0 18px 48px rgba(34, 49, 75, 0.12) !important;
+    }
+
+    body.light-theme #knockout-viewport {
+      background-color: #edf2f8;
+      background-image: radial-gradient(circle, rgba(31, 44, 69, 0.08) 1px, transparent 1px);
+    }
+
+    body.light-theme .ko-match-card,
+    body.light-theme .node {
+      background: rgba(255, 255, 255, 0.92);
+      border-color: rgba(40, 55, 82, 0.12);
+      color: #152033;
+      box-shadow: 0 16px 36px rgba(34, 49, 75, 0.12);
+    }
+
+    body.light-theme .ko-match-head {
+      color: #667085;
+    }
+
+    body.light-theme .ko-team-row,
+    body.light-theme .teamRowKO {
+      background: #edf2f8;
+    }
+
+    body.light-theme .ko-team-name,
+    body.light-theme .teamRowKO input {
+      color: #152033;
+    }
+
+    body.light-theme .ko-score {
+      background: #ffffff;
+      color: #2f7d32;
+      -webkit-text-fill-color: #2f7d32;
+      border-color: rgba(40, 55, 82, 0.14);
     }
 
     .font-headline {
@@ -886,6 +928,7 @@ select[data-action="filterMatches"]:focus {
           </span>
         </span>
       </button>
+      <button class="p-2 text-[#a4abbe] hover:bg-[#1c263a] rounded-lg transition-all active:scale-95 hidden md:block" data-action="openTab" data-tab="pesbridge" title="PES Bridge"><span class="material-symbols-outlined">settings_input_component</span></button>
       <button class="p-2 text-[#a4abbe] hover:bg-[#1c263a] rounded-lg transition-all active:scale-95 hidden md:block" data-action="openTab" data-tab="admin"><span class="material-symbols-outlined">settings</span></button>
     </div>
   </header>
@@ -924,6 +967,9 @@ select[data-action="filterMatches"]:focus {
         <span class="material-symbols-outlined pointer-events-none">history_edu</span>
         <span class="pointer-events-none">Hall of Fame</span>
       </div>
+        <div class="tab flex items-center gap-3 px-4 py-3 rounded-lg text-[#a4abbe] hover:bg-[#161f32] hover:text-[#8eff71] transition-all duration-300 cursor-pointer" data-action="openTab" data-tab="pesbridge">
+          <span class="material-symbols-outlined pointer-events-none">settings_input_component</span><span class="pointer-events-none">PES Bridge</span>
+        </div>
       </nav>
     </aside>
 
@@ -969,6 +1015,7 @@ select[data-action="filterMatches"]:focus {
                   <button class="w-8 h-8 rounded-full surface-container-highest flex items-center justify-center text-[#a4abbe] hover:bg-primary hover:text-on-primary transition-all"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
                 </div>
               </div>
+              <div id="dashboardNextMatch" class="mb-6"></div>
               <div id="liveMatches" class="flex gap-4 overflow-x-auto pb-4 no-scrollbar"></div>
             </div>
 
@@ -1287,6 +1334,21 @@ select[data-action="filterMatches"]:focus {
         <input id="liveImg8" class="admin-input" placeholder="URL Gambar 8">
         <button onclick="updateLiveBanner()" class="admin-btn w-full mt-2">Simpan Gambar</button>
       </div>
+
+      <div id="pesbridge" class="section p-6 md:p-12">
+        <div class="max-w-7xl mx-auto">
+          <header class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <div class="flex items-center gap-2 text-secondary mb-2">
+                <span class="material-symbols-outlined text-sm">settings_input_component</span>
+                <span class="text-xs font-label font-bold uppercase tracking-[0.2em]">Admin Diagnostics</span>
+              </div>
+              <h1 class="text-4xl md:text-6xl font-headline font-black uppercase tracking-tighter text-white">PES Bridge Control</h1>
+            </div>
+          </header>
+          <div id="pesBridgePanel"></div>
+        </div>
+      </div>
     </div>
 
           <div id="trophyCabinetControls" style="display:none;" class="pt-8 border-t border-outline-variant/20 mt-6">
@@ -1321,6 +1383,13 @@ select[data-action="filterMatches"]:focus {
 
             <h3 class="font-headline font-bold text-sm mb-4 text-on-surface-variant uppercase tracking-widest">Database Operations</h3>
             <div class="space-y-3">
+              <div class="bg-surface-container p-4 rounded-xl border border-outline-variant/10">
+                <label class="block text-[10px] uppercase tracking-widest font-bold text-primary mb-3">Import PES Roster</label>
+                <input id="rosterFaceFiles" type="file" multiple webkitdirectory directory accept=".png,.jpg,.jpeg,.webp" class="block w-full mb-3 text-xs text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-surface-container-highest file:text-white hover:file:bg-surface-container transition-all cursor-pointer">
+                <input type="file" accept=".json" class="block w-full text-xs text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary file:text-on-primary hover:file:bg-secondary transition-all cursor-pointer" data-action="importRosterPlayers">
+                <p class="mt-3 text-[10px] leading-relaxed text-on-surface-variant">Pilih folder faces dulu, lalu pilih firestore-import.json. Jika Supabase env aktif di Vercel, gambar otomatis diupload ke Supabase Storage.</p>
+              </div>
+              <button class="admin-btn w-full !bg-secondary !text-on-secondary" data-action="archiveSeason">Archive Current Season</button>
               <button class="admin-btn w-full !bg-[#1c263a] !text-[#ffd709] border border-[#ffd709]/30" data-action="exportBackup">Export JSON Backup</button>
               <input type="file" accept=".json" class="block w-full text-xs text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-[#1c263a] file:text-white hover:file:bg-surface-container transition-all cursor-pointer" data-action="importBackup">
             </div>
