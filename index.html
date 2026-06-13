@@ -1049,16 +1049,8 @@ select[data-action="filterMatches"]:focus {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
                 <h3 class="font-headline font-bold text-xl mb-4 text-tertiary">Club Management</h3>
-                <div class="flex gap-3 flex-col sm:flex-row">
-                  <input id="teamName" class="admin-input mb-0" placeholder="Club Name">
-                  <input id="teamLogo" class="admin-input mb-0" placeholder="Logo URL">
-                  <div class="mt-2">
-                  <label class="text-[10px] font-bold uppercase opacity-50">Team Strength (Stars)</label>
-                  <input id="teamStars" type="number" step="0.5" min="0.5" max="5" value="3.0" 
-                         class="admin-input" placeholder="e.g. 4.5">
-                </div>
-                  <button class="admin-btn" data-action="addTeam">Register</button>
-                </div>
+                <button class="admin-btn w-full" data-action="openTeamCreateModal">Add Team</button>
+                <p class="mt-4 text-xs text-on-surface-variant">Add Team membuka modal lengkap untuk identitas club, manager, dan import roster.</p>
               </div>
               <div class="border-t md:border-t-0 md:border-l border-outline-variant/20 pt-6 md:pt-0 md:pl-8">
                 <h3 class="font-headline font-bold text-xl mb-4 text-error">League Engine</h3>
@@ -1218,11 +1210,10 @@ select[data-action="filterMatches"]:focus {
 
               <div id="scorerControls" style="display:none;" class="bg-surface-container-high p-6 rounded-[2rem] border-l-4 border-secondary shadow-xl">
                 <h4 class="font-headline font-bold text-secondary mb-4 uppercase tracking-widest text-xs">Add Scorer Database</h4>
-                <input id="playerName" class="admin-input mb-2 text-sm py-2" placeholder="Player Name">
-                <input id="playerImage" class="admin-input mb-2 text-sm py-2" placeholder="Image URL">
+                <select id="playerRosterSelect" class="admin-input mb-2 text-sm py-2"></select>
                 <input id="scorerPoster" class="admin-input mb-2 text-sm py-2" placeholder="Poster URL">
                 <div class="flex gap-2 mb-4">
-                  <select id="playerTeam" class="admin-input mb-0 flex-1 text-sm py-2"></select>
+                  <select id="playerTeam" class="admin-input mb-0 flex-1 text-sm py-2" data-action="selectScorerTeam"></select>
                   <input id="playerGoals" type="number" class="admin-input mb-0 w-20 text-sm py-2" placeholder="GLS">
                   <input id="playerAssists" type="number" class="admin-input mb-0 w-20 text-sm py-2" placeholder="AST">
                 </div>
@@ -1383,12 +1374,6 @@ select[data-action="filterMatches"]:focus {
 
             <h3 class="font-headline font-bold text-sm mb-4 text-on-surface-variant uppercase tracking-widest">Database Operations</h3>
             <div class="space-y-3">
-              <div class="bg-surface-container p-4 rounded-xl border border-outline-variant/10">
-                <label class="block text-[10px] uppercase tracking-widest font-bold text-primary mb-3">Import PES Roster</label>
-                <input id="rosterFaceFiles" type="file" multiple webkitdirectory directory accept=".png,.jpg,.jpeg,.webp" class="block w-full mb-3 text-xs text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-surface-container-highest file:text-white hover:file:bg-surface-container transition-all cursor-pointer">
-                <input type="file" accept=".json" class="block w-full text-xs text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary file:text-on-primary hover:file:bg-secondary transition-all cursor-pointer" data-action="importRosterPlayers">
-                <p class="mt-3 text-[10px] leading-relaxed text-on-surface-variant">Pilih folder faces dulu, lalu pilih firestore-import.json. Jika Supabase env aktif di Vercel, gambar otomatis diupload ke Supabase Storage.</p>
-              </div>
               <button class="admin-btn w-full !bg-secondary !text-on-secondary" data-action="archiveSeason">Archive Current Season</button>
               <button class="admin-btn w-full !bg-[#1c263a] !text-[#ffd709] border border-[#ffd709]/30" data-action="exportBackup">Export JSON Backup</button>
               <input type="file" accept=".json" class="block w-full text-xs text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-[#1c263a] file:text-white hover:file:bg-surface-container transition-all cursor-pointer" data-action="importBackup">
@@ -1580,6 +1565,47 @@ select[data-action="filterMatches"]:focus {
         </div>
     </div>
 </div>
+
+  <div id="teamEditorModal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4 bg-background/90 backdrop-blur-xl">
+    <div class="w-full max-w-3xl rounded-[2.5rem] border border-outline-variant/20 bg-surface-container-high p-6 md:p-8 shadow-2xl">
+      <div class="flex items-center justify-between gap-4 mb-6">
+        <div>
+          <p class="text-[10px] uppercase tracking-[0.25em] text-primary font-black">Club Registry</p>
+          <h2 class="font-headline text-3xl font-black uppercase text-white">Team Setup</h2>
+        </div>
+        <button class="admin-btn !py-2 !px-3" data-action="closeTeamEditorModal">Close</button>
+      </div>
+      <input id="modalTeamId" type="hidden">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <input id="modalTeamName" class="admin-input" placeholder="Nama team">
+        <input id="modalTeamLogo" class="admin-input" placeholder="Logo URL">
+        <input id="modalTeamStars" type="number" step="0.5" min="0.5" max="5" value="3.0" class="admin-input" placeholder="Bintang">
+        <input id="modalTeamFormation" class="admin-input" placeholder="Formation, e.g. 4-3-3">
+        <input id="modalTeamManager" class="admin-input" placeholder="Nama manager">
+        <input id="modalTeamManagerPhoto" class="admin-input" placeholder="Manager photo URL (optional, auto ambil dari season kalau nama sama)">
+      </div>
+      <div class="mt-6 rounded-2xl border border-outline-variant/10 bg-black/20 p-4">
+        <label class="block text-[10px] uppercase tracking-widest font-bold text-primary mb-3">Import PES Roster + Faces</label>
+        <input id="rosterFaceFiles" type="file" multiple webkitdirectory directory accept=".png,.jpg,.jpeg,.webp" class="block w-full mb-3 text-xs text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-surface-container-highest file:text-white hover:file:bg-surface-container transition-all cursor-pointer">
+        <input type="file" accept=".json" class="block w-full text-xs text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary file:text-on-primary hover:file:bg-secondary transition-all cursor-pointer" data-action="importRosterPlayers">
+        <p class="mt-3 text-xs text-on-surface-variant leading-relaxed">Pilih folder faces dulu, lalu pilih firestore-import.json. Import otomatis membuat/update team yang namanya sama.</p>
+      </div>
+      <button class="admin-btn w-full mt-6" data-action="saveTeamFromModal">Save Team</button>
+    </div>
+  </div>
+
+  <div id="teamDetailModal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4 bg-background/90 backdrop-blur-xl">
+    <div class="w-full max-w-7xl max-h-[88vh] overflow-y-auto rounded-[2.5rem] border border-outline-variant/20 bg-surface-container-high p-6 md:p-8 shadow-2xl">
+      <div class="mb-6 flex items-center justify-between gap-4">
+        <div>
+          <p class="text-[10px] uppercase tracking-[0.25em] text-secondary font-black">Roster Board</p>
+          <h2 class="font-headline text-3xl font-black uppercase text-white">Team Detail</h2>
+        </div>
+        <button class="admin-btn !py-2 !px-3" data-action="closeTeamDetailModal">Close</button>
+      </div>
+      <div id="teamDetailBody"></div>
+    </div>
+  </div>
 
   <!-- Detail News Modal -->
   <div id="newsModal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4">

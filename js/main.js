@@ -13,6 +13,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     let matchEvents = [];
     let liveMatchStates = [];
     let scorers = [];
+    let rosterPlayers = [];
     let news = [];
     let knockout = { format: "single", bracketSize: 0, rounds: [] };
     let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
@@ -32,6 +33,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     const autoNewsInFlight = new Set();
     let knockoutScheduleSyncing = false;
     let knockoutScoreSyncing = false;
+    let activeTeamDetailId = "";
     
     // Variabel Global untuk Slideshow
     let slideshowInterval = null;
@@ -89,6 +91,31 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     const resolveTeam = (name) => {
       const team = teams.find(t => normalizeKey(t.name) === normalizeKey(name));
       return team ? { ...team, disqualified: false } : { name, logo: placeholderImage, disqualified: true };
+    };
+
+    const slugKey = (value) => String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    const teamKeyFor = (team) => team?.teamKey || slugKey(team?.name);
+
+    const playersForTeam = (team) => {
+      const key = teamKeyFor(team);
+      const name = normalizeKey(team?.name);
+      return rosterPlayers
+        .filter((player) => normalizeKey(player.teamKey) === normalizeKey(key) || normalizeKey(player.team) === name)
+        .sort((a, b) => (a.number ?? 999) - (b.number ?? 999) || (a.rosterSlot ?? 999) - (b.rosterSlot ?? 999) || String(a.player || "").localeCompare(String(b.player || "")));
+    };
+
+    const positionGroup = (position = "") => {
+      const value = normalizeKey(position);
+      if (["gk", "goalkeeper"].some((item) => value.includes(item))) return "GK";
+      if (["cb", "lb", "rb", "def", "dmf"].some((item) => value.includes(item))) return "DEF";
+      if (["cm", "am", "mf", "mid", "lm", "rm"].some((item) => value.includes(item))) return "MID";
+      if (["cf", "ss", "wf", "lw", "rw", "fw", "st"].some((item) => value.includes(item))) return "FWD";
+      return "SUB";
     };
 
     const sameExternalMatch = (a, b) => normalizeKey(a || "") && normalizeKey(a) === normalizeKey(b);
@@ -283,6 +310,15 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       const lastBridgeItem = matches
         .filter((match) => match.bridgeImportedAtMs)
         .sort((a, b) => (parseInt(b.bridgeImportedAtMs) || 0) - (parseInt(a.bridgeImportedAtMs) || 0))[0];
+      const escapeHtml = (value) => String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+      const teamMapText = teams
+        .slice()
+        .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+        .map((team) => `${team.pesTeamId || team.teamKey || slugKey(team.name)}=${team.name}`)
+        .join("\n");
 
       const statCard = (label, value, tone = "text-primary") => `
         <div class="rounded-[1.4rem] border border-outline-variant/10 bg-surface-container-high p-5 shadow-xl">
@@ -313,6 +349,36 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
           ${statCard("Locked Final", lockedItems.length, "text-primary")}
           ${statCard("KO Schedules", knockoutSchedules.length, "text-on-surface")}
         </div>
+        <section class="mt-6 rounded-[2rem] border border-outline-variant/10 bg-surface-container-high p-6 shadow-xl">
+          <div class="mb-5 flex items-center justify-between gap-3">
+            <div>
+              <p class="text-[10px] uppercase tracking-[0.22em] text-primary font-black">Bridge Settings</p>
+              <h3 class="font-headline text-2xl font-black uppercase text-white">Firestore Sync</h3>
+            </div>
+            <span class="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-primary">Schedule First</span>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="rounded-2xl border border-outline-variant/10 bg-black/20 p-4">
+              <p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-black">Match Target</p>
+              <p class="mt-2 font-headline text-lg font-black text-white">matches</p>
+              <p class="mt-1 text-[10px] uppercase tracking-widest text-secondary font-bold">Only empty scores</p>
+            </div>
+            <div class="rounded-2xl border border-outline-variant/10 bg-black/20 p-4">
+              <p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-black">Timeline Target</p>
+              <p class="mt-2 font-headline text-lg font-black text-white">matchEvents</p>
+              <p class="mt-1 text-[10px] uppercase tracking-widest text-secondary font-bold">Goals, assists, cards, subs</p>
+            </div>
+            <div class="rounded-2xl border border-outline-variant/10 bg-black/20 p-4">
+              <p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-black">Live State</p>
+              <p class="mt-2 font-headline text-lg font-black text-white">liveMatchStates</p>
+              <p class="mt-1 text-[10px] uppercase tracking-widest text-secondary font-bold">Clock and active match</p>
+            </div>
+          </div>
+          <div class="mt-5">
+            <p class="mb-2 text-[10px] uppercase tracking-widest text-on-surface-variant font-black">Team Map Preview</p>
+            <textarea readonly class="admin-input h-32 font-mono text-xs">${escapeHtml(teamMapText || "Belum ada team terdaftar.")}</textarea>
+          </div>
+        </section>
         <section class="mt-6 rounded-[2rem] border border-outline-variant/10 bg-surface-container-high p-6 shadow-xl">
           <div class="mb-4 flex flex-col md:flex-row md:items-end md:justify-between gap-3">
             <div>
@@ -750,6 +816,52 @@ const getStarIcons = (rating) => {
       renderMatches();
     };
 
+    const syncScorersFromBridgeEvents = async (events) => {
+      if (!isAdmin || !Array.isArray(events) || !events.length) return;
+      const totals = new Map();
+
+      const addStat = (playerName, teamName, field, event) => {
+        const player = String(playerName || "").trim();
+        if (!player) return;
+        const team = String(teamName || event.team || event.teamName || "").trim();
+        const key = `${slugKey(team || "unknown")}_${slugKey(player)}`;
+        const item = totals.get(key) || {
+          docId: `auto_${key}`,
+          player,
+          team,
+          goals: 0,
+          assists: 0,
+          source: "pes-bridge",
+          autoFromEvents: true
+        };
+        item[field] += 1;
+        totals.set(key, item);
+      };
+
+      events.forEach((event) => {
+        const kind = normalizeKey(event.eventType || event.type || "");
+        const match = matches.find((item) => item.id === event.matchDocId || sameExternalMatch(item.externalMatchId, event.externalMatchId));
+        const teamName = event.teamSide === "away" ? (match?.team2 || event.team2) : (match?.team1 || event.team1);
+        if (kind.includes("goal")) {
+          addStat(event.scorer || event.player, teamName, "goals", event);
+          addStat(event.assist, teamName, "assists", event);
+        }
+      });
+
+      for (const item of totals.values()) {
+        const roster = rosterPlayers.find((player) => (
+          normalizeKey(player.player) === normalizeKey(item.player) &&
+          (!item.team || normalizeKey(player.team) === normalizeKey(item.team))
+        ));
+        await setDoc(doc(db, "scorers", item.docId), {
+          ...item,
+          image: roster?.faceUrl || roster?.image || roster?.facePath || "",
+          rosterPlayerId: roster?.id || "",
+          updatedAtMs: Date.now()
+        }, { merge: true });
+      }
+    };
+
     // --- DATA LISTENERS ---
     onSnapshot(collection(db, "teams"), snap => {
       teams = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -794,6 +906,7 @@ const getStarIcons = (rating) => {
       incomingEvents.forEach((event) => seenMatchEventIds.add(event.id));
       matchEventsReady = true;
       matchEvents = incomingEvents;
+      syncScorersFromBridgeEvents(incomingEvents);
       renderMatches();
       renderLiveMatches();
       renderPesBridgePanel();
@@ -802,6 +915,14 @@ const getStarIcons = (rating) => {
     onSnapshot(collection(db, "scorers"), snap => {
       scorers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderScorers();
+    });
+
+    onSnapshot(collection(db, "players"), snap => {
+      rosterPlayers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderTeams();
+      renderRosterPlayerOptions();
+      renderScorers();
+      if (activeTeamDetailId) renderTeamDetailModal(activeTeamDetailId);
     });
     
     // Listener untuk Hall of Fame
@@ -856,7 +977,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       if (!isAdmin) return;
       const team = teams.find((item) => item.id === id);
       const teamName = team?.name || "";
-      const teamKey = teamName.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const teamKey = team?.teamKey || slugKey(teamName);
       if (!confirm(`Delete team${teamName ? ` "${teamName}"` : ""}? Roster dan gambar Supabase team ini juga akan dibersihkan.`)) return;
 
       try {
@@ -965,19 +1086,197 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
     };
 
     // --- RENDERING VIEWS ---
+    const renderRosterPlayerOptions = () => {
+      const select = document.getElementById("playerRosterSelect");
+      if (!select) return;
+      const selectedTeam = document.getElementById("playerTeam")?.value || "";
+      const team = teams.find((item) => normalizeKey(item.name) === normalizeKey(selectedTeam));
+      const players = team ? playersForTeam(team) : rosterPlayers.slice().sort((a, b) => String(a.player || "").localeCompare(String(b.player || "")));
+      select.innerHTML = `<option value="">Pilih pemain roster</option>` + players.map((player) => `
+        <option value="${player.id || player.docId}" data-name="${player.player || ""}" data-image="${player.faceUrl || player.image || player.facePath || ""}" data-team="${player.team || selectedTeam}">
+          ${player.number ? `${player.number}. ` : ""}${player.player}${player.position ? ` - ${player.position}` : ""}
+        </option>
+      `).join("");
+    };
+
+    const openTeamCreateModal = () => {
+      const modal = document.getElementById("teamEditorModal");
+      if (!modal) return;
+      ["modalTeamId", "modalTeamName", "modalTeamLogo", "modalTeamFormation", "modalTeamManager", "modalTeamManagerPhoto"].forEach((id) => {
+        const field = document.getElementById(id);
+        if (field) field.value = "";
+      });
+      document.getElementById("modalTeamStars").value = "3.0";
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    };
+
+    const openTeamEditModal = (teamId) => {
+      const team = teams.find((item) => item.id === teamId);
+      const modal = document.getElementById("teamEditorModal");
+      if (!team || !modal) return;
+      document.getElementById("modalTeamId").value = team.id;
+      document.getElementById("modalTeamName").value = team.name || "";
+      document.getElementById("modalTeamLogo").value = team.logo || "";
+      document.getElementById("modalTeamStars").value = team.stars || 3;
+      document.getElementById("modalTeamFormation").value = team.formation || "";
+      document.getElementById("modalTeamManager").value = team.managerName || "";
+      document.getElementById("modalTeamManagerPhoto").value = team.managerPhoto || findManagerPhoto(team.managerName) || "";
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    };
+
+    const closeTeamEditorModal = () => {
+      const modal = document.getElementById("teamEditorModal");
+      if (!modal) return;
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    };
+
+    const saveTeamFromModal = async () => {
+      if (!isAdmin) return;
+      const id = document.getElementById("modalTeamId")?.value || "";
+      const name = document.getElementById("modalTeamName")?.value.trim();
+      const logo = document.getElementById("modalTeamLogo")?.value.trim();
+      const stars = parseFloat(document.getElementById("modalTeamStars")?.value) || 3;
+      const formation = document.getElementById("modalTeamFormation")?.value.trim();
+      const managerName = document.getElementById("modalTeamManager")?.value.trim();
+      const managerPhoto = document.getElementById("modalTeamManagerPhoto")?.value.trim() || findManagerPhoto(managerName);
+      if (!name) return alert("Nama team wajib diisi.");
+
+      const payload = {
+        name,
+        logo,
+        stars,
+        formation,
+        managerName,
+        managerPhoto,
+        teamKey: slugKey(name),
+        updatedAtMs: Date.now()
+      };
+      if (id) {
+        await updateDoc(doc(db, "teams", id), payload);
+      } else {
+        await addDoc(collection(db, "teams"), {
+          ...payload,
+          p: 0,
+          w: 0,
+          d: 0,
+          l: 0,
+          gf: 0,
+          ga: 0,
+          pts: 0,
+          y: 0,
+          createdAtMs: Date.now()
+        });
+      }
+      closeTeamEditorModal();
+    };
+
+    const renderTeamDetailModal = (teamId) => {
+      const team = teams.find((item) => item.id === teamId);
+      const modal = document.getElementById("teamDetailModal");
+      const body = document.getElementById("teamDetailBody");
+      if (!team || !modal || !body) return;
+      activeTeamDetailId = teamId;
+      const players = playersForTeam(team);
+      const managerPhoto = team.managerPhoto || findManagerPhoto(team.managerName) || placeholderImage;
+      const grouped = players.reduce((acc, player) => {
+        const group = player.isSubstitute ? "SUB" : positionGroup(player.position);
+        (acc[group] ||= []).push(player);
+        return acc;
+      }, {});
+      const renderGroup = (label) => `
+        <div class="rounded-2xl border border-outline-variant/10 bg-black/20 p-4">
+          <p class="mb-3 text-[10px] uppercase tracking-widest text-primary font-black">${label}</p>
+          <div class="space-y-2">
+            ${(grouped[label] || []).map((player) => `
+              <div class="grid grid-cols-[38px_1fr_auto] items-center gap-3 rounded-xl bg-surface-container/70 p-2">
+                <img src="${player.faceUrl || player.image || player.facePath || placeholderImage}" class="h-9 w-9 rounded-lg object-cover">
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-bold text-white">${player.number ? `${player.number}. ` : ""}${player.player}</p>
+                  <p class="text-[9px] uppercase tracking-widest text-on-surface-variant">${player.position || "POS"} ${player.isSubstitute ? "- SUB" : ""}</p>
+                </div>
+                ${isAdmin ? `<button class="admin-btn !py-1 !px-2 text-[10px]" data-action="editRosterPlayer" data-id="${player.id}">Edit</button>` : ""}
+              </div>
+            `).join("") || `<p class="text-xs italic text-on-surface-variant">Kosong</p>`}
+          </div>
+        </div>
+      `;
+
+      body.innerHTML = `
+        <div class="flex flex-col md:flex-row md:items-center gap-5">
+          <img src="${team.logo || placeholderImage}" class="h-20 w-20 rounded-2xl bg-surface-container-highest p-3 object-contain">
+          <div class="flex-1">
+            <p class="text-[10px] uppercase tracking-widest text-primary font-black">${team.pesTeamId ? `PES ID ${team.pesTeamId}` : team.teamKey || slugKey(team.name)}</p>
+            <h2 class="font-headline text-4xl font-black uppercase text-white">${team.name}</h2>
+            <p class="text-sm text-on-surface-variant">${players.length} pemain roster${team.formation ? ` - ${team.formation}` : ""}</p>
+          </div>
+          <div class="rounded-2xl border border-secondary/20 bg-secondary/10 p-3 flex items-center gap-3 min-w-[220px]">
+            <img src="${managerPhoto}" class="h-12 w-12 rounded-xl object-cover">
+            <div>
+              <p class="text-[9px] uppercase tracking-widest text-secondary font-black">Manager</p>
+              <p class="font-bold text-white">${team.managerName || "Belum diisi"}</p>
+            </div>
+          </div>
+        </div>
+        <div class="mt-6 grid grid-cols-1 lg:grid-cols-5 gap-4">
+          ${["GK", "DEF", "MID", "FWD", "SUB"].map(renderGroup).join("")}
+        </div>
+      `;
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    };
+
+    const closeTeamDetailModal = () => {
+      activeTeamDetailId = "";
+      const modal = document.getElementById("teamDetailModal");
+      if (!modal) return;
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    };
+
+    const editRosterPlayer = async (playerId) => {
+      if (!isAdmin) return;
+      const player = rosterPlayers.find((item) => item.id === playerId);
+      if (!player) return;
+      const position = prompt("Posisi pemain:", player.position || "");
+      if (position === null) return;
+      const numberText = prompt("Nomor punggung:", player.number ?? "");
+      if (numberText === null) return;
+      const isSubstitute = confirm("Jadikan substitute? OK = substitute, Cancel = starter.");
+      await updateDoc(doc(db, "players", player.id), {
+        position: position.trim(),
+        number: parseInt(numberText, 10) || null,
+        isSubstitute,
+        updatedAtMs: Date.now()
+      });
+    };
+
     const renderTeams = () => {
       let html = "",
         opts = "",
         filterOpts = '<option value="">All Teams</option>';
 
       teams.forEach(t => {
+        const rosterCount = playersForTeam(t).length;
+        const managerPhoto = t.managerPhoto || findManagerPhoto(t.managerName) || placeholderImage;
         html += `
-                <li class="bg-surface-container-high rounded-[2rem] p-6 flex items-center justify-between border border-outline-variant/10 shadow-lg group hover:-translate-y-1 transition-transform">
-                    <div class="flex items-center gap-4">
-                        <img src="${t.logo}" class="w-14 h-14 object-contain bg-surface-container-highest p-2 rounded-[1rem] group-hover:scale-110 transition-transform">
-                        <span class="font-headline font-bold text-xl">${t.name}</span>
+                <li class="bg-surface-container-high rounded-[2rem] p-6 border border-outline-variant/10 shadow-lg group hover:-translate-y-1 transition-transform cursor-pointer" data-action="openTeamDetail" data-id="${t.id}">
+                    <div class="flex items-center justify-between gap-4">
+                      <div class="flex items-center gap-4 min-w-0">
+                          <img src="${t.logo || placeholderImage}" class="w-14 h-14 object-contain bg-surface-container-highest p-2 rounded-[1rem] group-hover:scale-110 transition-transform">
+                          <div class="min-w-0">
+                            <span class="block truncate font-headline font-bold text-xl">${t.name}</span>
+                            <span class="text-[10px] uppercase tracking-widest text-on-surface-variant">${rosterCount} roster</span>
+                          </div>
+                      </div>
+                      <img src="${managerPhoto}" class="h-10 w-10 rounded-xl object-cover border border-secondary/30" title="${t.managerName || "Manager"}">
                     </div>
-                    ${isAdmin ? `<button class="deleteBtn" data-action="deleteTeam" data-id="${t.id}">Delete</button>` : ""}
+                    ${isAdmin ? `<div class="mt-4 flex gap-2">
+                      <button class="admin-btn !py-2 flex-1" data-action="editTeam" data-id="${t.id}">Edit</button>
+                      <button class="deleteBtn" data-action="deleteTeam" data-id="${t.id}">Delete</button>
+                    </div>` : ""}
                 </li>`;
         opts += `<option value="${t.name}">${t.name}</option>`;
         filterOpts += `<option value="${t.name.toLowerCase()}">${t.name}</option>`;
@@ -989,6 +1288,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       document.getElementById("playerTeam").innerHTML = opts;
       document.getElementById("filterTeam1").innerHTML = filterOpts;
       document.getElementById("filterTeam2").innerHTML = '<option value="">Vs Team</option>' + filterOpts.substring(34);
+      renderRosterPlayerOptions();
     };
 
     const renderMatches = () => {
@@ -2643,20 +2943,23 @@ const clearKnockoutData = async () => {
 
     const addScorer = async () => {
       if (!isAdmin) return;
-      const player = document.getElementById("playerName").value.trim();
-      const image = document.getElementById("playerImage").value.trim();
+      const selected = document.getElementById("playerRosterSelect");
+      const option = selected?.selectedOptions?.[0];
+      const rosterId = selected?.value || "";
+      const player = option?.dataset.name || option?.textContent?.trim() || "";
+      const image = option?.dataset.image || "";
       const poster = document.getElementById("scorerPoster").value.trim();
-      const team = document.getElementById("playerTeam").value;
+      const team = option?.dataset.team || document.getElementById("playerTeam").value;
       const goals = parseInt(document.getElementById("playerGoals").value) || 0;
       const assists = parseInt(document.getElementById("playerAssists").value) || 0; // New field
 
       if (!player || !team) return alert("Fill in player name and team!");
 
       // Save to Firebase (including assists)
-      await addDoc(collection(db, "scorers"), { player, image, poster, team, goals, assists });
+      await addDoc(collection(db, "scorers"), { player, image, poster, team, goals, assists, rosterPlayerId: rosterId });
 
       // Clear input fields after saving
-      ["playerName", "playerImage", "scorerPoster", "playerGoals", "playerAssists"].forEach(id => document.getElementById(id).value = "");
+      ["scorerPoster", "playerGoals", "playerAssists"].forEach(id => document.getElementById(id).value = "");
     };
 
     const deleteScorer = async (id) => {
@@ -3138,6 +3441,64 @@ window.showHofDetail = (id) => {
       return result.deleted || 0;
     };
 
+    const ensureTeamsForRoster = async (players) => {
+      const incomingTeams = new Map();
+      players.forEach((player) => {
+        if (!player.team || !player.teamKey) return;
+        if (!incomingTeams.has(player.teamKey)) {
+          incomingTeams.set(player.teamKey, {
+            name: player.team,
+            teamKey: player.teamKey,
+            pesTeamId: player.teamId || null
+          });
+        }
+      });
+
+      if (!incomingTeams.size) return { created: 0, updated: 0 };
+
+      const snap = await getDocs(collection(db, "teams"));
+      const existing = snap.docs.map((item) => ({ id: item.id, ...item.data() }));
+      let created = 0;
+      let updated = 0;
+
+      for (const incoming of incomingTeams.values()) {
+        const found = existing.find((team) => (
+          normalizeKey(team.teamKey) === normalizeKey(incoming.teamKey) ||
+          normalizeKey(team.name) === normalizeKey(incoming.name)
+        ));
+
+        if (found) {
+          await updateDoc(doc(db, "teams", found.id), {
+            teamKey: incoming.teamKey,
+            pesTeamId: incoming.pesTeamId,
+            updatedAtMs: Date.now()
+          });
+          updated += 1;
+        } else {
+          await addDoc(collection(db, "teams"), {
+            name: incoming.name,
+            logo: "",
+            teamKey: incoming.teamKey,
+            pesTeamId: incoming.pesTeamId,
+            p: 0,
+            w: 0,
+            d: 0,
+            l: 0,
+            gf: 0,
+            ga: 0,
+            pts: 0,
+            y: 0,
+            stars: 3,
+            source: "pes-roster-importer",
+            createdAtMs: Date.now()
+          });
+          created += 1;
+        }
+      }
+
+      return { created, updated };
+    };
+
     const importRosterPlayers = async (e) => {
       if (!isAdmin) {
         alert("Hanya admin yang bisa import roster PES.");
@@ -3169,10 +3530,6 @@ window.showHofDetail = (id) => {
           return;
         }
 
-        const uploadResult = faceFileMap.size
-          ? await uploadRosterFaces(incomingPlayers, faceFileMap)
-          : { players: incomingPlayers, uploaded: 0, missing: 0 };
-
         const deleteOps = [];
         const oldStoragePaths = [];
         for (let i = 0; i < teamKeys.length; i += 10) {
@@ -3185,6 +3542,12 @@ window.showHofDetail = (id) => {
           });
         }
         if (oldStoragePaths.length) await deleteSupabaseFaces(oldStoragePaths);
+
+        const uploadResult = faceFileMap.size
+          ? await uploadRosterFaces(incomingPlayers, faceFileMap)
+          : { players: incomingPlayers, uploaded: 0, missing: 0 };
+        const teamImportResult = await ensureTeamsForRoster(uploadResult.players);
+
         await commitBatchChunks(deleteOps);
 
         const importedAtMs = Date.now();
@@ -3200,7 +3563,7 @@ window.showHofDetail = (id) => {
         });
         await commitBatchChunks(writeOps);
 
-        alert(`Roster import selesai. ${deleteOps.length} dokumen lama diganti, ${writeOps.length} pemain masuk. Gambar upload: ${uploadResult.uploaded}. Gambar tidak ketemu: ${uploadResult.missing}.`);
+        alert(`Roster import selesai. Team dibuat: ${teamImportResult.created}, team update: ${teamImportResult.updated}. ${deleteOps.length} dokumen lama diganti, ${writeOps.length} pemain masuk. Gambar upload: ${uploadResult.uploaded}. Gambar tidak ketemu: ${uploadResult.missing}.`);
       } catch (error) {
         console.error("Import roster failed:", error);
         alert("Gagal import roster: " + error.message);
@@ -3236,7 +3599,14 @@ document.addEventListener('click', async (e) => {
     }
     
     // 3. Teams
-    else if (action === 'addTeam') await addTeam();
+    else if (action === 'openTeamCreateModal') openTeamCreateModal();
+    else if (action === 'closeTeamEditorModal') closeTeamEditorModal();
+    else if (action === 'saveTeamFromModal') await saveTeamFromModal();
+    else if (action === 'editTeam') openTeamEditModal(id);
+    else if (action === 'openTeamDetail') renderTeamDetailModal(id);
+    else if (action === 'closeTeamDetailModal') closeTeamDetailModal();
+    else if (action === 'editRosterPlayer') await editRosterPlayer(id);
+    else if (action === 'addTeam') openTeamCreateModal();
     else if (action === 'deleteTeam') await deleteTeam(id);
     
     // 4. Matches & League
@@ -3285,6 +3655,7 @@ document.addEventListener('click', async (e) => {
     else if (action === 'updateScoreKO') await updateScoreKO(target.dataset.id, parseInt(target.dataset.side), target.value);
     else if (action === 'importBackup') await importBackup(e);
     else if (action === 'importRosterPlayers') await importRosterPlayers(e);
+    else if (action === 'selectScorerTeam') renderRosterPlayerOptions();
 });
 
     document.addEventListener('input', (e) => {
