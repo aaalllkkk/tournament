@@ -34,6 +34,8 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     let knockoutScheduleSyncing = false;
     let knockoutScoreSyncing = false;
     let activeTeamDetailId = "";
+    let activeDraggedRosterPlayerId = "";
+    let activeTacticDropTargetId = "";
     
     // Variabel Global untuk Slideshow
     let slideshowInterval = null;
@@ -93,6 +95,8 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       return team ? { ...team, disqualified: false } : { name, logo: placeholderImage, disqualified: true };
     };
 
+    const teamRecordForName = (name) => teams.find((team) => normalizeKey(team.name) === normalizeKey(name)) || resolveTeam(name);
+
     const slugKey = (value) => String(value || "")
       .trim()
       .toLowerCase()
@@ -120,6 +124,12 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
 
     const positionCode = (position = "") => String(position || "").trim().toUpperCase();
 
+    const playerRating = (player) => {
+      const value = player?.rating ?? player?.overall ?? player?.ovr ?? player?.overallRating;
+      const number = Number(value);
+      return Number.isFinite(number) && number > 0 ? number : 0;
+    };
+
     const sortByRoster = (items) => items.slice().sort((a, b) => (
       (a.rosterSlot ?? 999) - (b.rosterSlot ?? 999) ||
       (a.number ?? 999) - (b.number ?? 999) ||
@@ -134,8 +144,15 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
 
     const xSlots = (count) => {
       if (count <= 1) return [50];
-      const gap = 76 / Math.max(1, count - 1);
-      return Array.from({ length: count }, (_, index) => 12 + gap * index);
+      const presets = {
+        2: [42, 58],
+        3: [32, 50, 68],
+        4: [24, 42, 58, 76],
+        5: [18, 34, 50, 66, 82]
+      };
+      if (presets[count]) return presets[count];
+      const gap = 68 / Math.max(1, count - 1);
+      return Array.from({ length: count }, (_, index) => 16 + gap * index);
     };
 
     const ySlots = (lineCount) => {
@@ -156,7 +173,9 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       let score = 0;
       if (target && codeMatchesTarget(code, target)) score -= 1000;
       if (player.positionSource === "player-map") score -= 80;
+      if (player.positionSource === "player-database") score -= 70;
       if (player.positionSource === "squad-order-heuristic") score -= 40;
+      score -= playerRating(player) * 3;
       if (target === "GK" && number === 1) score -= 200;
       if (target === "LB" && code.includes("L")) score -= 30;
       if (target === "RB" && code.includes("R")) score -= 30;
@@ -345,6 +364,63 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       return layout;
     };
 
+    const percentFromBoardEvent = (board, event) => {
+      const rect = board.getBoundingClientRect();
+      return {
+        x: Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100)),
+        y: Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100))
+      };
+    };
+
+    const clearTacticDropHighlight = () => {
+      document.querySelectorAll("[data-tactic-player].drop-replace-target").forEach((node) => {
+        node.classList.remove("drop-replace-target", "scale-110", "z-40");
+        const img = node.querySelector("img");
+        if (img) {
+          img.classList.remove("border-[#8eff71]", "shadow-[0_0_28px_rgba(142,255,113,0.9)]");
+          img.classList.add("border-primary");
+          img.style.borderColor = "";
+          img.style.boxShadow = "";
+        }
+      });
+      document.querySelectorAll(".tactic-board.drop-active").forEach((node) => {
+        node.classList.remove("drop-active", "ring-2", "ring-primary/70");
+      });
+      activeTacticDropTargetId = "";
+    };
+
+    const setTacticDropHighlight = (board, targetNode) => {
+      const targetId = targetNode?.dataset?.tacticPlayer || "";
+      if (activeTacticDropTargetId === targetId && board.classList.contains("drop-active")) return;
+      clearTacticDropHighlight();
+      board.classList.add("drop-active", "ring-2", "ring-primary/70");
+      if (!targetNode) return;
+      activeTacticDropTargetId = targetId;
+      targetNode.classList.add("drop-replace-target", "scale-110", "z-40");
+      const img = targetNode.querySelector("img");
+      if (img) {
+        img.classList.remove("border-primary");
+        img.classList.add("border-[#8eff71]", "shadow-[0_0_28px_rgba(142,255,113,0.9)]");
+        img.style.borderColor = "#8eff71";
+        img.style.boxShadow = "0 0 28px rgba(142,255,113,0.9)";
+      }
+    };
+
+    const getNearestTacticPlayerNode = (board, event, ignoredPlayerId = "") => {
+      const point = percentFromBoardEvent(board, event);
+      const nodes = Array.from(board.querySelectorAll("[data-tactic-player]"))
+        .filter((node) => node.dataset.tacticPlayer !== ignoredPlayerId);
+      let best = null;
+      for (const node of nodes) {
+        const x = parseFloat(node.dataset.x || node.style.left || "");
+        const y = parseFloat(node.dataset.y || node.style.top || "");
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        const score = ((point.x - x) ** 2) + ((point.y - y) ** 2);
+        if (!best || score < best.score) best = { node, score };
+      }
+      return best?.node || null;
+    };
+
     const sameExternalMatch = (a, b) => normalizeKey(a || "") && normalizeKey(a) === normalizeKey(b);
 
     const getLiveStateForMatch = (match) => liveMatchStates.find((state) => (
@@ -489,6 +565,60 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       const form1 = renderFormGuide(match.team1);
       const form2 = renderFormGuide(match.team2);
       const label = match.type === "knockout" ? (match.knockoutRoundName || "Knockout") : `Matchday ${getMW(match)}`;
+      const renderMiniPitch = (teamName) => {
+        const team = teamRecordForName(teamName);
+        const players = playersForTeam(team);
+        if (!players.length) {
+          return `
+            <div class="rounded-[1.2rem] border border-outline-variant/10 bg-black/20 p-4 text-center">
+              <p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-black">${teamName}</p>
+              <p class="mt-3 text-xs italic text-on-surface-variant">Roster belum diimport</p>
+            </div>
+          `;
+        }
+
+        const lineup = autoLineupForFormation(team, players).lineup;
+        const layout = autoTacticLayout(team, players);
+        const pieces = lineup.map((player) => {
+          const point = layout.get(player.id) || { x: 50, y: 50 };
+          const rating = playerRating(player);
+          return `
+            <div class="absolute -translate-x-1/2 -translate-y-1/2 text-center" style="left:${point.x}%; top:${point.y}%;">
+              <img src="${player.faceUrl || player.image || player.facePath || placeholderImage}" class="mx-auto h-7 w-7 rounded-full border border-primary object-cover shadow-lg">
+              <div class="mt-0.5 max-w-[58px] rounded bg-black/75 px-1.5 py-0.5 text-[7px] font-black leading-tight text-white">
+                <span class="text-primary">${player.position || ""}</span>${rating ? ` <span class="text-secondary">${rating}</span>` : ""}
+                <br><span class="block truncate">${String(player.player || "").split(" ").slice(-1)[0]}</span>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        return `
+          <div class="rounded-[1.2rem] border border-outline-variant/10 bg-black/20 p-3">
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <p class="truncate text-[10px] uppercase tracking-widest text-primary font-black">${team.name}</p>
+              <span class="rounded-md bg-black/60 px-2 py-1 text-[9px] font-black text-white">${team.formation || "4-3-3"}</span>
+            </div>
+            <div class="relative h-[250px] overflow-hidden rounded-[1rem] border border-primary/15 bg-surface-container-highest">
+              <div class="absolute inset-0 opacity-25" style="background-image:linear-gradient(90deg,rgba(142,255,113,.22) 1px,transparent 1px),linear-gradient(rgba(255,215,9,.16) 1px,transparent 1px);background-size:20% 16.66%;"></div>
+              <div class="absolute inset-x-[18%] top-0 h-[16%] border-x border-b border-primary/25"></div>
+              <div class="absolute inset-x-[18%] bottom-0 h-[16%] border-x border-t border-primary/25"></div>
+              <div class="absolute left-0 right-0 top-1/2 border-t border-secondary/25"></div>
+              <div class="absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border border-secondary/25"></div>
+              ${pieces}
+            </div>
+          </div>
+        `;
+      };
+      const predictedLineups = `
+        <div class="mt-5 border-t border-outline-variant/10 pt-5">
+          <p class="mb-3 text-[10px] uppercase tracking-[0.22em] text-primary font-black">Predicted Starting XI</p>
+          <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            ${renderMiniPitch(match.team1)}
+            ${renderMiniPitch(match.team2)}
+          </div>
+        </div>
+      `;
 
       container.innerHTML = `
         <article class="rounded-[1.6rem] border border-outline-variant/10 bg-surface-container-high p-5 shadow-xl">
@@ -512,6 +642,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
               <div class="flex justify-center">${form2}</div>
             </div>
           </div>
+          ${predictedLineups}
         </article>
       `;
     };
@@ -1149,6 +1280,7 @@ const getStarIcons = (rating) => {
       renderTeams();
       renderRosterPlayerOptions();
       renderScorers();
+      renderDashboardNextMatch();
       if (activeTeamDetailId) renderTeamDetailModal(activeTeamDetailId);
     });
     
@@ -1511,8 +1643,8 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
         const x = Number.isFinite(parseFloat(player.tacticX)) ? parseFloat(player.tacticX) : auto.x;
         const y = Number.isFinite(parseFloat(player.tacticY)) ? parseFloat(player.tacticY) : auto.y;
         return `
-          <div data-tactic-player="${player.id}" data-x="${x}" data-y="${y}" class="absolute -translate-x-1/2 -translate-y-1/2 text-center group ${isAdmin ? "cursor-move" : ""}" style="left:${x}%; top:${y}%;">
-            <img src="${player.faceUrl || player.image || player.facePath || placeholderImage}" class="mx-auto h-11 w-11 rounded-full object-cover border-2 border-primary shadow-xl">
+          <div data-tactic-player="${player.id}" data-x="${x}" data-y="${y}" class="absolute -translate-x-1/2 -translate-y-1/2 text-center group transition-[left,top,transform,filter] duration-200 ease-out will-change-transform ${isAdmin ? "cursor-move" : ""}" style="left:${x}%; top:${y}%;">
+            <img src="${player.faceUrl || player.image || player.facePath || placeholderImage}" class="mx-auto h-11 w-11 rounded-full object-cover border-2 border-primary shadow-xl transition-all duration-200">
             <div class="mt-1 rounded-md bg-black/75 px-2 py-1 text-[9px] font-black leading-tight text-white shadow-lg">
               <span class="text-primary">${player.position || positionGroup(player.position)}</span> ${player.number || ""}
               <br><span class="font-bold">${String(player.player || "").split(" ").slice(-1)[0]}</span>
@@ -1521,7 +1653,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
         `;
       };
       const tacticBoard = `
-        <div class="tactic-board relative h-[520px] overflow-hidden rounded-[2rem] border border-primary/20 bg-surface-container-highest shadow-2xl">
+        <div class="tactic-board relative h-[520px] overflow-hidden rounded-[2rem] border border-primary/20 bg-surface-container-highest shadow-2xl transition-[box-shadow,border-color,transform] duration-200">
           <div class="absolute inset-0 opacity-25" style="background-image:linear-gradient(90deg,rgba(142,255,113,.24) 1px,transparent 1px),linear-gradient(rgba(255,215,9,.18) 1px,transparent 1px);background-size:20% 16.66%;"></div>
           <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(142,255,113,.14),transparent_42%),linear-gradient(135deg,rgba(255,215,9,.08),transparent_55%)]"></div>
           <div class="absolute inset-x-[18%] top-0 h-[16%] border-x-2 border-b-2 border-primary/30"></div>
@@ -4112,14 +4244,31 @@ document.addEventListener("dragstart", (e) => {
     if (!isAdmin) return;
     const row = e.target.closest("[data-roster-list-player]");
     if (!row) return;
+    activeDraggedRosterPlayerId = row.dataset.rosterListPlayer || "";
     e.dataTransfer.setData("text/plain", row.dataset.rosterListPlayer);
     e.dataTransfer.effectAllowed = "move";
+    row.classList.add("opacity-60", "scale-[0.98]");
 });
 
 document.addEventListener("dragover", (e) => {
     if (!isAdmin) return;
-    if (!e.target.closest(".tactic-board") && !e.target.closest("[data-roster-drop-zone]")) return;
+    const board = e.target.closest(".tactic-board");
+    const listZone = e.target.closest("[data-roster-drop-zone]");
+    if (!board && !listZone) return;
     e.preventDefault();
+    if (board) {
+      const targetNode = getNearestTacticPlayerNode(board, e, activeDraggedRosterPlayerId);
+      setTacticDropHighlight(board, targetNode);
+    }
+});
+
+document.addEventListener("dragleave", (e) => {
+    if (!isAdmin) return;
+    const board = e.target.closest(".tactic-board");
+    if (!board) return;
+    const next = e.relatedTarget;
+    if (next && board.contains(next)) return;
+    clearTacticDropHighlight();
 });
 
 document.addEventListener("drop", async (e) => {
@@ -4154,18 +4303,38 @@ document.addEventListener("drop", async (e) => {
     }
 
     const rect = board.getBoundingClientRect();
-    const tacticX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-    const tacticY = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    const targetNode = getNearestTacticPlayerNode(board, e, playerId);
+    const replacedPlayerId = targetNode?.dataset?.tacticPlayer || "";
+    const targetX = parseFloat(targetNode?.dataset.x || targetNode?.style.left || "");
+    const targetY = parseFloat(targetNode?.dataset.y || targetNode?.style.top || "");
+    const fallbackX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const fallbackY = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    const tacticX = Number.isFinite(targetX) ? targetX : fallbackX;
+    const tacticY = Number.isFinite(targetY) ? targetY : fallbackY;
     try {
-      await updateDoc(doc(db, "players", playerId), {
-        isSubstitute: false,
-        tacticX,
-        tacticY,
-        updatedAtMs: Date.now()
-      });
+      if (replacedPlayerId && replacedPlayerId !== playerId) {
+        await moveRosterPlayerBetweenLists(playerId, "starter", replacedPlayerId, { x: tacticX, y: tacticY });
+      } else {
+        await updateDoc(doc(db, "players", playerId), {
+          isSubstitute: false,
+          tacticX,
+          tacticY,
+          updatedAtMs: Date.now()
+        });
+      }
     } catch (error) {
       console.error("Failed to drop player to tactic board:", error);
+    } finally {
+      clearTacticDropHighlight();
     }
+});
+
+document.addEventListener("dragend", () => {
+    activeDraggedRosterPlayerId = "";
+    document.querySelectorAll("[data-roster-list-player].opacity-60").forEach((node) => {
+      node.classList.remove("opacity-60", "scale-[0.98]");
+    });
+    clearTacticDropHighlight();
 });
 
     // --- EVENT DELEGATION HUB (MENGGANTIKAN SEMUA ONCLICK/ONCHANGE) ---
