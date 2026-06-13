@@ -1135,42 +1135,81 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
 
     const saveTeamFromModal = async () => {
       if (!isAdmin) return;
+      const saved = await upsertTeamFromModalForImport();
+      if (!saved) return alert("Nama team wajib diisi.");
+      closeTeamEditorModal();
+    };
+
+    const isTeamEditorOpen = () => {
+      const modal = document.getElementById("teamEditorModal");
+      return modal && !modal.classList.contains("hidden");
+    };
+
+    const readTeamModalPayload = () => {
       const id = document.getElementById("modalTeamId")?.value || "";
       const name = document.getElementById("modalTeamName")?.value.trim();
-      const logo = document.getElementById("modalTeamLogo")?.value.trim();
-      const stars = parseFloat(document.getElementById("modalTeamStars")?.value) || 3;
-      const formation = document.getElementById("modalTeamFormation")?.value.trim();
+      if (!name) return null;
       const managerName = document.getElementById("modalTeamManager")?.value.trim();
-      const managerPhoto = document.getElementById("modalTeamManagerPhoto")?.value.trim() || findManagerPhoto(managerName);
-      if (!name) return alert("Nama team wajib diisi.");
-
-      const payload = {
+      return {
+        id,
         name,
-        logo,
-        stars,
-        formation,
+        logo: document.getElementById("modalTeamLogo")?.value.trim() || "",
+        stars: parseFloat(document.getElementById("modalTeamStars")?.value) || 3,
+        formation: document.getElementById("modalTeamFormation")?.value.trim() || "",
         managerName,
-        managerPhoto,
-        teamKey: slugKey(name),
+        managerPhoto: document.getElementById("modalTeamManagerPhoto")?.value.trim() || findManagerPhoto(managerName),
+        teamKey: slugKey(name)
+      };
+    };
+
+    const upsertTeamFromModalForImport = async () => {
+      if (!isTeamEditorOpen()) return null;
+      const payload = readTeamModalPayload();
+      if (!payload) return null;
+
+      const teamPayload = {
+        name: payload.name,
+        logo: payload.logo,
+        stars: payload.stars,
+        formation: payload.formation,
+        managerName: payload.managerName,
+        managerPhoto: payload.managerPhoto,
+        teamKey: payload.teamKey,
         updatedAtMs: Date.now()
       };
-      if (id) {
-        await updateDoc(doc(db, "teams", id), payload);
-      } else {
-        await addDoc(collection(db, "teams"), {
-          ...payload,
-          p: 0,
-          w: 0,
-          d: 0,
-          l: 0,
-          gf: 0,
-          ga: 0,
-          pts: 0,
-          y: 0,
-          createdAtMs: Date.now()
-        });
+
+      if (payload.id) {
+        await updateDoc(doc(db, "teams", payload.id), teamPayload);
+        return payload;
       }
-      closeTeamEditorModal();
+
+      const created = await addDoc(collection(db, "teams"), {
+        ...teamPayload,
+        p: 0,
+        w: 0,
+        d: 0,
+        l: 0,
+        gf: 0,
+        ga: 0,
+        pts: 0,
+        y: 0,
+        createdAtMs: Date.now()
+      });
+      document.getElementById("modalTeamId").value = created.id;
+      return { ...payload, id: created.id };
+    };
+
+    const applyImportTargetTeam = (players, targetTeam) => {
+      if (!targetTeam?.name || !targetTeam?.teamKey) return players;
+      return players.map((player) => {
+        const playerKey = player.playerKey || slugKey(player.player) || String(player.playerId || "");
+        return {
+          ...player,
+          team: targetTeam.name,
+          teamKey: targetTeam.teamKey,
+          docId: `${targetTeam.teamKey}_${playerKey}`
+        };
+      });
     };
 
     const renderTeamDetailModal = (teamId) => {
@@ -1181,6 +1220,36 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       activeTeamDetailId = teamId;
       const players = playersForTeam(team);
       const managerPhoto = team.managerPhoto || findManagerPhoto(team.managerName) || placeholderImage;
+      const starters = players.filter((player) => !player.isSubstitute).slice(0, 11);
+      const defaultCoords = [
+        [50, 92], [20, 73], [40, 76], [60, 76], [80, 73],
+        [30, 54], [50, 50], [70, 54], [25, 30], [50, 22], [75, 30]
+      ];
+      const tacticPlayer = (player, index) => {
+        const x = Number.isFinite(parseFloat(player.tacticX)) ? parseFloat(player.tacticX) : defaultCoords[index]?.[0] || 50;
+        const y = Number.isFinite(parseFloat(player.tacticY)) ? parseFloat(player.tacticY) : defaultCoords[index]?.[1] || 50;
+        return `
+          <div data-tactic-player="${player.id}" class="absolute -translate-x-1/2 -translate-y-1/2 text-center group ${isAdmin ? "cursor-move" : ""}" style="left:${x}%; top:${y}%;">
+            <img src="${player.faceUrl || player.image || player.facePath || placeholderImage}" class="mx-auto h-11 w-11 rounded-full object-cover border-2 border-primary shadow-xl">
+            <div class="mt-1 rounded-md bg-black/75 px-2 py-1 text-[9px] font-black leading-tight text-white shadow-lg">
+              <span class="text-primary">${player.position || positionGroup(player.position)}</span> ${player.number || ""}
+              <br><span class="font-bold">${String(player.player || "").split(" ").slice(-1)[0]}</span>
+            </div>
+          </div>
+        `;
+      };
+      const tacticBoard = `
+        <div class="tactic-board relative h-[520px] overflow-hidden rounded-[2rem] border border-primary/20 bg-surface-container-highest shadow-2xl">
+          <div class="absolute inset-0 opacity-25" style="background-image:linear-gradient(90deg,rgba(142,255,113,.24) 1px,transparent 1px),linear-gradient(rgba(255,215,9,.18) 1px,transparent 1px);background-size:20% 16.66%;"></div>
+          <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(142,255,113,.14),transparent_42%),linear-gradient(135deg,rgba(255,215,9,.08),transparent_55%)]"></div>
+          <div class="absolute inset-x-[18%] top-0 h-[16%] border-x-2 border-b-2 border-primary/30"></div>
+          <div class="absolute inset-x-[18%] bottom-0 h-[16%] border-x-2 border-t-2 border-primary/30"></div>
+          <div class="absolute left-0 right-0 top-1/2 border-t-2 border-secondary/30"></div>
+          <div class="absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-secondary/30"></div>
+          ${starters.map(tacticPlayer).join("")}
+          <div class="absolute bottom-3 left-4 rounded-lg bg-black/70 px-3 py-2 font-headline text-xl font-black text-white">${team.formation || "Custom"}</div>
+        </div>
+      `;
       const grouped = players.reduce((acc, player) => {
         const group = player.isSubstitute ? "SUB" : positionGroup(player.position);
         (acc[group] ||= []).push(player);
@@ -1220,8 +1289,11 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
             </div>
           </div>
         </div>
-        <div class="mt-6 grid grid-cols-1 lg:grid-cols-5 gap-4">
-          ${["GK", "DEF", "MID", "FWD", "SUB"].map(renderGroup).join("")}
+        <div class="mt-6 grid grid-cols-1 xl:grid-cols-[1.3fr_.9fr] gap-6">
+          ${tacticBoard}
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-4">
+            ${["GK", "DEF", "MID", "FWD", "SUB"].map(renderGroup).join("")}
+          </div>
         </div>
       `;
       modal.classList.remove("hidden");
@@ -1244,10 +1316,16 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       if (position === null) return;
       const numberText = prompt("Nomor punggung:", player.number ?? "");
       if (numberText === null) return;
+      const tacticX = prompt("Grid X 0-100 (kiri ke kanan):", player.tacticX ?? "");
+      if (tacticX === null) return;
+      const tacticY = prompt("Grid Y 0-100 (atas ke bawah):", player.tacticY ?? "");
+      if (tacticY === null) return;
       const isSubstitute = confirm("Jadikan substitute? OK = substitute, Cancel = starter.");
       await updateDoc(doc(db, "players", player.id), {
         position: position.trim(),
         number: parseInt(numberText, 10) || null,
+        tacticX: tacticX === "" ? null : Math.max(0, Math.min(100, parseFloat(tacticX) || 0)),
+        tacticY: tacticY === "" ? null : Math.max(0, Math.min(100, parseFloat(tacticY) || 0)),
         isSubstitute,
         updatedAtMs: Date.now()
       });
@@ -3512,8 +3590,10 @@ window.showHofDetail = (id) => {
       try {
         const text = await file.text();
         const parsed = JSON.parse(text);
-        const incomingPlayers = parseRosterImportPlayers(parsed)
+        const targetTeam = await upsertTeamFromModalForImport();
+        let incomingPlayers = parseRosterImportPlayers(parsed)
           .filter((player) => player && (player.docId || player.playerId) && player.player && player.teamKey);
+        incomingPlayers = applyImportTargetTeam(incomingPlayers, targetTeam);
 
         if (!incomingPlayers.length) {
           throw new Error("Tidak ada player valid di file import.");
@@ -3525,7 +3605,8 @@ window.showHofDetail = (id) => {
           : "\nTidak ada folder faces dipilih; import hanya memakai path/URL yang sudah ada di JSON.";
         const teamKeys = [...new Set(incomingPlayers.map((player) => player.teamKey).filter(Boolean))];
         const teamLabel = teamKeys.length <= 5 ? teamKeys.join(", ") : `${teamKeys.length} teams`;
-        if (!confirm(`Import ${incomingPlayers.length} pemain untuk ${teamLabel}? Roster lama untuk team yang sama akan diganti.${faceMessage}`)) {
+        const targetMessage = targetTeam ? `\nTarget team dari modal: ${targetTeam.name}.` : "";
+        if (!confirm(`Import ${incomingPlayers.length} pemain untuk ${teamLabel}? Roster lama untuk team yang sama akan diganti.${targetMessage}${faceMessage}`)) {
           e.target.value = "";
           return;
         }
@@ -3571,6 +3652,47 @@ window.showHofDetail = (id) => {
         e.target.value = "";
       }
     };
+
+document.addEventListener("pointerdown", (e) => {
+    if (!isAdmin) return;
+    const playerNode = e.target.closest("[data-tactic-player]");
+    if (!playerNode) return;
+    const board = playerNode.closest(".tactic-board");
+    if (!board) return;
+
+    e.preventDefault();
+    playerNode.setPointerCapture?.(e.pointerId);
+
+    const move = (event) => {
+      const rect = board.getBoundingClientRect();
+      const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
+      const y = Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100));
+      playerNode.style.left = `${x}%`;
+      playerNode.style.top = `${y}%`;
+      playerNode.dataset.x = x.toFixed(1);
+      playerNode.dataset.y = y.toFixed(1);
+    };
+
+    const up = async () => {
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+      const tacticX = parseFloat(playerNode.dataset.x);
+      const tacticY = parseFloat(playerNode.dataset.y);
+      if (!Number.isFinite(tacticX) || !Number.isFinite(tacticY)) return;
+      try {
+        await updateDoc(doc(db, "players", playerNode.dataset.tacticPlayer), {
+          tacticX,
+          tacticY,
+          updatedAtMs: Date.now()
+        });
+      } catch (error) {
+        console.error("Failed to save tactic position:", error);
+      }
+    };
+
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", up);
+});
 
     // --- EVENT DELEGATION HUB (MENGGANTIKAN SEMUA ONCLICK/ONCHANGE) ---
    // --- EVENT DELEGATION HUB ---
