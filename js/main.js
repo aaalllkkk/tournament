@@ -144,16 +144,82 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       return [74, 52, 28];
     };
 
-    const choosePlayersForGroup = (pool, count, selectedIds, preferredCodes = []) => {
-      const preferred = [];
-      const fallback = [];
-      for (const player of pool) {
-        if (selectedIds.has(player.id)) continue;
-        const code = positionCode(player.position);
-        if (preferredCodes.length && preferredCodes.some((item) => code.includes(item))) preferred.push(player);
-        else fallback.push(player);
+    const codeMatchesTarget = (code, target) => {
+      if (!target) return true;
+      if (target === "WF") return ["LWF", "RWF", "LW", "RW"].some((item) => code.includes(item));
+      return code.includes(target);
+    };
+
+    const playerPickScore = (player, target = "") => {
+      const code = positionCode(player.position);
+      const number = Number(player.number) || 99;
+      let score = 0;
+      if (target && codeMatchesTarget(code, target)) score -= 1000;
+      if (player.positionSource === "player-map") score -= 80;
+      if (player.positionSource === "squad-order-heuristic") score -= 40;
+      if (target === "GK" && number === 1) score -= 200;
+      if (target === "LB" && code.includes("L")) score -= 30;
+      if (target === "RB" && code.includes("R")) score -= 30;
+      if (target === "LWF" && (code.includes("LWF") || code === "LW")) score -= 30;
+      if (target === "RWF" && (code.includes("RWF") || code === "RW")) score -= 30;
+      return score + (player.rosterSlot ?? 999) + number / 100;
+    };
+
+    const choosePlayersByTargets = (pool, targets, selectedIds) => {
+      const chosen = [];
+      const localSelected = new Set(selectedIds);
+      const orderedPool = pool.slice().sort((a, b) => (
+        (a.rosterSlot ?? 999) - (b.rosterSlot ?? 999) ||
+        (a.number ?? 999) - (b.number ?? 999)
+      ));
+
+      for (const target of targets) {
+        const candidates = orderedPool
+          .filter((player) => !localSelected.has(player.id))
+          .sort((a, b) => playerPickScore(a, target) - playerPickScore(b, target));
+        const exact = candidates.find((player) => codeMatchesTarget(positionCode(player.position), target));
+        const picked = exact || candidates[0];
+        if (!picked) continue;
+        chosen.push(picked);
+        localSelected.add(picked.id);
       }
-      return [...preferred, ...fallback].slice(0, count);
+
+      return chosen;
+    };
+
+    const lineRoleFor = (lines, index) => {
+      if (index === 0) return "DEF";
+      if (index === lines.length - 1) return "FWD";
+      if (lines.length === 4 && index === 2) return "AM";
+      return "MID";
+    };
+
+    const targetsForLine = (role, count) => {
+      if (role === "DEF") {
+        if (count === 5) return ["LB", "CB", "CB", "CB", "RB"];
+        if (count === 3) return ["CB", "CB", "CB"];
+        return ["LB", "CB", "CB", "RB"].slice(0, count);
+      }
+      if (role === "MID") {
+        if (count === 2) return ["DMF", "CMF"];
+        if (count === 4) return ["LMF", "DMF", "CMF", "RMF"];
+        return ["DMF", "CMF", "AMF"].slice(0, count);
+      }
+      if (role === "AM") return ["LWF", "AMF", "RWF"].slice(0, count);
+      if (count === 3) return ["LWF", "CF", "RWF"];
+      if (count === 2) return ["CF", "CF"];
+      return Array.from({ length: count }, () => "CF");
+    };
+
+    const poolForLineRole = (role, preferredRoster, fallbackRoster) => {
+      const source = [...preferredRoster, ...fallbackRoster];
+      if (role === "DEF") return source.filter((player) => positionGroup(player.position) === "DEF");
+      if (role === "MID") return source.filter((player) => positionGroup(player.position) === "MID");
+      if (role === "AM") return source.filter((player) => {
+        const code = positionCode(player.position);
+        return ["AMF", "LWF", "RWF", "SS", "LMF", "RMF"].some((item) => code.includes(item));
+      });
+      return source.filter((player) => positionGroup(player.position) === "FWD");
     };
 
     const orderLinePlayers = (group, players) => {
@@ -171,6 +237,12 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
           if (code.includes("DMF")) return 42;
           if (code.includes("AMF")) return 58;
           return 50;
+        }
+        if (group === "AM") {
+          if (code.includes("LWF") || code === "LW" || code.includes("LMF")) return 15;
+          if (code.includes("RWF") || code === "RW" || code.includes("RMF")) return 85;
+          if (code.includes("AMF") || code.includes("SS")) return 50;
+          return 55;
         }
         if (code.includes("LWF") || code === "LW") return 15;
         if (code.includes("RWF") || code === "RW") return 85;
@@ -199,7 +271,10 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       ));
 
       const gks = byRoster.filter((player) => positionGroup(player.position) === "GK");
-      const keeper = gks.find((player) => player.isSubstitute !== true) || gks[0] || byRoster[0];
+      const keeperPool = gks
+        .filter((player) => player.isSubstitute !== true)
+        .sort((a, b) => playerPickScore(a, "GK") - playerPickScore(b, "GK"));
+      const keeper = keeperPool[0] || gks.sort((a, b) => playerPickScore(a, "GK") - playerPickScore(b, "GK"))[0] || byRoster[0];
       if (keeper) {
         lineup.push(keeper);
         selectedIds.add(keeper.id);
@@ -212,42 +287,29 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
         }
       });
 
-      const byGroup = {
-        DEF: preferredRoster.filter((player) => positionGroup(player.position) === "DEF"),
-        MID: preferredRoster.filter((player) => positionGroup(player.position) === "MID"),
-        FWD: preferredRoster.filter((player) => positionGroup(player.position) === "FWD")
-      };
-      const fallbackByGroup = {
-        DEF: fallbackRoster.filter((player) => positionGroup(player.position) === "DEF"),
-        MID: fallbackRoster.filter((player) => positionGroup(player.position) === "MID"),
-        FWD: fallbackRoster.filter((player) => positionGroup(player.position) === "FWD")
-      };
-
       const linePlayers = [];
       lines.forEach((count, index) => {
-        const isFirst = index === 0;
-        const isLast = index === lines.length - 1;
-        const group = isFirst ? "DEF" : isLast ? "FWD" : "MID";
-        const manualInGroup = manualPinned.filter((player) => positionGroup(player.position) === group).length;
+        const group = lineRoleFor(lines, index);
+        const manualInGroup = manualPinned.filter((player) => (
+          group === "AM"
+            ? ["AMF", "LWF", "RWF", "SS", "LMF", "RMF"].some((item) => positionCode(player.position).includes(item))
+            : positionGroup(player.position) === group
+        )).length;
         const targetCount = Math.max(0, count - manualInGroup);
-        const preferred = group === "DEF"
-          ? ["RB", "CB", "LB"]
-          : group === "MID"
-            ? ["DMF", "CMF", "AMF", "LMF", "RMF"]
-            : ["LWF", "RWF", "SS", "CF"];
         const lineSelectedIds = new Set(selectedIds);
-        let picked = choosePlayersForGroup(byGroup[group], targetCount, lineSelectedIds, preferred);
+        const targets = targetsForLine(group, targetCount);
+        let picked = choosePlayersByTargets(poolForLineRole(group, preferredRoster, []), targets, lineSelectedIds);
         picked.forEach((player) => lineSelectedIds.add(player.id));
 
         if (picked.length < targetCount) {
-          const more = choosePlayersForGroup(fallbackByGroup[group], targetCount - picked.length, lineSelectedIds, preferred);
+          const more = choosePlayersByTargets(poolForLineRole(group, [], fallbackRoster), targets.slice(picked.length), lineSelectedIds);
           picked = [...picked, ...more];
           more.forEach((player) => lineSelectedIds.add(player.id));
         }
 
         if (picked.length < targetCount) {
           const leftovers = [...preferredRoster, ...fallbackRoster].filter((player) => positionGroup(player.position) !== "GK");
-          picked = [...picked, ...choosePlayersForGroup(leftovers, targetCount - picked.length, lineSelectedIds, [])];
+          picked = [...picked, ...choosePlayersByTargets(leftovers, Array.from({ length: targetCount - picked.length }, () => ""), lineSelectedIds)];
         }
 
         picked = orderLinePlayers(group, picked);
@@ -1559,7 +1621,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       const ops = players.map((player) => (batch) => batch.update(doc(db, "players", player.id), {
         tacticX: null,
         tacticY: null,
-        isSubstitute: (player.rosterSlot ?? 999) >= 11,
+        isSubstitute: false,
         updatedAtMs: Date.now()
       }));
       await commitBatchChunks(ops);
