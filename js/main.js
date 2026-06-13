@@ -106,16 +106,181 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       const name = normalizeKey(team?.name);
       return rosterPlayers
         .filter((player) => normalizeKey(player.teamKey) === normalizeKey(key) || normalizeKey(player.team) === name)
-        .sort((a, b) => (a.number ?? 999) - (b.number ?? 999) || (a.rosterSlot ?? 999) - (b.rosterSlot ?? 999) || String(a.player || "").localeCompare(String(b.player || "")));
+        .sort((a, b) => (a.rosterSlot ?? 999) - (b.rosterSlot ?? 999) || (a.number ?? 999) - (b.number ?? 999) || String(a.player || "").localeCompare(String(b.player || "")));
     };
 
     const positionGroup = (position = "") => {
       const value = normalizeKey(position);
       if (["gk", "goalkeeper"].some((item) => value.includes(item))) return "GK";
-      if (["cb", "lb", "rb", "def", "dmf"].some((item) => value.includes(item))) return "DEF";
-      if (["cm", "am", "mf", "mid", "lm", "rm"].some((item) => value.includes(item))) return "MID";
-      if (["cf", "ss", "wf", "lw", "rw", "fw", "st"].some((item) => value.includes(item))) return "FWD";
+      if (["cb", "lb", "rb", "def"].some((item) => value.includes(item))) return "DEF";
+      if (["dmf", "cmf", "amf", "lmf", "rmf", "dm", "cm", "am", "mf", "mid", "lm", "rm"].some((item) => value.includes(item))) return "MID";
+      if (["cf", "ss", "lwf", "rwf", "wf", "lw", "rw", "fw", "st"].some((item) => value.includes(item))) return "FWD";
       return "SUB";
+    };
+
+    const positionCode = (position = "") => String(position || "").trim().toUpperCase();
+
+    const sortByRoster = (items) => items.slice().sort((a, b) => (
+      (a.rosterSlot ?? 999) - (b.rosterSlot ?? 999) ||
+      (a.number ?? 999) - (b.number ?? 999) ||
+      String(a.player || "").localeCompare(String(b.player || ""))
+    ));
+
+    const parseFormationLines = (formation = "") => {
+      const parts = String(formation || "").match(/\d+/g)?.map(Number).filter((item) => item > 0) || [];
+      const total = parts.reduce((sum, item) => sum + item, 0);
+      return total === 10 ? parts : [4, 3, 3];
+    };
+
+    const xSlots = (count) => {
+      if (count <= 1) return [50];
+      const gap = 76 / Math.max(1, count - 1);
+      return Array.from({ length: count }, (_, index) => 12 + gap * index);
+    };
+
+    const ySlots = (lineCount) => {
+      if (lineCount === 4) return [76, 60, 42, 24];
+      if (lineCount === 2) return [68, 32];
+      return [74, 52, 28];
+    };
+
+    const choosePlayersForGroup = (pool, count, selectedIds, preferredCodes = []) => {
+      const preferred = [];
+      const fallback = [];
+      for (const player of pool) {
+        if (selectedIds.has(player.id)) continue;
+        const code = positionCode(player.position);
+        if (preferredCodes.length && preferredCodes.some((item) => code.includes(item))) preferred.push(player);
+        else fallback.push(player);
+      }
+      return [...preferred, ...fallback].slice(0, count);
+    };
+
+    const orderLinePlayers = (group, players) => {
+      const laneScore = (player) => {
+        const code = positionCode(player.position);
+        if (group === "DEF") {
+          if (code.includes("LB")) return 10;
+          if (code.includes("RB")) return 90;
+          if (code.includes("CB")) return 50;
+          return 55;
+        }
+        if (group === "MID") {
+          if (code.includes("LMF") || code === "LM") return 15;
+          if (code.includes("RMF") || code === "RM") return 85;
+          if (code.includes("DMF")) return 42;
+          if (code.includes("AMF")) return 58;
+          return 50;
+        }
+        if (code.includes("LWF") || code === "LW") return 15;
+        if (code.includes("RWF") || code === "RW") return 85;
+        if (code.includes("SS")) return 45;
+        if (code.includes("CF") || code.includes("ST")) return 50;
+        return 55;
+      };
+      return players.slice().sort((a, b) => (
+        laneScore(a) - laneScore(b) ||
+        (a.rosterSlot ?? 999) - (b.rosterSlot ?? 999) ||
+        (a.number ?? 999) - (b.number ?? 999)
+      ));
+    };
+
+    const autoLineupForFormation = (team, players) => {
+      const byRoster = players.slice().sort((a, b) => (a.rosterSlot ?? 999) - (b.rosterSlot ?? 999) || (a.number ?? 999) - (b.number ?? 999));
+      const preferredRoster = byRoster.filter((player) => player.isSubstitute !== true);
+      const fallbackRoster = byRoster.filter((player) => player.isSubstitute === true);
+      const lines = parseFormationLines(team.formation);
+      const selectedIds = new Set();
+      const lineup = [];
+      const manualPinned = preferredRoster.filter((player) => (
+        player.isSubstitute !== true &&
+        Number.isFinite(parseFloat(player.tacticX)) &&
+        Number.isFinite(parseFloat(player.tacticY))
+      ));
+
+      const gks = byRoster.filter((player) => positionGroup(player.position) === "GK");
+      const keeper = gks.find((player) => player.isSubstitute !== true) || gks[0] || byRoster[0];
+      if (keeper) {
+        lineup.push(keeper);
+        selectedIds.add(keeper.id);
+      }
+
+      manualPinned.forEach((player) => {
+        if (!selectedIds.has(player.id) && lineup.length < 11) {
+          lineup.push(player);
+          selectedIds.add(player.id);
+        }
+      });
+
+      const byGroup = {
+        DEF: preferredRoster.filter((player) => positionGroup(player.position) === "DEF"),
+        MID: preferredRoster.filter((player) => positionGroup(player.position) === "MID"),
+        FWD: preferredRoster.filter((player) => positionGroup(player.position) === "FWD")
+      };
+      const fallbackByGroup = {
+        DEF: fallbackRoster.filter((player) => positionGroup(player.position) === "DEF"),
+        MID: fallbackRoster.filter((player) => positionGroup(player.position) === "MID"),
+        FWD: fallbackRoster.filter((player) => positionGroup(player.position) === "FWD")
+      };
+
+      const linePlayers = [];
+      lines.forEach((count, index) => {
+        const isFirst = index === 0;
+        const isLast = index === lines.length - 1;
+        const group = isFirst ? "DEF" : isLast ? "FWD" : "MID";
+        const manualInGroup = manualPinned.filter((player) => positionGroup(player.position) === group).length;
+        const targetCount = Math.max(0, count - manualInGroup);
+        const preferred = group === "DEF"
+          ? ["RB", "CB", "LB"]
+          : group === "MID"
+            ? ["DMF", "CMF", "AMF", "LMF", "RMF"]
+            : ["LWF", "RWF", "SS", "CF"];
+        const lineSelectedIds = new Set(selectedIds);
+        let picked = choosePlayersForGroup(byGroup[group], targetCount, lineSelectedIds, preferred);
+        picked.forEach((player) => lineSelectedIds.add(player.id));
+
+        if (picked.length < targetCount) {
+          const more = choosePlayersForGroup(fallbackByGroup[group], targetCount - picked.length, lineSelectedIds, preferred);
+          picked = [...picked, ...more];
+          more.forEach((player) => lineSelectedIds.add(player.id));
+        }
+
+        if (picked.length < targetCount) {
+          const leftovers = [...preferredRoster, ...fallbackRoster].filter((player) => positionGroup(player.position) !== "GK");
+          picked = [...picked, ...choosePlayersForGroup(leftovers, targetCount - picked.length, lineSelectedIds, [])];
+        }
+
+        picked = orderLinePlayers(group, picked);
+        picked.forEach((player) => selectedIds.add(player.id));
+        linePlayers.push(picked);
+        lineup.push(...picked);
+      });
+
+      return { lineup: lineup.slice(0, 11), linePlayers, keeper, manualPinned };
+    };
+
+    const autoTacticLayout = (team, players) => {
+      const { linePlayers, keeper, manualPinned } = autoLineupForFormation(team, players);
+      const lines = parseFormationLines(team.formation);
+      const ys = ySlots(lines.length);
+      const layout = new Map();
+
+      if (keeper) layout.set(keeper.id, { x: 50, y: 92 });
+      for (const player of manualPinned || []) {
+        layout.set(player.id, {
+          x: parseFloat(player.tacticX),
+          y: parseFloat(player.tacticY)
+        });
+      }
+
+      lines.forEach((count, lineIndex) => {
+        const xs = xSlots(count);
+        for (let i = 0; i < (linePlayers[lineIndex] || []).length; i += 1) {
+          const player = linePlayers[lineIndex][i];
+          if (player) layout.set(player.id, { x: xs[i], y: ys[lineIndex] || 50 });
+        }
+      });
+      return layout;
     };
 
     const sameExternalMatch = (a, b) => normalizeKey(a || "") && normalizeKey(a) === normalizeKey(b);
@@ -1212,6 +1377,62 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       });
     };
 
+    const readImportTeamFromJson = (parsed, players) => {
+      const first = players[0] || {};
+      const name = parsed?.team || first.team || "";
+      const teamKey = parsed?.teamKey || first.teamKey || slugKey(name);
+      const teamId = parsed?.teamId || first.teamId || null;
+      if (!name || !teamKey) return null;
+      return {
+        name,
+        teamKey,
+        pesTeamId: teamId,
+        teamId
+      };
+    };
+
+    const findExistingTeamForImport = async (candidate) => {
+      if (!candidate) return null;
+      const snap = await getDocs(collection(db, "teams"));
+      const existing = snap.docs.map((item) => ({ id: item.id, ...item.data() }));
+      return existing.find((team) => (
+        (candidate.pesTeamId && String(team.pesTeamId || "") === String(candidate.pesTeamId)) ||
+        normalizeKey(team.teamKey) === normalizeKey(candidate.teamKey) ||
+        normalizeKey(team.name) === normalizeKey(candidate.name)
+      )) || null;
+    };
+
+    const resolveImportTargetTeam = async (parsed, players) => {
+      const modalTarget = await upsertTeamFromModalForImport();
+      if (modalTarget) return {
+        ...modalTarget,
+        source: "modal"
+      };
+
+      const jsonTarget = readImportTeamFromJson(parsed, players);
+      const existing = await findExistingTeamForImport(jsonTarget);
+      if (existing) {
+        const finalTarget = {
+          id: existing.id,
+          name: existing.name || jsonTarget.name,
+          teamKey: existing.teamKey || jsonTarget.teamKey,
+          pesTeamId: existing.pesTeamId || jsonTarget.pesTeamId || null,
+          source: "existing-team"
+        };
+        await updateDoc(doc(db, "teams", existing.id), {
+          teamKey: finalTarget.teamKey,
+          pesTeamId: finalTarget.pesTeamId,
+          updatedAtMs: Date.now()
+        });
+        return finalTarget;
+      }
+
+      return jsonTarget ? {
+        ...jsonTarget,
+        source: "json"
+      } : null;
+    };
+
     const renderTeamDetailModal = (teamId) => {
       const team = teams.find((item) => item.id === teamId);
       const modal = document.getElementById("teamDetailModal");
@@ -1220,16 +1441,15 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       activeTeamDetailId = teamId;
       const players = playersForTeam(team);
       const managerPhoto = team.managerPhoto || findManagerPhoto(team.managerName) || placeholderImage;
-      const starters = players.filter((player) => !player.isSubstitute).slice(0, 11);
-      const defaultCoords = [
-        [50, 92], [20, 73], [40, 76], [60, 76], [80, 73],
-        [30, 54], [50, 50], [70, 54], [25, 30], [50, 22], [75, 30]
-      ];
+      const autoLineup = autoLineupForFormation(team, players);
+      const tacticLayout = autoTacticLayout(team, players);
+      const starters = autoLineup.lineup;
       const tacticPlayer = (player, index) => {
-        const x = Number.isFinite(parseFloat(player.tacticX)) ? parseFloat(player.tacticX) : defaultCoords[index]?.[0] || 50;
-        const y = Number.isFinite(parseFloat(player.tacticY)) ? parseFloat(player.tacticY) : defaultCoords[index]?.[1] || 50;
+        const auto = tacticLayout.get(player.id) || { x: 50, y: 50 };
+        const x = Number.isFinite(parseFloat(player.tacticX)) ? parseFloat(player.tacticX) : auto.x;
+        const y = Number.isFinite(parseFloat(player.tacticY)) ? parseFloat(player.tacticY) : auto.y;
         return `
-          <div data-tactic-player="${player.id}" class="absolute -translate-x-1/2 -translate-y-1/2 text-center group ${isAdmin ? "cursor-move" : ""}" style="left:${x}%; top:${y}%;">
+          <div data-tactic-player="${player.id}" data-x="${x}" data-y="${y}" class="absolute -translate-x-1/2 -translate-y-1/2 text-center group ${isAdmin ? "cursor-move" : ""}" style="left:${x}%; top:${y}%;">
             <img src="${player.faceUrl || player.image || player.facePath || placeholderImage}" class="mx-auto h-11 w-11 rounded-full object-cover border-2 border-primary shadow-xl">
             <div class="mt-1 rounded-md bg-black/75 px-2 py-1 text-[9px] font-black leading-tight text-white shadow-lg">
               <span class="text-primary">${player.position || positionGroup(player.position)}</span> ${player.number || ""}
@@ -1250,28 +1470,27 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
           <div class="absolute bottom-3 left-4 rounded-lg bg-black/70 px-3 py-2 font-headline text-xl font-black text-white">${team.formation || "Custom"}</div>
         </div>
       `;
-      const grouped = players.reduce((acc, player) => {
-        const group = player.isSubstitute ? "SUB" : positionGroup(player.position);
-        (acc[group] ||= []).push(player);
-        return acc;
-      }, {});
-      const renderGroup = (label) => `
-        <div class="rounded-2xl border border-outline-variant/10 bg-black/20 p-4">
+      const playerRow = (player) => `
+        <div ${isAdmin ? `draggable="true" data-roster-list-player="${player.id}"` : ""} class="grid grid-cols-[38px_1fr_auto] items-center gap-3 rounded-xl bg-surface-container/70 p-2 ${isAdmin ? "cursor-grab" : ""}">
+          <img src="${player.faceUrl || player.image || player.facePath || placeholderImage}" class="h-9 w-9 rounded-lg object-cover">
+          <div class="min-w-0">
+            <p class="truncate text-sm font-bold text-white">${player.number ? `${player.number}. ` : ""}${player.player}</p>
+            <p class="text-[9px] uppercase tracking-widest text-on-surface-variant">${player.position || "POS"} ${player.isSubstitute ? "- SUB" : ""}</p>
+          </div>
+          ${isAdmin ? `<button class="admin-btn !py-1 !px-2 text-[10px]" data-action="editRosterPlayer" data-id="${player.id}">Edit</button>` : ""}
+        </div>
+      `;
+      const renderList = (label, items, kind) => `
+        <div data-roster-drop-zone="${kind}" class="rounded-2xl border border-outline-variant/10 bg-black/20 p-4">
           <p class="mb-3 text-[10px] uppercase tracking-widest text-primary font-black">${label}</p>
-          <div class="space-y-2">
-            ${(grouped[label] || []).map((player) => `
-              <div class="grid grid-cols-[38px_1fr_auto] items-center gap-3 rounded-xl bg-surface-container/70 p-2">
-                <img src="${player.faceUrl || player.image || player.facePath || placeholderImage}" class="h-9 w-9 rounded-lg object-cover">
-                <div class="min-w-0">
-                  <p class="truncate text-sm font-bold text-white">${player.number ? `${player.number}. ` : ""}${player.player}</p>
-                  <p class="text-[9px] uppercase tracking-widest text-on-surface-variant">${player.position || "POS"} ${player.isSubstitute ? "- SUB" : ""}</p>
-                </div>
-                ${isAdmin ? `<button class="admin-btn !py-1 !px-2 text-[10px]" data-action="editRosterPlayer" data-id="${player.id}">Edit</button>` : ""}
-              </div>
-            `).join("") || `<p class="text-xs italic text-on-surface-variant">Kosong</p>`}
+          <div class="space-y-2 max-h-[360px] overflow-y-auto custom-scroll-thin">
+            ${items.map(playerRow).join("") || `<p class="text-xs italic text-on-surface-variant">Kosong</p>`}
           </div>
         </div>
       `;
+      const starterIds = new Set(autoLineup.lineup.map((player) => player.id));
+      const starterList = sortByRoster(autoLineup.lineup);
+      const subList = sortByRoster(players.filter((player) => !starterIds.has(player.id)));
 
       body.innerHTML = `
         <div class="flex flex-col md:flex-row md:items-center gap-5">
@@ -1281,6 +1500,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
             <h2 class="font-headline text-4xl font-black uppercase text-white">${team.name}</h2>
             <p class="text-sm text-on-surface-variant">${players.length} pemain roster${team.formation ? ` - ${team.formation}` : ""}</p>
           </div>
+          ${isAdmin ? `<button class="admin-btn" data-action="resetTeamTactic" data-id="${team.id}">Reset Auto</button>` : ""}
           <div class="rounded-2xl border border-secondary/20 bg-secondary/10 p-3 flex items-center gap-3 min-w-[220px]">
             <img src="${managerPhoto}" class="h-12 w-12 rounded-xl object-cover">
             <div>
@@ -1289,11 +1509,10 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
             </div>
           </div>
         </div>
-        <div class="mt-6 grid grid-cols-1 xl:grid-cols-[1.3fr_.9fr] gap-6">
+        <div class="mt-6 grid grid-cols-1 xl:grid-cols-[0.62fr_1.25fr_0.62fr] gap-6 items-start">
+          ${renderList("Starting XI", starterList, "starter")}
           ${tacticBoard}
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-4">
-            ${["GK", "DEF", "MID", "FWD", "SUB"].map(renderGroup).join("")}
-          </div>
+          ${renderList("Subs", subList, "sub")}
         </div>
       `;
       modal.classList.remove("hidden");
@@ -1329,6 +1548,58 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
         isSubstitute,
         updatedAtMs: Date.now()
       });
+    };
+
+    const resetTeamTactic = async (teamId) => {
+      if (!isAdmin) return;
+      const team = teams.find((item) => item.id === teamId);
+      if (!team) return;
+      if (!confirm(`Reset posisi tactic ${team.name} ke otomatis?`)) return;
+      const players = playersForTeam(team);
+      const ops = players.map((player) => (batch) => batch.update(doc(db, "players", player.id), {
+        tacticX: null,
+        tacticY: null,
+        isSubstitute: (player.rosterSlot ?? 999) >= 11,
+        updatedAtMs: Date.now()
+      }));
+      await commitBatchChunks(ops);
+      renderTeamDetailModal(teamId);
+    };
+
+    const moveRosterPlayerBetweenLists = async (playerId, targetKind, replacedPlayerId = "", replacementPoint = null) => {
+      if (!isAdmin || !playerId || !targetKind) return;
+      const now = Date.now();
+      const ops = [];
+      const replacementX = Number.isFinite(replacementPoint?.x) ? replacementPoint.x : null;
+      const replacementY = Number.isFinite(replacementPoint?.y) ? replacementPoint.y : null;
+
+      if (targetKind === "sub") {
+        ops.push((batch) => batch.update(doc(db, "players", playerId), {
+          isSubstitute: true,
+          tacticX: null,
+          tacticY: null,
+          updatedAtMs: now
+        }));
+      } else {
+        ops.push((batch) => batch.update(doc(db, "players", playerId), {
+          isSubstitute: false,
+          tacticX: replacementX,
+          tacticY: replacementY,
+          updatedAtMs: now
+        }));
+
+        if (replacedPlayerId && replacedPlayerId !== playerId) {
+          ops.push((batch) => batch.update(doc(db, "players", replacedPlayerId), {
+            isSubstitute: true,
+            tacticX: null,
+            tacticY: null,
+            updatedAtMs: now
+          }));
+        }
+      }
+
+      await commitBatchChunks(ops);
+      if (activeTeamDetailId) renderTeamDetailModal(activeTeamDetailId);
     };
 
     const renderTeams = () => {
@@ -1725,25 +1996,39 @@ const renderAllTimeHofScorers = () => {
   `;
 };
     
+    const isLeagueMatch = (match) => match.type !== "knockout" && match.team1 && match.team2;
+
+    const hasMatchScore = (match) => (
+      match.s1 !== null &&
+      match.s1 !== undefined &&
+      match.s1 !== "" &&
+      match.s2 !== null &&
+      match.s2 !== undefined &&
+      match.s2 !== "" &&
+      Number.isFinite(Number(match.s1)) &&
+      Number.isFinite(Number(match.s2))
+    );
+
     const calculateStandings = () => {
       let table = teams.reduce((acc, t) => ({ ...acc, [t.name]: { team: t.name, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 } }), {});
       matches.forEach(m => {
-        if (m.type === "knockout") return;
-        if (!m.team1 || !m.team2 || m.s1 === null || m.s2 === null) return;
+        if (!isLeagueMatch(m) || !hasMatchScore(m)) return;
         const h = table[m.team1],
           a = table[m.team2];
         if (!h || !a) return;
+        const score1 = Number(m.s1);
+        const score2 = Number(m.s2);
         h.p++;
         a.p++;
-        h.gf += m.s1;
-        h.ga += m.s2;
-        a.gf += m.s2;
-        a.ga += m.s1;
-        if (m.s1 > m.s2) {
+        h.gf += score1;
+        h.ga += score2;
+        a.gf += score2;
+        a.ga += score1;
+        if (score1 > score2) {
           h.w++;
           a.l++;
           h.pts += 3;
-        } else if (m.s1 < m.s2) {
+        } else if (score1 < score2) {
           a.w++;
           h.l++;
           a.pts += 3;
@@ -1757,6 +2042,67 @@ const renderAllTimeHofScorers = () => {
       return Object.values(table).sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf);
     };
 
+    const getLockedStandingsZones = (data, cCut, pCut, hCut) => {
+      const remainingGames = new Map(data.map((row) => [row.team, 0]));
+      const leagueMatches = matches.filter(isLeagueMatch);
+      leagueMatches
+        .filter((match) => !hasMatchScore(match))
+        .forEach((match) => {
+          remainingGames.set(match.team1, (remainingGames.get(match.team1) || 0) + 1);
+          remainingGames.set(match.team2, (remainingGames.get(match.team2) || 0) + 1);
+        });
+
+      const maxPoints = new Map(data.map((row) => [
+        row.team,
+        row.pts + ((remainingGames.get(row.team) || 0) * 3)
+      ]));
+      const leagueComplete = leagueMatches.length > 0 && leagueMatches.every(hasMatchScore);
+      const zones = new Map();
+      const teamCount = data.length;
+      const safeCupCut = Math.min(Math.max(cCut, 0), teamCount);
+      const safePlayoffCut = Math.min(Math.max(pCut, safeCupCut), teamCount);
+      const safeHinaCut = Math.min(Math.max(hCut, 0), Math.max(teamCount - 1, 0));
+
+      const lockedInTop = (row, cutoff) => {
+        if (cutoff <= 0 || cutoff >= teamCount) return cutoff >= teamCount;
+        const outsiderMax = Math.max(...data.slice(cutoff).map((other) => maxPoints.get(other.team) || other.pts));
+        return row.pts > outsiderMax;
+      };
+
+      const lockedInBottom = (row) => {
+        if (safeHinaCut <= 0 || safeHinaCut >= teamCount) return false;
+        const lastSafeTeam = data[teamCount - safeHinaCut - 1];
+        if (!lastSafeTeam) return false;
+        return (maxPoints.get(row.team) || row.pts) < lastSafeTeam.pts;
+      };
+
+      const lockedOutOfTop = (row, cutoff) => {
+        if (cutoff <= 0) return true;
+        if (cutoff >= teamCount) return false;
+        const boundaryTeam = data[cutoff - 1];
+        if (!boundaryTeam) return false;
+        return (maxPoints.get(row.team) || row.pts) < boundaryTeam.pts;
+      };
+
+      data.forEach((row, index) => {
+        const rank = index + 1;
+        if (leagueComplete) {
+          if (rank === 1) zones.set(row.team, "champion");
+          else if (rank <= safeCupCut) zones.set(row.team, "cup");
+          else if (rank <= safePlayoffCut) zones.set(row.team, "playoff");
+          else if (rank > teamCount - safeHinaCut) zones.set(row.team, "hina");
+        } else if (rank <= safeCupCut && lockedInTop(row, safeCupCut)) {
+          zones.set(row.team, "cup");
+        } else if (rank > safeCupCut && rank <= safePlayoffCut && lockedInTop(row, safePlayoffCut) && lockedOutOfTop(row, safeCupCut)) {
+          zones.set(row.team, "playoff");
+        } else if (rank > teamCount - safeHinaCut && lockedInBottom(row)) {
+          zones.set(row.team, "hina");
+        }
+      });
+
+      return zones;
+    };
+
     const isTeamLive = (teamName) => matches.some(m => m.live && (m.team1 === teamName || m.team2 === teamName));
 
     const renderStandings = () => {
@@ -1767,6 +2113,7 @@ const renderAllTimeHofScorers = () => {
   const cCut = Math.max(parseInt(championsCutoff) || 4, 0);
   const pCut = Math.max(parseInt(playoffCutoff) || 6, cCut);
   const hCut = Math.max(parseInt(relegationCutoff) || 1, 0);
+  const lockedZones = getLockedStandingsZones(data, cCut, pCut, hCut);
 
   standingsTable.innerHTML = data.map((t, i) => {
     const rank = i + 1;
@@ -1775,24 +2122,28 @@ const renderAllTimeHofScorers = () => {
     let bgGradient = "";
     let borderClass = "";
     let zoneBadge = "";
-    const isChampionsZone = rank <= cCut;
-    const isPlayoffZone = rank > cCut && rank <= pCut;
-    const isHinaZone = hCut > 0 && rank > data.length - hCut;
+    const zone = lockedZones.get(t.team);
+    const trophyUrl = (trophyCabinetSettings.leagueImage || "").trim();
 
-    if (isChampionsZone) {
+    if (zone === "champion") {
+      bgGradient = "bg-gradient-to-r from-[#f6c453]/15 to-transparent";
+      borderClass = "border-l-4 border-[#f6c453]";
+      zoneBadge = `
+        ${trophyUrl ? `<img src="${trophyUrl}" class="hidden md:inline-flex h-7 w-7 object-contain drop-shadow-[0_6px_14px_rgba(246,196,83,0.45)]" alt="League Trophy">` : ""}
+        <span class="hidden md:inline-flex rounded-full bg-[#f6c453]/15 border border-[#f6c453]/35 px-2 py-1 text-[8px] uppercase tracking-widest text-[#f6c453] font-black">Champions</span>
+      `;
+    } else if (zone === "cup") {
       bgGradient = "bg-gradient-to-r from-primary/10 to-transparent";
       borderClass = "border-l-4 border-primary";
-      zoneBadge = `<span class="hidden md:inline-flex rounded-full bg-primary/10 border border-primary/20 px-2 py-1 text-[8px] uppercase tracking-widest text-primary font-black">Champions</span>`;
-    } 
-    else if (isPlayoffZone) {
+      zoneBadge = `<span class="hidden md:inline-flex rounded-full bg-primary/10 border border-primary/20 px-2 py-1 text-[8px] uppercase tracking-widest text-primary font-black">Cup</span>`;
+    } else if (zone === "playoff") {
       bgGradient = "bg-gradient-to-r from-secondary/10 to-transparent"; 
       borderClass = "border-l-4 border-secondary";
-      zoneBadge = `<span class="hidden md:inline-flex rounded-full bg-secondary/10 border border-secondary/20 px-2 py-1 text-[8px] uppercase tracking-widest text-secondary font-black">Play-off</span>`;
-    }
-    else if (isHinaZone && data.length > hCut) {
+      zoneBadge = `<span class="hidden md:inline-flex rounded-full bg-secondary/10 border border-secondary/20 px-2 py-1 text-[8px] uppercase tracking-widest text-secondary font-black">Play Off</span>`;
+    } else if (zone === "hina") {
       bgGradient = "bg-error/10";
       borderClass = "border-l-4 border-error";
-      zoneBadge = `<span class="hidden md:inline-flex rounded-full bg-error/10 border border-error/20 px-2 py-1 text-[8px] uppercase tracking-widest text-error font-black">Zona Hina</span>`;
+      zoneBadge = `<span class="hidden md:inline-flex rounded-full bg-error/10 border border-error/20 px-2 py-1 text-[8px] uppercase tracking-widest text-error font-black">Hina</span>`;
     }
 
     return `
@@ -3541,6 +3892,7 @@ window.showHofDetail = (id) => {
 
       for (const incoming of incomingTeams.values()) {
         const found = existing.find((team) => (
+          (incoming.pesTeamId && String(team.pesTeamId || "") === String(incoming.pesTeamId)) ||
           normalizeKey(team.teamKey) === normalizeKey(incoming.teamKey) ||
           normalizeKey(team.name) === normalizeKey(incoming.name)
         ));
@@ -3590,9 +3942,9 @@ window.showHofDetail = (id) => {
       try {
         const text = await file.text();
         const parsed = JSON.parse(text);
-        const targetTeam = await upsertTeamFromModalForImport();
         let incomingPlayers = parseRosterImportPlayers(parsed)
           .filter((player) => player && (player.docId || player.playerId) && player.player && player.teamKey);
+        const targetTeam = await resolveImportTargetTeam(parsed, incomingPlayers);
         incomingPlayers = applyImportTargetTeam(incomingPlayers, targetTeam);
 
         if (!incomingPlayers.length) {
@@ -3605,7 +3957,7 @@ window.showHofDetail = (id) => {
           : "\nTidak ada folder faces dipilih; import hanya memakai path/URL yang sudah ada di JSON.";
         const teamKeys = [...new Set(incomingPlayers.map((player) => player.teamKey).filter(Boolean))];
         const teamLabel = teamKeys.length <= 5 ? teamKeys.join(", ") : `${teamKeys.length} teams`;
-        const targetMessage = targetTeam ? `\nTarget team dari modal: ${targetTeam.name}.` : "";
+        const targetMessage = targetTeam ? `\nTarget team: ${targetTeam.name} (${targetTeam.source}).` : "";
         if (!confirm(`Import ${incomingPlayers.length} pemain untuk ${teamLabel}? Roster lama untuk team yang sama akan diganti.${targetMessage}${faceMessage}`)) {
           e.target.value = "";
           return;
@@ -3694,6 +4046,66 @@ document.addEventListener("pointerdown", (e) => {
     document.addEventListener("pointerup", up);
 });
 
+document.addEventListener("dragstart", (e) => {
+    if (!isAdmin) return;
+    const row = e.target.closest("[data-roster-list-player]");
+    if (!row) return;
+    e.dataTransfer.setData("text/plain", row.dataset.rosterListPlayer);
+    e.dataTransfer.effectAllowed = "move";
+});
+
+document.addEventListener("dragover", (e) => {
+    if (!isAdmin) return;
+    if (!e.target.closest(".tactic-board") && !e.target.closest("[data-roster-drop-zone]")) return;
+    e.preventDefault();
+});
+
+document.addEventListener("drop", async (e) => {
+    if (!isAdmin) return;
+    const playerId = e.dataTransfer.getData("text/plain");
+    if (!playerId) return;
+    const board = e.target.closest(".tactic-board");
+    const listZone = e.target.closest("[data-roster-drop-zone]");
+    if (!board && !listZone) return;
+    e.preventDefault();
+
+    if (listZone && !board) {
+      const targetKind = listZone.dataset.rosterDropZone;
+      const targetRow = e.target.closest("[data-roster-list-player]");
+      const replacedPlayerId = targetKind === "starter" ? targetRow?.dataset.rosterListPlayer || "" : "";
+      let replacementPoint = null;
+
+      if (replacedPlayerId && replacedPlayerId !== playerId) {
+        const targetNode = Array.from(document.querySelectorAll("[data-tactic-player]"))
+          .find((node) => node.dataset.tacticPlayer === replacedPlayerId);
+        const x = parseFloat(targetNode?.dataset.x || targetNode?.style.left || "");
+        const y = parseFloat(targetNode?.dataset.y || targetNode?.style.top || "");
+        if (Number.isFinite(x) && Number.isFinite(y)) replacementPoint = { x, y };
+      }
+
+      try {
+        await moveRosterPlayerBetweenLists(playerId, targetKind, replacedPlayerId, replacementPoint);
+      } catch (error) {
+        console.error("Failed to move roster player:", error);
+      }
+      return;
+    }
+
+    const rect = board.getBoundingClientRect();
+    const tacticX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const tacticY = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    try {
+      await updateDoc(doc(db, "players", playerId), {
+        isSubstitute: false,
+        tacticX,
+        tacticY,
+        updatedAtMs: Date.now()
+      });
+    } catch (error) {
+      console.error("Failed to drop player to tactic board:", error);
+    }
+});
+
     // --- EVENT DELEGATION HUB (MENGGANTIKAN SEMUA ONCLICK/ONCHANGE) ---
    // --- EVENT DELEGATION HUB ---
 document.addEventListener('click', async (e) => {
@@ -3728,6 +4140,7 @@ document.addEventListener('click', async (e) => {
     else if (action === 'openTeamDetail') renderTeamDetailModal(id);
     else if (action === 'closeTeamDetailModal') closeTeamDetailModal();
     else if (action === 'editRosterPlayer') await editRosterPlayer(id);
+    else if (action === 'resetTeamTactic') await resetTeamTactic(id);
     else if (action === 'addTeam') openTeamCreateModal();
     else if (action === 'deleteTeam') await deleteTeam(id);
     
