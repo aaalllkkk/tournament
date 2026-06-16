@@ -14,6 +14,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     let liveMatchStates = [];
     let scorers = [];
     let rosterPlayers = [];
+    let playerMatchStats = [];
     let news = [];
     let knockout = { format: "single", bracketSize: 0, rounds: [] };
     let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
@@ -128,6 +129,46 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       const value = player?.rating ?? player?.overall ?? player?.ovr ?? player?.overallRating;
       const number = Number(value);
       return Number.isFinite(number) && number > 0 ? number : 0;
+    };
+
+    const latestPerformanceForPlayer = (player) => {
+      const playerId = player?.playerId === undefined || player?.playerId === null ? "" : String(player.playerId);
+      const playerKey = normalizeKey(player?.playerKey || slugKey(player?.player));
+      const teamKey = normalizeKey(player?.teamKey || slugKey(player?.team));
+      return playerMatchStats
+        .filter((item) => {
+          const idMatches = playerId && String(item.playerId || "") === playerId;
+          const keyMatches = playerKey && normalizeKey(item.playerKey || slugKey(item.playerName)) === playerKey;
+          const teamMatches = !teamKey || normalizeKey(item.teamKey || slugKey(item.teamName)) === teamKey;
+          return teamMatches && (idMatches || keyMatches);
+        })
+        .sort((a, b) => (b.bridgeImportedAtMs || 0) - (a.bridgeImportedAtMs || 0))[0] || null;
+    };
+
+    const playerMatchPerformance = (player) => player?.lastMatchPerformance || latestPerformanceForPlayer(player) || null;
+
+    const playerMatchRating = (player) => {
+      const perf = playerMatchPerformance(player);
+      const value = player?.lastMatchRating ?? perf?.rating;
+      const number = Number(value);
+      return Number.isFinite(number) && number > 0 ? number : 0;
+    };
+
+    const formatMatchRating = (value) => {
+      const number = Number(value);
+      if (!Number.isFinite(number) || number <= 0) return "";
+      return Number.isInteger(number) ? String(number) : number.toFixed(1);
+    };
+
+    const playerPerformanceSummary = (player) => {
+      const perf = playerMatchPerformance(player);
+      if (!perf) return "";
+      const parts = [];
+      const rating = playerMatchRating(player);
+      if (rating) parts.push(`MR ${formatMatchRating(rating)}`);
+      if (Number(perf.goals) > 0) parts.push(`G${perf.goals}`);
+      if (Number(perf.assists) > 0) parts.push(`A${perf.assists}`);
+      return parts.join(" ");
     };
 
     const sortByRoster = (items) => items.slice().sort((a, b) => (
@@ -443,11 +484,8 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     const formatLiveClock = (match) => {
       const state = getLiveStateForMatch(match) || {};
       const minute = state.clockMinute ?? match.liveClockMinute;
-      const second = state.clockSecond ?? match.liveClockSecond;
-      const period = state.period ?? match.livePeriod;
       if (minute === null || minute === undefined || minute === "") return "";
-      const secondText = second === null || second === undefined || second === "" ? "00" : String(second).padStart(2, "0");
-      return `${period || "LIVE"} ${minute}:${secondText}`;
+      return `${parseInt(minute, 10) || 0}'`;
     };
 
     const hasFinalScore = (match) => (
@@ -470,7 +508,15 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       match.p2 !== ""
     );
 
-    const formatPenaltyScore = (match) => hasPenaltyScore(match) ? `${match.p1}-${match.p2} pens` : "";
+    const shouldShowPenaltyScore = (match) => normalizeKey(match?.type || "league") === "knockout";
+    const formatPenaltyScore = (match) => (shouldShowPenaltyScore(match) && hasPenaltyScore(match)) ? `${match.p1}-${match.p2} pens` : "";
+    const formatGoalMinute = (event) => {
+      const minute = event?.minute;
+      if (minute === null || minute === undefined || minute === "") return "Goal";
+      const second = event?.second;
+      const secondText = second === null || second === undefined || second === "" ? "" : `:${String(second).padStart(2, "0")}`;
+      return `${parseInt(minute, 10) || 0}${secondText}'`;
+    };
 
     const getMatchSortValue = (match) => (
       parseInt(match.bridgeImportedAtMs) ||
@@ -582,12 +628,14 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
         const pieces = lineup.map((player) => {
           const point = layout.get(player.id) || { x: 50, y: 50 };
           const rating = playerRating(player);
+          const matchRating = playerMatchRating(player);
           return `
             <div class="absolute -translate-x-1/2 -translate-y-1/2 text-center" style="left:${point.x}%; top:${point.y}%;">
               <img src="${player.faceUrl || player.image || player.facePath || placeholderImage}" class="mx-auto h-7 w-7 rounded-full border border-primary object-cover shadow-lg">
               <div class="mt-0.5 max-w-[58px] rounded bg-black/75 px-1.5 py-0.5 text-[7px] font-black leading-tight text-white">
                 <span class="text-primary">${player.position || ""}</span>${rating ? ` <span class="text-secondary">${rating}</span>` : ""}
                 <br><span class="block truncate">${String(player.player || "").split(" ").slice(-1)[0]}</span>
+                ${matchRating ? `<span class="block text-[6px] text-secondary">MR ${formatMatchRating(matchRating)}</span>` : ""}
               </div>
             </div>
           `;
@@ -863,6 +911,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       ));
       const teamName = event.teamSide === "away" ? (match?.team2 || event.team2) : (match?.team1 || event.team1);
       const scorer = event.scorer || event.player || "";
+      const goalMinute = formatGoalMinute(event);
       const assist = event.assist ? `Assist: ${event.assist}` : "";
 
       const overlay = document.createElement("div");
@@ -872,7 +921,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
           <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-secondary to-tertiary"></div>
           <p class="font-headline text-6xl md:text-8xl font-black italic uppercase text-primary text-glow-primary leading-none">GOAL</p>
           <p class="mt-3 font-headline text-xl md:text-3xl font-black uppercase text-white">${teamName || "Liga King"}</p>
-          ${scorer ? `<p class="mt-2 text-sm uppercase tracking-widest text-secondary font-bold">${scorer}</p>` : ""}
+          <p class="mt-2 text-sm uppercase tracking-widest text-secondary font-bold">${scorer || goalMinute}</p>
           ${assist ? `<p class="mt-1 text-[10px] uppercase tracking-widest text-tertiary font-bold">${assist}</p>` : ""}
         </div>
       `;
@@ -930,7 +979,8 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
             ${events.slice(-6).map((event) => {
               const kind = event.eventType || "event";
               const minute = event.minute !== null && event.minute !== undefined ? `${event.minute}'` : "--";
-              const player = event.scorer || event.player || event.card || event.note || kind;
+              const isGoal = normalizeKey(kind).includes("goal");
+              const player = event.scorer || event.player || event.card || (isGoal ? formatGoalMinute(event) : event.note || kind);
               const assist = event.assist ? ` / AST ${event.assist}` : "";
               const teamLabel = event.teamSide ? event.teamSide.toUpperCase() : "";
               return `
@@ -1280,6 +1330,14 @@ const getStarIcons = (rating) => {
       renderTeams();
       renderRosterPlayerOptions();
       renderScorers();
+      renderDashboardNextMatch();
+      if (activeTeamDetailId) renderTeamDetailModal(activeTeamDetailId);
+    });
+
+    onSnapshot(collection(db, "playerMatchStats"), snap => {
+      playerMatchStats = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderMatches();
+      renderLiveMatches();
       renderDashboardNextMatch();
       if (activeTeamDetailId) renderTeamDetailModal(activeTeamDetailId);
     });
@@ -1642,12 +1700,14 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
         const auto = tacticLayout.get(player.id) || { x: 50, y: 50 };
         const x = Number.isFinite(parseFloat(player.tacticX)) ? parseFloat(player.tacticX) : auto.x;
         const y = Number.isFinite(parseFloat(player.tacticY)) ? parseFloat(player.tacticY) : auto.y;
+        const performance = playerPerformanceSummary(player);
         return `
           <div data-tactic-player="${player.id}" data-x="${x}" data-y="${y}" class="absolute -translate-x-1/2 -translate-y-1/2 text-center group transition-[left,top,transform,filter] duration-200 ease-out will-change-transform ${isAdmin ? "cursor-move" : ""}" style="left:${x}%; top:${y}%;">
             <img src="${player.faceUrl || player.image || player.facePath || placeholderImage}" class="mx-auto h-11 w-11 rounded-full object-cover border-2 border-primary shadow-xl transition-all duration-200">
             <div class="mt-1 rounded-md bg-black/75 px-2 py-1 text-[9px] font-black leading-tight text-white shadow-lg">
               <span class="text-primary">${player.position || positionGroup(player.position)}</span> ${player.number || ""}
               <br><span class="font-bold">${String(player.player || "").split(" ").slice(-1)[0]}</span>
+              ${performance ? `<br><span class="text-secondary">${performance}</span>` : ""}
             </div>
           </div>
         `;
@@ -1664,16 +1724,19 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
           <div class="absolute bottom-3 left-4 rounded-lg bg-black/70 px-3 py-2 font-headline text-xl font-black text-white">${team.formation || "Custom"}</div>
         </div>
       `;
-      const playerRow = (player) => `
+      const playerRow = (player) => {
+        const performance = playerPerformanceSummary(player);
+        return `
         <div ${isAdmin ? `draggable="true" data-roster-list-player="${player.id}"` : ""} class="grid grid-cols-[38px_1fr_auto] items-center gap-3 rounded-xl bg-surface-container/70 p-2 ${isAdmin ? "cursor-grab" : ""}">
           <img src="${player.faceUrl || player.image || player.facePath || placeholderImage}" class="h-9 w-9 rounded-lg object-cover">
           <div class="min-w-0">
             <p class="truncate text-sm font-bold text-white">${player.number ? `${player.number}. ` : ""}${player.player}</p>
-            <p class="text-[9px] uppercase tracking-widest text-on-surface-variant">${player.position || "POS"} ${player.isSubstitute ? "- SUB" : ""}</p>
+            <p class="text-[9px] uppercase tracking-widest text-on-surface-variant">${player.position || "POS"} ${player.isSubstitute ? "- SUB" : ""}${performance ? ` - ${performance}` : ""}</p>
           </div>
           ${isAdmin ? `<button class="admin-btn !py-1 !px-2 text-[10px]" data-action="editRosterPlayer" data-id="${player.id}">Edit</button>` : ""}
         </div>
       `;
+      };
       const renderList = (label, items, kind) => `
         <div data-roster-drop-zone="${kind}" class="rounded-2xl border border-outline-variant/10 bg-black/20 p-4">
           <p class="mb-3 text-[10px] uppercase tracking-widest text-primary font-black">${label}</p>
@@ -2464,6 +2527,7 @@ const initSlideshow = (urls) => {
       const t1 = resolveTeam(m.team1);
       const t2 = resolveTeam(m.team2);
       const penaltyScore = formatPenaltyScore(m);
+      const liveClock = formatLiveClock(m);
 
       // Calculate the real probability
       const prob = calculateWinProbability(t1.stars, t2.stars, m.s1, m.s2);
@@ -2483,7 +2547,7 @@ const initSlideshow = (urls) => {
                     ${m.live || (m.s1!==null) ? `<span class="font-headline text-5xl md:text-8xl font-black text-error italic score-font">${m.s1} - ${m.s2}</span>` 
                     : `<span class="font-headline text-3xl md:text-5xl font-black text-on-surface-variant opacity-50 italicVS">VS</span>`}
                     ${penaltyScore ? `<span class="mt-2 text-secondary font-headline text-lg font-black uppercase tracking-widest">${penaltyScore}</span>` : ""}
-                    <span class="font-label text-on-surface-variant font-bold mt-2 uppercase text-xs">${safe(m.date, '90\' MINUTES')}</span>
+                    <span class="font-label text-on-surface-variant font-bold mt-2 uppercase text-xs">${m.live && liveClock ? liveClock : safe(m.date, '90\' MINUTES')}</span>
                 </div>
                 <div class="text-center flex-1">
                     <img src="${t2.logo}" class="w-20 h-20 md:w-32 md:h-32 object-contain mb-4 filter drop-shadow-2xl mx-auto">
@@ -2561,7 +2625,8 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
       const live = matches.filter(m => m.live);
       document.getElementById("liveMatches").innerHTML = live.length ? live.map(m => {
         const liveClock = formatLiveClock(m);
-        const eventCount = getEventsForMatch(m).length;
+        const events = getEventsForMatch(m);
+        const goalEvents = events.filter((event) => normalizeKey(event.eventType).includes("goal"));
         return `
                 <div class="min-w-[300px] surface-container-high p-5 rounded-[2rem] border-l-4 border-error shadow-xl">
                     <div class="flex justify-between text-[10px] font-label text-error font-bold uppercase tracking-widest mb-4">
@@ -2577,7 +2642,7 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
                             <span class="font-headline font-black text-xl text-error">${m.s2}</span>
                         </div>
                     </div>
-                    ${eventCount ? `<div class="mt-4 pt-3 border-t border-white/5 text-[10px] uppercase tracking-widest text-tertiary font-bold">${eventCount} PES timeline events</div>` : ""}
+                    ${goalEvents.length ? `<div class="mt-4 pt-3 border-t border-white/5 text-[10px] uppercase tracking-widest text-tertiary font-bold">${goalEvents.slice(-4).map((event) => event.scorer || event.player || formatGoalMinute(event)).join(" / ")}</div>` : ""}
                 </div>`;
       }).join("") : "<p class='text-on-surface-variant text-sm font-label py-4 pl-2'>No pitches active at the moment.</p>";
     };
