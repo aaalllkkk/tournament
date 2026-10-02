@@ -16,7 +16,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     let rosterPlayers = [];
     let playerMatchStats = [];
     let news = [];
-    let knockout = { format: "single", bracketSize: 0, rounds: [] };
+    let knockout = { format: "single", tieFormat: "single", mirrorTeam: false, bracketSize: 0, rounds: [] };
     let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
     let championsCutoff = 4;
     let playoffCutoff = 6;
@@ -37,6 +37,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     let activeTeamDetailId = "";
     let activeDraggedRosterPlayerId = "";
     let activeTacticDropTargetId = "";
+    let competitionConfig = { mode: "league", groupFormat: "normal-single", numGroups: 2, advancePerGroup: 2, mirrorTeam: false, updatedAtMs: 0 };
     
     // Variabel Global untuk Slideshow
     let slideshowInterval = null;
@@ -528,7 +529,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
 
     const getTeamForm = (teamName, limit = 5) => matches
       .filter((match) => (
-        match.type !== "knockout" &&
+        (match.type || "league") !== "knockout" &&
         hasFinalScore(match) &&
         (normalizeKey(match.team1) === normalizeKey(teamName) || normalizeKey(match.team2) === normalizeKey(teamName))
       ))
@@ -570,16 +571,22 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     const renderKnockoutAdminStatus = (match) => {
       if (!isAdmin || match.type !== "knockout") return "";
       const linked = getKnockoutBracketMatch(match.knockoutMatchId);
-      const synced = linked && String(linked.s1 ?? "") === String(match.s1 ?? "") && String(linked.s2 ?? "") === String(match.s2 ?? "") && hasFinalScore(match);
+      const total = parseInt(match.knockoutGames) || 1;
       const items = [];
 
       if (match.live) {
         items.push({ label: "Live from PES", cls: "bg-error/10 text-error border-error/20" });
       } else if (hasFinalScore(match)) {
-        items.push({ label: synced ? "Synced to Bracket" : "Ready to Sync", cls: synced ? "bg-primary/10 text-primary border-primary/20" : "bg-secondary/10 text-secondary border-secondary/20" });
-        items.push({ label: "Locked Final", cls: "bg-white/5 text-on-surface-variant border-white/10" });
+        if (total > 1) {
+          const tieDone = !!(linked && linked.winner);
+          items.push({ label: tieDone ? `Tie decided: ${linked.winner}` : `Game done — tie ${match.knockoutGame || 1}/${total}`, cls: tieDone ? "bg-primary/10 text-primary border-primary/20" : "bg-secondary/10 text-secondary border-secondary/20" });
+        } else {
+          const synced = linked && String(linked.s1 ?? "") === String(match.s1 ?? "") && String(linked.s2 ?? "") === String(match.s2 ?? "") && String(linked.p1 ?? "") === String(match.p1 ?? "") && String(linked.p2 ?? "") === String(match.p2 ?? "");
+          items.push({ label: synced ? "Synced to Bracket" : "Ready to Sync", cls: synced ? "bg-primary/10 text-primary border-primary/20" : "bg-secondary/10 text-secondary border-secondary/20" });
+          items.push({ label: "Locked Final", cls: "bg-white/5 text-on-surface-variant border-white/10" });
+        }
       } else {
-        items.push({ label: "Waiting PES", cls: "bg-secondary/10 text-secondary border-secondary/20" });
+        items.push({ label: total > 1 ? `Waiting PES (${match.knockoutGameLabel || `Game ${match.knockoutGame || 1}`})` : "Waiting PES", cls: "bg-secondary/10 text-secondary border-secondary/20" });
       }
 
       return `
@@ -592,8 +599,9 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     const getUpcomingMatches = () => matches
       .filter((match) => !match.live && !hasFinalScore(match) && match.team1 && match.team2)
       .sort((a, b) => {
-        if (a.type === "knockout" && b.type !== "knockout") return -1;
-        if (a.type !== "knockout" && b.type === "knockout") return 1;
+        const ta = (a.type || "league"), tb = (b.type || "league");
+        if (ta === "knockout" && tb !== "knockout") return -1;
+        if (ta !== "knockout" && tb === "knockout") return 1;
         return getMW(a) - getMW(b);
       });
 
@@ -1082,68 +1090,260 @@ const getStarIcons = (rating) => {
       renderPesBridgePanel();
     });
 
-     // --- Generate League ---
-    const generateLeague = async () => {
-  if (teams.length < 2) return alert("Minimal harus ada 2 tim!");
-  
-  const isHomeAway = confirm("Gunakan sistem Home & Away? (Setiap tim bertemu 2x)");
-  if (!confirm(`Generate jadwal untuk ${teams.length} tim?`)) return;
+     // --- Competition Engine (Liga / Grup fleksibel) ---
+    const GROUP_LETTERS = ["A","B","C","D","E","F","G","H"];
+    const groupLetter = (index) => GROUP_LETTERS[index] || `G${index + 1}`;
 
-  try {
-    const matchesRef = collection(db, "matches");
-    let pool = [];
+    const readCompetitionUI = () => {
+      const mode = document.getElementById("compMode")?.value || competitionConfig.mode || "league";
+      const leagueLegs = parseInt(document.getElementById("leagueLegs")?.value) || 1;
+      const numGroups = parseInt(document.getElementById("groupCount")?.value) || competitionConfig.numGroups || 2;
+      const groupFormat = document.getElementById("groupFormat")?.value || competitionConfig.groupFormat || "normal-single";
+      const advancePerGroup = parseInt(document.getElementById("advancePerGroup")?.value) || competitionConfig.advancePerGroup || 2;
+      const clearExisting = document.getElementById("clearExistingMatches")?.checked !== false;
+      const mirrorEl = document.getElementById("compMirrorTeam");
+      const mirrorTeam = mirrorEl ? mirrorEl.checked === true : competitionConfig.mirrorTeam === true;
+      return { mode, leagueLegs: leagueLegs === 2 ? 2 : 1, numGroups, groupFormat, advancePerGroup, clearExisting, mirrorTeam };
+    };
 
-    // 1. Buat semua kemungkinan pasangan
-    for (let i = 0; i < teams.length; i++) {
-      for (let j = 0; j < teams.length; j++) {
-        if (i === j) continue;
-        if (!isHomeAway && i > j) continue;
-        pool.push({ t1: teams[i].name, t2: teams[j].name });
-      }
-    }
-
-    let currentMW = 1;
-    let totalCreated = 0;
-
-    // 2. Bagi ke dalam Matchweek (Satu tim satu kali main per pekan)
-    while (pool.length > 0) {
-      let usedInWeek = new Set();
-      let i = 0;
-
-      while (i < pool.length) {
-        const m = pool[i];
-        if (!usedInWeek.has(m.t1) && !usedInWeek.has(m.t2)) {
-          await addDoc(matchesRef, {
-            team1: m.t1,
-            team2: m.t2,
-            s1: null,
-            s2: null,
-            date: "TBD",
-            live: false,
-            type: "league",
-            Matchweek: currentMW // Field Matchweek
-          });
-          
-          usedInWeek.add(m.t1);
-          usedInWeek.add(m.t2);
-          pool.splice(i, 1);
-          totalCreated++;
+    const syncCompetitionUI = () => {
+      const ui = readCompetitionUI();
+      const groupWrap = document.getElementById("groupOptsWrap");
+      const legsWrap = document.getElementById("leagueLegsWrap");
+      if (groupWrap) groupWrap.style.display = ui.mode === "group" ? "grid" : "none";
+      if (legsWrap) legsWrap.style.display = ui.mode === "group" ? "none" : "block";
+      const status = document.getElementById("compStatus");
+      if (status) {
+        if (ui.mode === "group") {
+          const desc = ui.groupFormat === "asean"
+            ? "ASEAN Cup: 1x ketemu, home/away diseimbangkan (grup 5 → 2 kandang + 2 tandang)."
+            : ui.groupFormat === "normal-double"
+              ? "Grup Normal 2x: setiap tim ketemu 2x home & away."
+              : "Grup Normal 1x: setiap tim ketemu 1x.";
+          status.textContent = `Mode: Grup (${ui.numGroups} grup, ${desc} Top ${ui.advancePerGroup}/grup lolos ke knockout.)`;
         } else {
-          i++;
+          status.textContent = `Mode: Liga (${ui.leagueLegs}x ketemu). Grup normal = round-robin penuh. ASEAN Cup = 1x ketemu, home/away diseimbangkan.`;
         }
       }
-      currentMW++;
-      if(currentMW > 100) break; // Safety break
-    }
+      const badge = document.getElementById("competitionBadge");
+      if (badge) {
+        const mirrorTxt = competitionConfig.mirrorTeam ? " • Mirror ON" : "";
+        badge.textContent = competitionConfig.mode === "group"
+          ? `Mode: Grup • ${competitionConfig.numGroups} grup • ${competitionConfig.groupFormat} • Top ${competitionConfig.advancePerGroup}/grup${mirrorTxt}`
+          : `Mode: Liga${mirrorTxt}`;
+      }
+    };
 
-    alert(`Berhasil! ${totalCreated} pertandingan dibuat dalam ${currentMW - 1} Matchweek.`);
-  } catch (e) {
-    alert("Error: " + e.message);
-  }
-};
+    const splitTeamsIntoGroups = (teamList, numGroups) => {
+      const sorted = teamList.slice().sort((a, b) => ((parseFloat(b.stars) || 0) - (parseFloat(a.stars) || 0)) || String(a.name || "").localeCompare(String(b.name || "")));
+      const groups = Array.from({ length: numGroups }, () => []);
+      let forward = true;
+      sorted.forEach((team, i) => {
+        const round = Math.floor(i / numGroups);
+        const pos = i % numGroups;
+        const gi = forward || true ? (round % 2 === 0 ? pos : (numGroups - 1 - pos)) : pos;
+        groups[gi].push(team);
+      });
+      return groups;
+    };
+
+    // Circle method: seimbang, 1 tim main 1x per MW. BYE otomatis bila ganjil.
+    const circleMethodRoundRobin = (names) => {
+      const list = names.slice();
+      if (list.length % 2 === 1) list.push("__BYE__");
+      const n = list.length;
+      const rounds = [];
+      const arr = list.slice();
+      for (let r = 0; r < n - 1; r++) {
+        const pairs = [];
+        for (let i = 0; i < n / 2; i++) {
+          const h = arr[i];
+          const a = arr[n - 1 - i];
+          if (h === "__BYE__" || a === "__BYE__") continue;
+          // Alternasi home/away per round agar adil
+          pairs.push(r % 2 === 0 ? [h, a] : [a, h]);
+        }
+        rounds.push(pairs);
+        arr.splice(1, 0, arr.pop());
+      }
+      return rounds;
+    };
+
+    const balanceHomeAwayASEAN = (rounds, teamNames) => {
+      const home = new Map(teamNames.map((n) => [n, 0]));
+      const away = new Map(teamNames.map((n) => [n, 0]));
+      rounds.forEach((pairs) => pairs.forEach(([h, a]) => {
+        home.set(h, (home.get(h) || 0) + 1);
+        away.set(a, (away.get(a) || 0) + 1);
+      }));
+      const balanced = rounds.map((pairs) => pairs.slice());
+      for (let iter = 0; iter < 20; iter++) {
+        let flipped = false;
+        const diffs = teamNames.map((n) => ({ n, d: (home.get(n) || 0) - (away.get(n) || 0) }));
+        const maxHome = diffs.sort((x, y) => y.d - x.d)[0];
+        if (!maxHome || maxHome.d <= 1) break;
+        outer: for (let r = 0; r < balanced.length; r++) {
+          for (let k = 0; k < balanced[r].length; k++) {
+            const [h, a] = balanced[r][k];
+            if (h === maxHome.n && (home.get(a) || 0) < (away.get(a) || 0) + 1) continue;
+            if (h === maxHome.n) {
+              balanced[r][k] = [a, h];
+              home.set(h, home.get(h) - 1);
+              away.set(h, away.get(h) + 1);
+              home.set(a, (home.get(a) || 0) + 1);
+              away.set(a, (away.get(a) || 0) - 1);
+              flipped = true;
+              break outer;
+            }
+          }
+        }
+        if (!flipped) break;
+      }
+      return balanced;
+    };
+
+    const buildFixturesFromNames = (names, legs = 1, balanceASEAN = false) => {
+      let rounds = circleMethodRoundRobin(names);
+      if (balanceASEAN) rounds = balanceHomeAwayASEAN(rounds, names);
+      const fixtures = [];
+      rounds.forEach((pairs, ri) => {
+        pairs.forEach(([t1, t2]) => fixtures.push({ t1, t2, mw: ri + 1, leg: 1 }));
+      });
+      if (legs === 2) {
+        const base = rounds.length;
+        rounds.forEach((pairs, ri) => {
+          // Leg 2: tukar kandang-tandang
+          pairs.forEach(([t1, t2]) => fixtures.push({ t1: t2, t2: t1, mw: base + ri + 1, leg: 2 }));
+        });
+      }
+      return fixtures;
+    };
+
+    const deleteLeagueGroupMatches = async () => {
+      const snap = await getDocs(collection(db, "matches"));
+      const ops = [];
+      snap.docs.forEach((d) => {
+        const t = (d.data()?.type || "league");
+        if (t === "league" || t === "group") ops.push((batch) => batch.delete(d.ref));
+      });
+      await commitBatchChunks(ops);
+      return ops.length;
+    };
+
+    const saveCompetitionConfig = async (cfg) => {
+      competitionConfig = { ...cfg, updatedAtMs: Date.now() };
+      await setDoc(doc(db, "config", "competition"), competitionConfig);
+      syncCompetitionUI();
+    };
+
+    const assignTeamGroups = async (groups) => {
+      const ops = [];
+      const byName = new Map();
+      groups.forEach((list, gi) => list.forEach((t) => byName.set(t.name, groupLetter(gi))));
+      teams.forEach((t) => {
+        const g = byName.get(t.name) || "";
+        if ((t.group || "") !== g) ops.push((batch) => batch.update(doc(db, "teams", t.id), { group: g, updatedAtMs: Date.now() }));
+      });
+      if (ops.length) await commitBatchChunks(ops);
+    };
+
+    const clearTeamGroups = async () => {
+      const ops = [];
+      teams.forEach((t) => {
+        if (t.group) ops.push((batch) => batch.update(doc(db, "teams", t.id), { group: "", updatedAtMs: Date.now() }));
+      });
+      if (ops.length) await commitBatchChunks(ops);
+    };
+
+     // --- Generate League / Group (improved) ---
+    const generateLeague = async () => {
+      if (teams.length < 2) return alert("Minimal harus ada 2 tim!");
+      const ui = readCompetitionUI();
+
+      if (ui.mode === "group") {
+        if (ui.numGroups < 2) return alert("Grup minimal 2.");
+        if (teams.length < ui.numGroups * 2) return alert(`Butuh minimal ${ui.numGroups * 2} tim untuk ${ui.numGroups} grup (min 2/grup).`);
+        if (ui.advancePerGroup < 1) return alert("Lolos per grup minimal 1.");
+      }
+
+      const summary = ui.mode === "group"
+        ? `Generate GROUP: ${teams.length} tim → ${ui.numGroups} grup (${ui.groupFormat}, top ${ui.advancePerGroup}/grup lolos)?`
+        : `Generate LIGA: ${teams.length} tim, ${ui.leagueLegs}x ketemu?`;
+      if (!confirm(summary)) return;
+      if (ui.clearExisting && !confirm("Hapus jadwal Liga/Grup lama dulu? (Knockout tidak ikut terhapus)")) return;
+
+      try {
+        if (ui.clearExisting) await deleteLeagueGroupMatches();
+        else {
+          const existing = matches.filter((m) => (m.type || "league") === "league" || (m.type || "") === "group");
+          if (existing.length && !confirm(`Sudah ada ${existing.length} jadwal liga/grup. Lanjut tambah (risiko duplikat)?`)) return;
+        }
+
+        const existingPairKeys = ui.clearExisting ? new Set() : new Set(matches
+          .filter((m) => (m.type || "league") !== "knockout")
+          .map((m) => `${m.type || "league"}|${m.group || ""}|${[normalizeKey(m.team1), normalizeKey(m.team2)].sort().join(">")}|leg${m.leg || 1}`));
+
+        const payloads = [];
+        const seenPairKeys = new Set();
+        const pushUnique = (p) => {
+          const pairKey = `${p.type}|${p.group || ""}|${[normalizeKey(p.team1), normalizeKey(p.team2)].sort().join(">")}|leg${p.leg || 1}`;
+          if (existingPairKeys.has(pairKey) || seenPairKeys.has(pairKey)) return false;
+          existingPairKeys.add(pairKey);
+          seenPairKeys.add(pairKey);
+          payloads.push(p);
+          return true;
+        };
+
+        let mwCount = 0;
+        if (ui.mode === "league") {
+          const names = teams.map((t) => t.name);
+          const fixtures = buildFixturesFromNames(names, ui.leagueLegs, false);
+          mwCount = fixtures.reduce((mx, f) => Math.max(mx, f.mw), 0);
+          fixtures.forEach((f) => {
+            pushUnique({
+              team1: f.t1, team2: f.t2, s1: null, s2: null, p1: null, p2: null,
+              date: "TBD", live: false, type: "league", group: "",
+              Matchweek: f.mw, leg: f.leg, stage: `League MW ${f.mw}`,
+              mirrorTeam: ui.mirrorTeam, useTeam: ui.mirrorTeam ? f.t1 : "",
+              createdAtMs: Date.now()
+            });
+          });
+          await clearTeamGroups();
+          await saveCompetitionConfig({ mode: "league", groupFormat: "normal-single", numGroups: 1, advancePerGroup: 0, mirrorTeam: ui.mirrorTeam });
+        } else {
+          const groups = splitTeamsIntoGroups(teams, ui.numGroups);
+          const legs = ui.groupFormat === "normal-double" ? 2 : 1;
+          const balance = ui.groupFormat === "asean";
+          groups.forEach((list, gi) => {
+            const letter = groupLetter(gi);
+            const names = list.map((t) => t.name);
+            const fixtures = buildFixturesFromNames(names, legs, balance);
+            fixtures.forEach((f) => {
+              mwCount = Math.max(mwCount, f.mw);
+              pushUnique({
+                team1: f.t1, team2: f.t2, s1: null, s2: null, p1: null, p2: null,
+                date: "TBD", live: false, type: "group", group: letter,
+                Matchweek: f.mw, leg: f.leg, stage: `Group ${letter} MW ${f.mw}`,
+                mirrorTeam: ui.mirrorTeam, useTeam: ui.mirrorTeam ? f.t1 : "",
+                createdAtMs: Date.now()
+              });
+            });
+          });
+          await assignTeamGroups(groups);
+          await saveCompetitionConfig({ mode: "group", groupFormat: ui.groupFormat, numGroups: ui.numGroups, advancePerGroup: ui.advancePerGroup, mirrorTeam: ui.mirrorTeam });
+        }
+
+        if (!payloads.length) return alert("Tidak ada jadwal baru (semua sudah ada / duplikat dicegah).");
+        const ops = payloads.map((p) => (batch) => batch.set(doc(collection(db, "matches")), p));
+        await commitBatchChunks(ops);
+        alert(`Berhasil! ${payloads.length} pertandingan dibuat (${ui.mode === "group" ? `${ui.numGroups} grup` : "liga"}${mwCount ? `, ${mwCount} matchweek` : ""}).`);
+      } catch (e) {
+        alert("Error: " + e.message);
+      }
+    };
 
     const hardReset = async () => {
-  if (!confirm("Hapus SEMUA jadwal pertandingan?")) return;
+  if (!confirm("Hapus SEMUA jadwal pertandingan (liga/grup/knockout)?")) return;
   const code = prompt("Ketik 'RESET' untuk konfirmasi:");
   if (code !== "RESET") return alert("Dibatalkan.");
 
@@ -1151,7 +1351,11 @@ const getStarIcons = (rating) => {
     const snap = await getDocs(collection(db, "matches"));
     const batch = snap.docs.map(d => deleteDoc(doc(db, "matches", d.id)));
     await Promise.all(batch);
-    alert("Semua pertandingan berhasil dihapus!");
+    try {
+      await clearTeamGroups();
+      await saveCompetitionConfig({ mode: "league", groupFormat: "normal-single", numGroups: 1, advancePerGroup: 0, mirrorTeam: false });
+    } catch (cfgErr) { console.warn("Reset competition config warning:", cfgErr); }
+    alert("Semua pertandingan berhasil dihapus! Mode kembali ke Liga.");
   } catch (e) {
     alert("Gagal reset: " + e.message);
   }
@@ -1161,6 +1365,7 @@ const getStarIcons = (rating) => {
       ["adminTeamControls", "matchControls", "scorerControls", "newsControls", "knockoutControls", "liveBannerControls", "trophyCabinetControls", "hofcontrols", "hofManagerControls"].forEach(id => {
         if (document.getElementById(id)) document.getElementById(id).style.display = isAdmin ? "block" : "none";
       });
+      syncCompetitionUI();
     };
 
     // --- UI TOGGLES ---
@@ -1219,7 +1424,8 @@ const getStarIcons = (rating) => {
 };
 
     const toggleFolder = (mw) => {
-      collapsed[mw] = !collapsed[mw];
+      const key = String(mw);
+      collapsed[key] = !collapsed[key];
       localStorage.setItem("collapsedMW", JSON.stringify(collapsed));
       renderMatches();
     };
@@ -1377,6 +1583,31 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       renderKnockout();
     });
 
+    onSnapshot(doc(db, "config", "competition"), (snap) => {
+      if (snap.exists()) {
+        const d = snap.data() || {};
+        competitionConfig = {
+          mode: d.mode === "group" ? "group" : "league",
+          groupFormat: d.groupFormat || "normal-single",
+          numGroups: parseInt(d.numGroups) || 2,
+          advancePerGroup: parseInt(d.advancePerGroup) || 2,
+          mirrorTeam: d.mirrorTeam === true,
+          updatedAtMs: d.updatedAtMs || 0
+        };
+        if (isAdmin) {
+          const cm = document.getElementById("compMode"); if (cm) cm.value = competitionConfig.mode;
+          const gc = document.getElementById("groupCount"); if (gc) gc.value = String(competitionConfig.numGroups);
+          const gf = document.getElementById("groupFormat"); if (gf) gf.value = competitionConfig.groupFormat;
+          const ap = document.getElementById("advancePerGroup"); if (ap) ap.value = String(competitionConfig.advancePerGroup);
+          const mt = document.getElementById("compMirrorTeam"); if (mt) mt.checked = competitionConfig.mirrorTeam === true;
+        }
+      }
+      syncCompetitionUI();
+      renderStandings();
+      renderMatches();
+      renderTeams();
+    });
+
    
     // --- ACTIONS ---
     const addTeam = async () => {
@@ -1426,22 +1657,31 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
 
     const addMatch = async () => {
       if (!isAdmin) return;
-      const team1 = document.getElementById("team1").value;
-      const team2 = document.getElementById("team2").value;
-      const Matchweek = parseInt(document.getElementById("matchMatchweek").value);
-      const date = document.getElementById("date").value;
-      if (team1 === team2) return alert("Same teams!");
-      await addDoc(collection(db, "matches"), { team1, team2, Matchweek, date, s1: null, s2: null, y1: 0, y2: 0, live: false });
+      const team1 = document.getElementById("team1")?.value || "";
+      const team2 = document.getElementById("team2")?.value || "";
+      const Matchweek = parseInt(document.getElementById("matchMatchweek")?.value) || 1;
+      const date = document.getElementById("date")?.value || "TBD";
+      const type = document.getElementById("matchType")?.value || "league";
+      const group = (document.getElementById("matchGroup")?.value || "").toUpperCase();
+      const leg = parseInt(document.getElementById("matchLeg")?.value) || 1;
+      const mirrorTeam = document.getElementById("matchMirrorTeam")?.checked === true;
+      if (!team1 || !team2) return alert("Pilih kedua tim!");
+      if (team1 === team2) return alert("Same teams! Tampilan fixture tetap beda tim (mis. MU vs City) — mirror hanya soal tim yang dipakai main.");
+      if (type === "group" && !group) return alert("Pilih grup (A/B/C…) untuk match grup!");
+      const stage = type === "group" ? `Group ${group} MW ${Matchweek}` : type === "knockout" ? "Knockout" : `League MW ${Matchweek}`;
+      await addDoc(collection(db, "matches"), { team1, team2, Matchweek, date, s1: null, s2: null, p1: null, p2: null, y1: 0, y2: 0, live: false, type, group: type === "group" ? group : "", leg, stage, mirrorTeam, useTeam: mirrorTeam ? team1 : "", createdAtMs: Date.now() });
     };
 
     const isScoreEmpty = (value) => value === null || value === undefined || value === "";
 
     const updateScore = async (id, val, side) => {
       if (!isAdmin) return;
-      const num = isNaN(parseInt(val)) ? null : parseInt(val);
-      const payload = { [side]: num };
+      const key = String(side || "");
+      if (!["s1", "s2", "p1", "p2"].includes(key)) return;
+      const num = isScoreEmpty(val) || isNaN(parseInt(val)) ? null : parseInt(val);
+      const payload = { [key]: num };
       const match = matches.find((item) => item.id === id);
-      if (match?.type === "knockout" && isScoreEmpty(num)) {
+      if ((match?.type || "") === "knockout" && (key === "s1" || key === "s2") && isScoreEmpty(num)) {
         payload.live = false;
         payload.bridgeLocked = false;
         payload.externalMatchId = "";
@@ -1867,13 +2107,14 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       teams.forEach(t => {
         const rosterCount = playersForTeam(t).length;
         const managerPhoto = t.managerPhoto || findManagerPhoto(t.managerName) || placeholderImage;
+        const groupBadge = (t.group || "").toUpperCase() ? `<span class="ml-2 rounded-full bg-tertiary/10 border border-tertiary/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-tertiary">Grp ${String(t.group).toUpperCase()}</span>` : "";
         html += `
                 <li class="bg-surface-container-high rounded-[2rem] p-6 border border-outline-variant/10 shadow-lg group hover:-translate-y-1 transition-transform cursor-pointer" data-action="openTeamDetail" data-id="${t.id}">
                     <div class="flex items-center justify-between gap-4">
                       <div class="flex items-center gap-4 min-w-0">
                           <img src="${t.logo || placeholderImage}" class="w-14 h-14 object-contain bg-surface-container-highest p-2 rounded-[1rem] group-hover:scale-110 transition-transform">
                           <div class="min-w-0">
-                            <span class="block truncate font-headline font-bold text-xl">${t.name}</span>
+                            <span class="block truncate font-headline font-bold text-xl">${t.name}${groupBadge}</span>
                             <span class="text-[10px] uppercase tracking-widest text-on-surface-variant">${rosterCount} roster</span>
                           </div>
                       </div>
@@ -1884,7 +2125,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
                       <button class="deleteBtn" data-action="deleteTeam" data-id="${t.id}">Delete</button>
                     </div>` : ""}
                 </li>`;
-        opts += `<option value="${t.name}">${t.name}</option>`;
+        opts += `<option value="${t.name}">${t.name}${t.group ? ` (Grp ${String(t.group).toUpperCase()})` : ""}</option>`;
         filterOpts += `<option value="${t.name.toLowerCase()}">${t.name}</option>`;
       });
 
@@ -1892,8 +2133,10 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       document.getElementById("team1").innerHTML = opts;
       document.getElementById("team2").innerHTML = opts;
       document.getElementById("playerTeam").innerHTML = opts;
-      document.getElementById("filterTeam1").innerHTML = filterOpts;
-      document.getElementById("filterTeam2").innerHTML = '<option value="">Vs Team</option>' + filterOpts.substring(34);
+      const f1El = document.getElementById("filterTeam1");
+      const f2El = document.getElementById("filterTeam2");
+      if (f1El) f1El.innerHTML = filterOpts;
+      if (f2El) f2El.innerHTML = '<option value="">Vs Team</option>' + teams.map((t) => `<option value="${t.name.toLowerCase()}">${t.name}</option>`).join("");
       renderRosterPlayerOptions();
     };
 
@@ -1901,36 +2144,61 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       const container = document.getElementById("matchContainer");
       if (!container) return;
 
-      const f1 = document.getElementById("filterTeam1").value.toLowerCase();
-      const f2 = document.getElementById("filterTeam2").value.toLowerCase();
+      const f1 = (document.getElementById("filterTeam1")?.value || "").toLowerCase();
+      const f2 = (document.getElementById("filterTeam2")?.value || "").toLowerCase();
+      const fG = (document.getElementById("filterGroup")?.value || "").toUpperCase();
 
       const filtered = matches.filter(m => {
         const t1 = (m.team1 || "").toLowerCase(),
           t2 = (m.team2 || "").toLowerCase();
+        if (fG && matchGroup(m) !== fG && (m.type || "") === "group") return false;
+        if (fG && (m.type || "league") === "league") {
+          // Di mode grup, sembunyikan liga murni saat filter grup aktif
+          if (hasGroupStage()) return false;
+        }
         if (!f1 && !f2) return true;
         if (f1 && !f2) return t1 === f1 || t2 === f1;
+        if (!f1 && f2) return t1 === f2 || t2 === f2;
         return (t1 === f1 && t2 === f2) || (t1 === f2 && t2 === f1);
       }).sort((a, b) => (b.live - a.live) || getMW(a) - getMW(b));
 
       const grouped = filtered.reduce((acc, m) => {
-        const mw = getMW(m);
-        acc[mw] = acc[mw] || [];
-        acc[mw].push(m);
+        const key = `${m.type || "league"}|${matchGroup(m)}|${getMW(m)}`;
+        acc[key] = acc[key] || [];
+        acc[key].push(m);
         return acc;
       }, {});
 
-      container.innerHTML = Object.keys(grouped).sort((a, b) => a - b).map(mw => `
-                <div class="flex items-center gap-4 mb-6 mt-12 cursor-pointer group" data-action="toggleFolder" data-mw="${mw}">
+      const sortKeys = Object.keys(grouped).sort((a, b) => {
+        const [ta, ga, mwa] = a.split("|");
+        const [tb, gb, mwb] = b.split("|");
+        const order = { knockout: 0, group: 1, league: 2 };
+        if ((order[ta] ?? 9) !== (order[tb] ?? 9)) return (order[ta] ?? 9) - (order[tb] ?? 9);
+        if (ga !== gb) return ga.localeCompare(gb);
+        return parseInt(mwa) - parseInt(mwb);
+      });
+
+      container.innerHTML = sortKeys.map(key => {
+        const [ktype, kgroup, kmw] = key.split("|");
+        const list = grouped[key];
+        const title = ktype === "knockout"
+          ? (list[0]?.knockoutRoundName || "Knockout Schedule")
+          : ktype === "group" ? `Group ${kgroup} • Matchday ${kmw}` : `Matchday ${kmw}`;
+        return `
+                <div class="flex items-center gap-4 mb-6 mt-12 cursor-pointer group" data-action="toggleFolder" data-mw="${key}">
                     <div class="h-px flex-1 bg-outline-variant/20"></div>
-                    <h3 class="font-headline text-2xl font-bold uppercase tracking-widest text-primary italic pointer-events-none">${grouped[mw].every(m => m.type === "knockout") ? "Knockout Schedule" : `Matchday ${mw}`} <span class="text-sm ml-2 group-hover:text-secondary inline-block transition-transform ${collapsed[mw] ? '-rotate-90' : 'rotate-0'}">▼</span></h3>
+                    <h3 class="font-headline text-2xl font-bold uppercase tracking-widest text-primary italic pointer-events-none">${title} <span class="text-sm ml-2 group-hover:text-secondary inline-block transition-transform ${collapsed[key] ? '-rotate-90' : 'rotate-0'}">▼</span></h3>
                     <div class="h-px flex-1 bg-outline-variant/20"></div>
                 </div>
-                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mw-${mw} mw-row" style="${collapsed[mw] ? 'display:none' : ''}">
-                    ${grouped[mw].map(m => {
-                        const t1 = resolveTeam(m.team1), t2 = resolveTeam(m.team2), isFinished = m.s1 !== null && !m.live;
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mw-row" style="${collapsed[key] ? 'display:none' : ''}">
+                    ${list.map(m => {
+                        const t1 = resolveTeam(m.team1), t2 = resolveTeam(m.team2), isFinished = hasFinalScore(m) && !m.live;
                         const liveClock = formatLiveClock(m);
                         const penaltyScore = formatPenaltyScore(m);
                         const adminKoStatus = renderKnockoutAdminStatus(m);
+                        const koGameBadge = (m.type || "") === "knockout" && (m.knockoutGameLabel || m.knockoutGame) ? `<span class="px-2 py-1 bg-secondary/10 text-secondary font-bold text-[10px] uppercase tracking-widest rounded-full border border-secondary/20 w-max">${m.knockoutGameLabel || `Game ${m.knockoutGame}`}${m.knockoutTieFormat && m.knockoutTieFormat !== "single" ? ` • ${m.knockoutTieFormat.toUpperCase()}` : ""}</span>` : "";
+                        const mirrorBadge = m.mirrorTeam ? `<span class="px-2 py-1 bg-tertiary/10 text-tertiary font-bold text-[10px] uppercase tracking-widest rounded-full border border-tertiary/20 w-max">Mirror: pakai ${m.useTeam || m.team1}</span>` : "";
+                        const groupMeta = (m.type || "") === "group" && matchGroup(m) ? `<span class="px-2 py-1 bg-tertiary/10 text-tertiary font-bold text-[10px] uppercase tracking-widest rounded-full border border-tertiary/20 w-max">Group ${matchGroup(m)}${m.leg === 2 || m.leg === "2" ? " • Leg 2" : ""}</span>` : ((m.leg === 2 || m.leg === "2") && (m.type || "league") === "league" ? `<span class="px-2 py-1 bg-white/5 text-on-surface-variant font-bold text-[10px] uppercase tracking-widest rounded-full border border-white/10 w-max">Leg 2</span>` : "");
                         const badge = m.live ? `<span class="px-3 py-1 bg-error/10 text-error font-bold text-[10px] uppercase tracking-widest rounded-full border border-error/20 flex items-center gap-1 w-max"><span class="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span> LIVE</span>`
                             : isFinished ? `<span class="px-3 py-1 bg-outline-variant/20 text-on-surface-variant font-bold text-[10px] uppercase tracking-widest rounded-full w-max">Full Time</span>`
                             : m.type === "knockout" ? `<span class="px-3 py-1 bg-secondary/10 text-secondary font-bold text-[10px] uppercase tracking-widest rounded-full border border-secondary/20 w-max">${m.knockoutRoundName || "Knockout"}</span>`
@@ -1939,7 +2207,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
                         return `
                         <div class="group relative bg-surface-container-high rounded-[2rem] p-6 transition-all hover:bg-surface-container-highest ${m.live ? 'ring-1 ring-error/50 shadow-[0_0_20px_rgba(255,115,81,0.1)]' : 'border border-outline-variant/10 shadow-xl'}">
                             <div class="flex justify-between items-start mb-6">
-                                ${badge}
+                                <div class="flex flex-wrap gap-2">${badge}${groupMeta}${koGameBadge}${mirrorBadge}</div>
                                 <div class="text-right">
                                   ${liveClock ? `<span class="block text-error font-headline text-sm font-black italic">${liveClock}</span>` : ""}
                                   <span class="text-on-surface-variant font-label text-xs uppercase">${safe(m.date, 'TBD')}</span>
@@ -1957,6 +2225,14 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
                                             <span class="text-on-surface-variant font-black">-</span>
                                             <input type="number" class="w-12 bg-transparent text-center text-xl font-headline font-black text-white p-0 border-none focus:ring-0" value="${m.s2 ?? ""}" data-action="updateScore" data-side="s2" data-id="${m.id}">
                                         </div>
+                                        ${(m.type || "") === "knockout" ? `
+                                        <div class="mt-2 flex items-center justify-center gap-2">
+                                            <span class="text-[8px] uppercase tracking-widest text-secondary font-black">Pens</span>
+                                            <input type="number" class="w-10 bg-black/40 text-center text-sm font-black text-secondary p-1 rounded-lg border border-secondary/20" value="${m.p1 ?? ""}" data-action="updateScore" data-side="p1" data-id="${m.id}">
+                                            <span class="text-secondary font-black">-</span>
+                                            <input type="number" class="w-10 bg-black/40 text-center text-sm font-black text-secondary p-1 rounded-lg border border-secondary/20" value="${m.p2 ?? ""}" data-action="updateScore" data-side="p2" data-id="${m.id}">
+                                        </div>` : ""}
+                                        ${m.mirrorTeam ? `<p class="mt-2 text-[9px] uppercase tracking-widest text-tertiary font-black">Kedua player pakai ${m.useTeam || m.team1}</p>` : ""}
                                         ${penaltyScore ? `<p class="mt-2 text-[10px] uppercase tracking-widest text-secondary font-black">${penaltyScore}</p>` : ""}` : `
                                         ${(m.live || isFinished) ? `
                                             <div class="flex items-center gap-4 md:gap-6">
@@ -1982,7 +2258,8 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
                                 </div>` : ''}
                         </div>`;
                     }).join("")}
-                </div>`).join("");
+                </div>`;
+      }).join("");
     };
 
 const renderHof = (data) => {
@@ -2253,7 +2530,10 @@ const renderAllTimeHofScorers = () => {
   `;
 };
     
-    const isLeagueMatch = (match) => match.type !== "knockout" && match.team1 && match.team2;
+    const isLeagueMatch = (match) => (match.type || "league") !== "knockout" && match.team1 && match.team2;
+    const isGroupMatch = (match) => (match.type || "") === "group" && match.team1 && match.team2;
+    const matchGroup = (match) => (match.group || "").toString().trim().toUpperCase();
+    const hasGroupStage = () => matches.some(isGroupMatch) || competitionConfig.mode === "group";
 
     const hasMatchScore = (match) => (
       match.s1 !== null &&
@@ -2266,10 +2546,19 @@ const renderAllTimeHofScorers = () => {
       Number.isFinite(Number(match.s2))
     );
 
-    const calculateStandings = () => {
-      let table = teams.reduce((acc, t) => ({ ...acc, [t.name]: { team: t.name, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 } }), {});
+    const calculateStandings = (groupFilter = "") => {
+      let table = teams.reduce((acc, t) => ({ ...acc, [t.name]: { team: t.name, group: t.group || "", p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 } }), {});
+      const gf = (groupFilter || "").toString().trim().toUpperCase();
       matches.forEach(m => {
         if (!isLeagueMatch(m) || !hasMatchScore(m)) return;
+        // Jika filter grup aktif: hanya hitung match grup tersebut.
+        // Match liga (tanpa grup) ikut di semua grup? Tidak — hanya grup yang sama atau liga murni.
+        if (gf) {
+          if ((m.type || "") === "group" && matchGroup(m) !== gf) return;
+          if ((m.type || "league") === "league") return; // liga murni tidak masuk klasemen grup
+        } else {
+          // Tanpa filter: jika ada fase grup, klasemen keseluruhan = gabungan grup (untuk kompatibilitas lama)
+        }
         const h = table[m.team1],
           a = table[m.team2];
         if (!h || !a) return;
@@ -2296,7 +2585,34 @@ const renderAllTimeHofScorers = () => {
           a.pts += 1;
         }
       });
-      return Object.values(table).sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf);
+      let rows = Object.values(table).sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf);
+      if (gf) {
+        const inGroup = new Set(teams.filter((t) => (t.group || "").toUpperCase() === gf).map((t) => t.name));
+        // Jika team.group belum terset (data lama), fallback: tim yang pernah main di grup tsb
+        if (!inGroup.size) {
+          matches.filter((m) => (m.type || "") === "group" && matchGroup(m) === gf).forEach((m) => { inGroup.add(m.team1); inGroup.add(m.team2); });
+        }
+        if (inGroup.size) rows = rows.filter((r) => inGroup.has(r.team));
+      }
+      return rows;
+    };
+
+    const listGroupLetters = () => {
+      const fromMatches = [...new Set(matches.filter(isGroupMatch).map(matchGroup).filter(Boolean))].sort();
+      const fromTeams = [...new Set(teams.map((t) => (t.group || "").toUpperCase()).filter(Boolean))].sort();
+      const merged = [...new Set([...fromMatches, ...fromTeams])].sort();
+      if (merged.length) return merged;
+      if (competitionConfig.mode === "group") return Array.from({ length: competitionConfig.numGroups || 2 }, (_, i) => groupLetter(i));
+      return [];
+    };
+
+    const getQualifiedFromGroups = (advancePerGroup) => {
+      const letters = listGroupLetters();
+      const qualified = [];
+      letters.forEach((letter) => {
+        calculateStandings(letter).slice(0, Math.max(1, advancePerGroup)).forEach((row) => qualified.push(row.team));
+      });
+      return { letters, qualified };
     };
 
     const getLockedStandingsZones = (data, cCut, pCut, hCut) => {
@@ -2363,38 +2679,35 @@ const renderAllTimeHofScorers = () => {
     const isTeamLive = (teamName) => matches.some(m => m.live && (m.team1 === teamName || m.team2 === teamName));
 
     const renderStandings = () => {
-  const data = calculateStandings();
+  const badge = document.getElementById("competitionBadge");
+  if (badge) {
+    badge.textContent = competitionConfig.mode === "group"
+      ? `Mode: Grup • ${competitionConfig.numGroups} grup • ${competitionConfig.groupFormat} • Top ${competitionConfig.advancePerGroup}/grup`
+      : "Mode: Liga";
+  }
+  const groupWrap = document.getElementById("groupStandingsWrap");
+  const leagueWrap = document.getElementById("leagueStandingsWrap");
   const standingsTable = document.getElementById("standingsTable");
   if (!standingsTable) return;
 
-  const cCut = Math.max(parseInt(championsCutoff) || 4, 0);
-  const pCut = Math.max(parseInt(playoffCutoff) || 6, cCut);
-  const hCut = Math.max(parseInt(relegationCutoff) || 1, 0);
-  const lockedZones = getLockedStandingsZones(data, cCut, pCut, hCut);
-
-  standingsTable.innerHTML = data.map((t, i) => {
+  const rowHtml = (t, i, lockedZones) => {
     const rank = i + 1;
     const textClass = i === 0 ? "text-primary" : i === 1 ? "text-on-surface" : i === 2 ? "text-secondary" : "text-on-surface-variant";
-    
     let bgGradient = "";
     let borderClass = "";
     let zoneBadge = "";
     const zone = lockedZones.get(t.team);
     const trophyUrl = (trophyCabinetSettings.leagueImage || "").trim();
-
     if (zone === "champion") {
       bgGradient = "bg-gradient-to-r from-[#f6c453]/15 to-transparent";
       borderClass = "border-l-4 border-[#f6c453]";
-      zoneBadge = `
-        ${trophyUrl ? `<img src="${trophyUrl}" class="hidden md:inline-flex h-7 w-7 object-contain drop-shadow-[0_6px_14px_rgba(246,196,83,0.45)]" alt="League Trophy">` : ""}
-        <span class="hidden md:inline-flex rounded-full bg-[#f6c453]/15 border border-[#f6c453]/35 px-2 py-1 text-[8px] uppercase tracking-widest text-[#f6c453] font-black">Champions</span>
-      `;
+      zoneBadge = `${trophyUrl ? `<img src="${trophyUrl}" class="hidden md:inline-flex h-7 w-7 object-contain" alt="League Trophy">` : ""}<span class="hidden md:inline-flex rounded-full bg-[#f6c453]/15 border border-[#f6c453]/35 px-2 py-1 text-[8px] uppercase tracking-widest text-[#f6c453] font-black">Champions</span>`;
     } else if (zone === "cup") {
       bgGradient = "bg-gradient-to-r from-primary/10 to-transparent";
       borderClass = "border-l-4 border-primary";
       zoneBadge = `<span class="hidden md:inline-flex rounded-full bg-primary/10 border border-primary/20 px-2 py-1 text-[8px] uppercase tracking-widest text-primary font-black">Cup</span>`;
     } else if (zone === "playoff") {
-      bgGradient = "bg-gradient-to-r from-secondary/10 to-transparent"; 
+      bgGradient = "bg-gradient-to-r from-secondary/10 to-transparent";
       borderClass = "border-l-4 border-secondary";
       zoneBadge = `<span class="hidden md:inline-flex rounded-full bg-secondary/10 border border-secondary/20 px-2 py-1 text-[8px] uppercase tracking-widest text-secondary font-black">Play Off</span>`;
     } else if (zone === "hina") {
@@ -2402,25 +2715,9 @@ const renderAllTimeHofScorers = () => {
       borderClass = "border-l-4 border-error";
       zoneBadge = `<span class="hidden md:inline-flex rounded-full bg-error/10 border border-error/20 px-2 py-1 text-[8px] uppercase tracking-widest text-error font-black">Hina</span>`;
     }
-
-    return `
-      <tr class="group hover:bg-surface-container-highest transition-colors ${bgGradient} ${borderClass}">
+    return `<tr class="group hover:bg-surface-container-highest transition-colors ${bgGradient} ${borderClass}">
         <td class="py-5 px-6 font-headline font-black text-lg ${textClass}">${rank.toString().padStart(2, '0')}</td>
-        <td class="py-5 px-6">
-          <div class="flex items-center gap-4">
-            <div class="w-10 h-10 rounded-[0.8rem] bg-surface-container-highest flex items-center justify-center p-1 border border-outline-variant/10 relative">
-              ${isTeamLive(t.team) ? `<div class="absolute -top-1 -right-1"><span class="liveDot"></span></div>` : ""}
-              <img src="${resolveTeam(t.team).logo}" class="w-full h-full object-contain">
-            </div>
-            <div class="min-w-0">
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="font-headline font-bold text-on-surface whitespace-nowrap">${t.team}</span>
-                ${zoneBadge}
-              </div>
-              ${renderFormGuide(t.team)}
-            </div>
-          </div>
-        </td>
+        <td class="py-5 px-6"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-[0.8rem] bg-surface-container-highest flex items-center justify-center p-1 border border-outline-variant/10 relative">${isTeamLive(t.team) ? `<div class="absolute -top-1 -right-1"><span class="liveDot"></span></div>` : ""}<img src="${resolveTeam(t.team).logo}" class="w-full h-full object-contain"></div><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="font-headline font-bold text-on-surface whitespace-nowrap">${t.team}</span>${zoneBadge}</div>${renderFormGuide(t.team)}</div></div></td>
         <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.p}</td>
         <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.w}</td>
         <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.d}</td>
@@ -2428,11 +2725,51 @@ const renderAllTimeHofScorers = () => {
         <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.gf}</td>
         <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.ga}</td>
         <td class="py-5 px-4 text-center font-bold ${t.gf-t.ga > 0 ? 'text-primary' : t.gf-t.ga < 0 ? 'text-error' : 'text-on-surface-variant'}">${t.gf-t.ga > 0 ? '+'+(t.gf-t.ga) : t.gf-t.ga}</td>
-        <td class="py-5 px-6 text-center font-black text-xl ${textClass}">${t.pts}</td>
-      </tr>`;
-  }).join("");
+        <td class="py-5 px-6 text-center font-black text-xl ${textClass}">${t.pts}</td></tr>`;
+  };
+
+  if (hasGroupStage()) {
+    const letters = listGroupLetters();
+    const adv = Math.max(1, parseInt(competitionConfig.advancePerGroup) || 2);
+    if (leagueWrap) leagueWrap.style.display = "none";
+    if (groupWrap) {
+      groupWrap.style.display = "grid";
+      groupWrap.innerHTML = letters.map((letter) => {
+        const data = calculateStandings(letter);
+        return `<section class="bg-surface-container-high rounded-[2rem] overflow-hidden shadow-2xl border border-outline-variant/10">
+          <div class="px-6 py-5 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-highest/50">
+            <h3 class="font-headline font-black uppercase italic text-xl">Group ${letter}</h3>
+            <span class="rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-primary">Top ${adv} lolos</span>
+          </div>
+          <div class="overflow-x-auto"><table class="w-full border-collapse"><tbody class="divide-y divide-outline-variant/5 font-label">
+            ${data.map((t, i) => {
+              const isQ = i < adv;
+              const zones = new Map();
+              if (isQ) zones.set(t.team, i === 0 ? "cup" : "playoff");
+              return rowHtml(t, i, zones);
+            }).join("") || `<tr><td class="p-6 text-white/30 italic text-sm">Belum ada data grup ${letter}.</td></tr>`}
+          </tbody></table></div></section>`;
+      }).join("") || `<p class="text-white/30 italic">Belum ada grup.</p>`;
+    }
+    // Tetap isi tabel liga tersembunyi untuk kompatibilitas dashboard
+    const data = calculateStandings();
+    const cCut = Math.max(parseInt(championsCutoff) || 4, 0);
+    const pCut = Math.max(parseInt(playoffCutoff) || 6, cCut);
+    const hCut = Math.max(parseInt(relegationCutoff) || 1, 0);
+    standingsTable.innerHTML = data.map((t, i) => rowHtml(t, i, getLockedStandingsZones(data, cCut, pCut, hCut))).join("");
+    return;
+  }
+
+  if (groupWrap) groupWrap.style.display = "none";
+  if (leagueWrap) leagueWrap.style.display = "block";
+  const data = calculateStandings();
+  const cCut = Math.max(parseInt(championsCutoff) || 4, 0);
+  const pCut = Math.max(parseInt(playoffCutoff) || 6, cCut);
+  const hCut = Math.max(parseInt(relegationCutoff) || 1, 0);
+  const lockedZones = getLockedStandingsZones(data, cCut, pCut, hCut);
+  standingsTable.innerHTML = data.map((t, i) => rowHtml(t, i, lockedZones)).join("");
 };
-  
+
 
     const renderDashboardStandings = () => {
       document.getElementById("dashboardStandings").innerHTML = calculateStandings().slice(0, 5).map((t, i) => {
@@ -2613,10 +2950,14 @@ onSnapshot(doc(db, "settings", "trophyCabinet"), (snap) => {
 onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
     if (docSnap.exists()) {
         knockout = sanitizeKnockout(docSnap.data());
+        if (isAdmin) {
+          const kt = document.getElementById("koTieFormat"); if (kt) kt.value = knockout.tieFormat || "single";
+          const km = document.getElementById("koMirrorTeam"); if (km) km.checked = knockout.mirrorTeam === true;
+        }
         renderKnockout();
         ensureKnockoutScheduleMatches();
     } else {
-        knockout = { format: "single", bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
+        knockout = { format: "single", tieFormat: "single", mirrorTeam: false, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
         renderKnockout();
     }
 });
@@ -2897,8 +3238,10 @@ const createSeedOrder = (size) => {
 };
 
 const sanitizeKnockout = (raw) => {
+  const tie = String(raw?.tieFormat || "single").toLowerCase();
+  const tieFormat = ["single", "h2", "bo3", "bo5"].includes(tie) ? tie : "single";
   if (!raw || !Array.isArray(raw.rounds)) {
-    return { format: "single", bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
+    return { format: "single", tieFormat, mirrorTeam: raw?.mirrorTeam === true, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
   }
 
   const rounds = raw.rounds.map((round, roundIndex) => ({
@@ -2912,6 +3255,10 @@ const sanitizeKnockout = (raw) => {
       source2: match.source2 || null,
       s1: sanitizeScore(match.s1),
       s2: sanitizeScore(match.s2),
+      p1: sanitizeScore(match.p1),
+      p2: sanitizeScore(match.p2),
+      tieFormat: ["single", "h2", "bo3", "bo5"].includes(String(match.tieFormat || "").toLowerCase()) ? String(match.tieFormat).toLowerCase() : tieFormat,
+      mirrorTeam: match.mirrorTeam === true ? true : (raw?.mirrorTeam === true),
       isReset: !!match.isReset,
       visible: match.visible !== false
     })) : []
@@ -2919,12 +3266,27 @@ const sanitizeKnockout = (raw) => {
 
   return {
     format: raw.format === "double" ? "double" : "single",
+    tieFormat,
+    mirrorTeam: raw?.mirrorTeam === true,
     bracketSize: parseInt(raw.bracketSize) || 0,
     qualifierZone: raw.qualifierZone || "",
     qualifiedCount: parseInt(raw.qualifiedCount) || parseInt(raw.bracketSize) || 0,
     rounds
   };
 };
+
+const TIE_META = {
+  single: { games: 1, winsNeeded: 1, label: "1 Game" },
+  h2: { games: 2, winsNeeded: 0, label: "H & A 2 Leg" },
+  bo3: { games: 3, winsNeeded: 2, label: "Best of 3" },
+  bo5: { games: 5, winsNeeded: 3, label: "Best of 5" }
+};
+const tieFormatOf = (match, fallback) => {
+  const v = String(match?.tieFormat || fallback || knockout?.tieFormat || "single").toLowerCase();
+  return TIE_META[v] ? v : "single";
+};
+const winsNeededFor = (tieFormat) => TIE_META[tieFormat]?.winsNeeded || 0;
+const gamesForTie = (tieFormat) => TIE_META[tieFormat]?.games || 1;
 
 const buildSingleEliminationRounds = (rankedTeams, bracketSize) => {
   const seedingPattern = createSeedOrder(bracketSize);
@@ -3210,18 +3572,42 @@ const resolveKnockout = (state) => {
       match.team2 = match.source2 ? teamFromOutcome(match.source2) : (match.seed2 || "");
       match.s1 = sanitizeScore(match.s1);
       match.s2 = sanitizeScore(match.s2);
+      match.p1 = sanitizeScore(match.p1);
+      match.p2 = sanitizeScore(match.p2);
+      match.tieFormat = tieFormatOf(match, safe.tieFormat);
 
       const hasTeams = !!match.team1 && !!match.team2;
       const hasScore = match.s1 !== null && match.s2 !== null;
+      const need = winsNeededFor(match.tieFormat);
 
       match.winner = "";
       match.loser = "";
-      if (hasTeams && hasScore && match.s1 !== match.s2) {
+      match.isDraw = false;
+      // BO3/BO5: s1/s2 = jumlah game menang. Pemenang hanya jika sudah rebut 2 (BO3) / 3 (BO5).
+      if (hasTeams && hasScore && need > 1) {
+        const decided = (match.s1 >= need || match.s2 >= need) && match.s1 !== match.s2;
+        if (decided) {
+          match.winner = match.s1 > match.s2 ? match.team1 : match.team2;
+          match.loser = match.s1 > match.s2 ? match.team2 : match.team1;
+        } else if (match.s1 === match.s2 && (match.s1 >= need || hasScore)) {
+          // Seri atau belum rebut cukup game → tunggu game penentu, bukan auto-lolos.
+          match.isDraw = match.s1 === match.s2 && match.s1 > 0;
+        }
+      } else if (hasTeams && hasScore && match.s1 !== match.s2) {
         match.winner = match.s1 > match.s2 ? match.team1 : match.team2;
         match.loser = match.s1 > match.s2 ? match.team2 : match.team1;
-      } else if (match.team1 && !match.team2) {
+      } else if (hasTeams && hasScore && match.s1 === match.s2) {
+        // Seri di knockout tidak boleh auto-lolos — tunggu adu penalti (p1/p2) atau input ulang.
+        if (match.p1 !== null && match.p2 !== null && match.p1 !== match.p2) {
+          match.winner = match.p1 > match.p2 ? match.team1 : match.team2;
+          match.loser = match.p1 > match.p2 ? match.team2 : match.team1;
+        } else {
+          match.isDraw = true;
+        }
+      } else if (match.team1 && !match.team2 && !match.source2) {
+        // Hanya auto-lolos bila slot lawan memang BYE (tanpa source), bukan menunggu pemenang.
         match.winner = match.team1;
-      } else if (!match.team1 && match.team2) {
+      } else if (!match.team1 && match.team2 && !match.source1) {
         match.winner = match.team2;
       }
     });
@@ -3316,31 +3702,59 @@ const renderKnockout = () => {
         const locked = !match.team1 || !match.team2;
         const team1Class = match.winner && match.winner === match.team1 ? "win" : "";
         const team2Class = match.winner && match.winner === match.team2 ? "win" : "";
-        const status = match.winner
-          ? `<span class="text-primary">${match.winner}</span>`
-          : (locked ? `<span class="text-white/40">Waiting Teams</span>` : `<span class="text-secondary">Waiting Result</span>`);
+        const tie = tieFormatOf(match, resolved.tieFormat);
+        const tieLabel = TIE_META[tie]?.label || "1 Game";
+        const mirror = match.mirrorTeam === true || resolved.mirrorTeam === true;
+        const games = matches
+          .filter((s) => s.type === "knockout" && s.knockoutMatchId === match.id && s.knockoutGenerated === true)
+          .sort((a, b) => (parseInt(a.knockoutGame) || 1) - (parseInt(b.knockoutGame) || 1));
+        const gamesSummary = games.length > 1
+          ? games.map((g) => {
+              const lbl = g.knockoutGameLabel || `G${g.knockoutGame || 1}`;
+              const sc = hasFinalScore(g) ? `${g.s1}-${g.s2}` : "vs";
+              return `${lbl} ${sc}`;
+            }).join(" • ")
+          : "";
+        const mirrorBadge = mirror && match.team1 ? `<div class="mt-2 rounded-lg border border-tertiary/20 bg-tertiary/5 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-tertiary">Mirror: dua-duanya pakai ${match.team1}</div>` : "";
+        const showPens = !locked && match.s1 !== null && match.s2 !== null && match.s1 === match.s2;
+        const status = match.isDraw
+          ? `<span class="text-secondary">Draw — isi penalti</span>`
+          : match.winner
+            ? `<span class="text-primary">${match.winner}</span>`
+            : (locked ? `<span class="text-white/40">Waiting Teams</span>` : `<span class="text-secondary">Waiting Result</span>`);
 
         return `
           <article class="ko-match-card ${locked ? "ko-locked" : ""}">
             <div class="ko-match-head">
-              <span>${match.id.toUpperCase()}</span>
+              <span>${match.id.toUpperCase()} • ${tieLabel}</span>
               <span>${status}</span>
             </div>
             <div class="space-y-2">
               <div class="ko-team-row ${team1Class}">
                 <p class="ko-team-name">${match.team1 || "BYE"}</p>
                 ${isAdmin
-                  ? `<input type="number" class="ko-score" value="${match.s1 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="1" ${locked ? "disabled" : ""}>`
+                  ? `<input type="number" class="ko-score" value="${match.s1 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="s1" ${locked ? "disabled" : ""}>`
                   : `<span class="ko-score text-center ${locked ? "opacity-50" : ""}">${match.s1 ?? "-"}</span>`
                 }
               </div>
               <div class="ko-team-row ${team2Class}">
                 <p class="ko-team-name">${match.team2 || "BYE"}</p>
                 ${isAdmin
-                  ? `<input type="number" class="ko-score" value="${match.s2 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="2" ${locked ? "disabled" : ""}>`
+                  ? `<input type="number" class="ko-score" value="${match.s2 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="s2" ${locked ? "disabled" : ""}>`
                   : `<span class="ko-score text-center ${locked ? "opacity-50" : ""}">${match.s2 ?? "-"}</span>`
                 }
               </div>
+              ${showPens ? `
+              <div class="grid grid-cols-2 gap-2">
+                <label class="rounded-lg bg-black/30 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-secondary">Pens ${match.team1 || ""}
+                  ${isAdmin ? `<input type="number" class="ko-score mt-1 w-full" value="${match.p1 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="p1">` : `<span>${match.p1 ?? "-"}</span>`}
+                </label>
+                <label class="rounded-lg bg-black/30 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-secondary">Pens ${match.team2 || ""}
+                  ${isAdmin ? `<input type="number" class="ko-score mt-1 w-full" value="${match.p2 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="p2">` : `<span>${match.p2 ?? "-"}</span>`}
+                </label>
+              </div>` : ""}
+              ${gamesSummary ? `<p class="text-[9px] uppercase tracking-widest text-white/40 font-bold">${gamesSummary}</p>` : ""}
+              ${mirrorBadge}
             </div>
           </article>
         `;
@@ -3377,6 +3791,8 @@ const renderKnockout = () => {
   container.innerHTML = `
     <div class="mb-5 flex flex-wrap items-center gap-3 text-xs uppercase tracking-widest font-bold">
       <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70">Format: ${resolved.format === "double" ? "Double Elimination" : "Single Elimination"}</span>
+      <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70">Tie: ${TIE_META[resolved.tieFormat]?.label || "1 Game"}</span>
+      ${resolved.mirrorTeam ? `<span class="px-3 py-1 rounded-full bg-tertiary/10 border border-tertiary/20 text-tertiary">Mirror ON</span>` : ""}
       <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70">Qualified: ${resolved.qualifierZone || `Top ${resolved.bracketSize || "-"}`}</span>
       <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70">Teams: ${resolved.qualifiedCount || resolved.bracketSize || "-"}</span>
       ${champion ? `<span class="px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary">Champion: ${champion}</span>` : ""}
@@ -3389,7 +3805,15 @@ const renderKnockout = () => {
   `;
 };
 
-const knockoutScheduleDocId = (matchId) => `knockout-${normalizeKey(matchId).replace(/[^a-z0-9_-]+/g, "-")}`;
+const knockoutScheduleDocId = (matchId, game = 1, total = 1) => {
+  const base = `knockout-${normalizeKey(matchId).replace(/[^a-z0-9_-]+/g, "-")}`;
+  return total <= 1 ? base : `${base}-g${game}`;
+};
+const knockoutGameLabel = (tieFormat, game, total) => {
+  if (tieFormat === "h2") return game === 2 ? "Leg 2" : "Leg 1";
+  if (tieFormat === "bo3" || tieFormat === "bo5") return `Game ${game}`;
+  return total <= 1 ? "" : `Game ${game}`;
+};
 
 async function cleanupGeneratedKnockoutSchedules(activeIds) {
   const snap = await getDocs(collection(db, "matches"));
@@ -3415,40 +3839,56 @@ async function ensureKnockoutScheduleMatches(options = {}) {
       if (match.visible === false) return;
       if (!match.team1 || !match.team2) return;
 
-      const matchDocId = knockoutScheduleDocId(match.id);
-      activeIds.add(matchDocId);
-      const matchRef = doc(db, "matches", matchDocId);
-      const payload = {
-        team1: match.team1,
-        team2: match.team2,
-        type: "knockout",
-        knockoutGenerated: true,
-        knockoutMatchId: match.id,
-        knockoutRoundId: round.id,
-        knockoutRoundName: round.name,
-        knockoutFormat: resolved.format,
-        knockoutQualifierZone: resolved.qualifierZone || "",
-        Matchweek: 900,
-        date: `Knockout - ${round.name}`,
-        live: false
-      };
+      const tie = tieFormatOf(match, resolved.tieFormat);
+      const total = gamesForTie(tie);
+      const mirror = match.mirrorTeam === true || resolved.mirrorTeam === true;
+      for (let game = 1; game <= total; game++) {
+        const isReturnLeg = tie === "h2" && game === 2;
+        // Leg 2 kandang ditukar: tuan rumah jadi tim tandang leg 1.
+        const gTeam1 = isReturnLeg ? match.team2 : match.team1;
+        const gTeam2 = isReturnLeg ? match.team1 : match.team2;
+        const gameLabel = knockoutGameLabel(tie, game, total);
+        const matchDocId = knockoutScheduleDocId(match.id, game, total);
+        activeIds.add(matchDocId);
+        const matchRef = doc(db, "matches", matchDocId);
+        const payload = {
+          team1: gTeam1,
+          team2: gTeam2,
+          type: "knockout",
+          knockoutGenerated: true,
+          knockoutMatchId: match.id,
+          knockoutRoundId: round.id,
+          knockoutRoundName: round.name,
+          knockoutFormat: resolved.format,
+          knockoutTieFormat: tie,
+          knockoutGame: game,
+          knockoutGames: total,
+          knockoutGameLabel: gameLabel,
+          mirrorTeam: mirror,
+          useTeam: mirror ? gTeam1 : "",
+          knockoutQualifierZone: resolved.qualifierZone || "",
+          Matchweek: 900,
+          date: `Knockout - ${round.name}${gameLabel ? ` • ${gameLabel}` : ""}`,
+          live: false
+        };
 
-      writes.push((async () => {
-        const existing = await getDoc(matchRef);
-        if (resetScores || !existing.exists()) {
-          await setDoc(matchRef, {
-            ...payload,
-            s1: null,
-            s2: null,
-            p1: null,
-            p2: null,
-            bridgeLocked: false,
-            externalMatchId: ""
-          }, { merge: false });
-        } else {
-          await setDoc(matchRef, payload, { merge: true });
-        }
-      })());
+        writes.push((async () => {
+          const existing = await getDoc(matchRef);
+          if (resetScores || !existing.exists()) {
+            await setDoc(matchRef, {
+              ...payload,
+              s1: null,
+              s2: null,
+              p1: null,
+              p2: null,
+              bridgeLocked: false,
+              externalMatchId: ""
+            }, { merge: false });
+          } else {
+            await setDoc(matchRef, payload, { merge: true });
+          }
+        })());
+      }
     });
   });
 
@@ -3473,21 +3913,58 @@ async function syncKnockoutScoresFromSchedule(incomingMatches = matches) {
   ));
   if (!scheduleItems.length) return;
 
+  const byTie = new Map();
+  scheduleItems.forEach((s) => {
+    if (!byTie.has(s.knockoutMatchId)) byTie.set(s.knockoutMatchId, []);
+    byTie.get(s.knockoutMatchId).push(s);
+  });
+  byTie.forEach((list) => list.sort((a, b) => (parseInt(a.knockoutGame) || 1) - (parseInt(b.knockoutGame) || 1)));
+
   const resolved = resolveKnockout(knockout);
   let changed = false;
 
-  scheduleItems.forEach((schedule) => {
-    resolved.rounds.forEach((round) => {
-      round.matches.forEach((match) => {
-        if (match.id !== schedule.knockoutMatchId) return;
-        const nextS1 = isScoreEmpty(schedule.s1) ? null : parseInt(schedule.s1);
-        const nextS2 = isScoreEmpty(schedule.s2) ? null : parseInt(schedule.s2);
-        if (match.s1 !== nextS1 || match.s2 !== nextS2) {
-          match.s1 = Number.isFinite(nextS1) ? nextS1 : null;
-          match.s2 = Number.isFinite(nextS2) ? nextS2 : null;
+  resolved.rounds.forEach((round) => {
+    round.matches.forEach((match) => {
+      const games = byTie.get(match.id) || [];
+      if (!games.length) return;
+      const tie = tieFormatOf(match, resolved.tieFormat);
+      const norm = (v) => (isScoreEmpty(v) ? null : parseInt(v));
+      const num = (v) => (Number.isFinite(v) ? v : null);
+
+      if (tie === "single") {
+        const g = games[0];
+        const nextS1 = num(norm(g.s1)), nextS2 = num(norm(g.s2));
+        const nextP1 = num(norm(g.p1)), nextP2 = num(norm(g.p2));
+        if (match.s1 !== nextS1 || match.s2 !== nextS2 || match.p1 !== nextP1 || match.p2 !== nextP2) {
+          match.s1 = nextS1; match.s2 = nextS2; match.p1 = nextP1; match.p2 = nextP2;
           changed = true;
         }
-      });
+      } else if (tie === "h2") {
+        const leg1 = games.find((g) => (parseInt(g.knockoutGame) || 1) === 1);
+        const leg2 = games.find((g) => (parseInt(g.knockoutGame) || 1) === 2);
+        const l1s1 = num(norm(leg1?.s1)), l1s2 = num(norm(leg1?.s2));
+        const l2s1 = num(norm(leg2?.s1)), l2s2 = num(norm(leg2?.s2));
+        // Leg 2 sisi ditukar saat generate, jadi agregat tim bracket-1 = leg1.s1 + leg2.s2.
+        if (l1s1 !== null && l1s2 !== null && l2s1 !== null && l2s2 !== null) {
+          const agg1 = l1s1 + l2s2, agg2 = l1s2 + l2s1;
+          if (match.s1 !== agg1 || match.s2 !== agg2) { match.s1 = agg1; match.s2 = agg2; changed = true; }
+        } else if (match.s1 !== null || match.s2 !== null) {
+          // Belum lengkap 2 leg → kosongkan agregat agar tidak lolos prematur.
+          match.s1 = null; match.s2 = null; changed = true;
+        }
+      } else if (tie === "bo3" || tie === "bo5") {
+        const need = winsNeededFor(tie);
+        let w1 = 0, w2 = 0, scored = 0;
+        games.forEach((g) => {
+          const a = num(norm(g.s1)), b = num(norm(g.s2));
+          if (a !== null && b !== null && a !== b) { scored++; if (a > b) w1++; else w2++; }
+        });
+        if (w1 >= need || w2 >= need) {
+          if (match.s1 !== w1 || match.s2 !== w2) { match.s1 = w1; match.s2 = w2; changed = true; }
+        } else if (match.s1 !== null || match.s2 !== null) {
+          match.s1 = null; match.s2 = null; changed = true;
+        }
+      }
     });
   });
 
@@ -3529,8 +4006,12 @@ async function updateScoreKO(matchId, side, score) {
   if (!targetMatch) return;
 
   const parsed = sanitizeScore(score);
-  if (side === 1) targetMatch.s1 = parsed;
-  else targetMatch.s2 = parsed;
+  const key = String(side || "").toLowerCase();
+  if (key === "1" || key === "s1") targetMatch.s1 = parsed;
+  else if (key === "2" || key === "s2") targetMatch.s2 = parsed;
+  else if (key === "p1") targetMatch.p1 = parsed;
+  else if (key === "p2") targetMatch.p2 = parsed;
+  else return;
 
   knockout = resolved;
   await saveKnockout();
@@ -3546,18 +4027,40 @@ async function generateBracket() {
 
   const format = document.getElementById("koType")?.value || "single";
   const sizeSelection = document.getElementById("koSize")?.value || "auto";
-  const rankedTeams = calculateStandings().map((row) => row.team);
+  const tieSel = String(document.getElementById("koTieFormat")?.value || knockout?.tieFormat || "single").toLowerCase();
+  const tieFormat = ["single", "h2", "bo3", "bo5"].includes(tieSel) ? tieSel : "single";
+  const mirrorTeam = document.getElementById("koMirrorTeam")?.checked === true;
+  const tieLabel = TIE_META[tieFormat]?.label || "1 Game";
+  const mirrorLabel = mirrorTeam ? " • Mirror ON (away pakai tim home)" : "";
+  // Grup-aware: jika ada fase grup, ambil Top N dari tiap grup (interleaved agar semifinal cross-grup).
+  let rankedTeams = calculateStandings().map((row) => row.team);
+  let qualifierLabel = "";
+  if (hasGroupStage()) {
+    const adv = Math.max(1, parseInt(competitionConfig.advancePerGroup) || 2);
+    const letters = listGroupLetters();
+    const perGroup = letters.map((letter) => calculateStandings(letter).map((r) => r.team));
+    const interleaved = [];
+    for (let pos = 0; pos < adv; pos++) {
+      for (let gi = 0; gi < perGroup.length; gi++) {
+        if (perGroup[gi][pos]) interleaved.push(perGroup[gi][pos]);
+      }
+    }
+    if (interleaved.length >= 2) rankedTeams = interleaved;
+    qualifierLabel = `Grup (${letters.map((l) => `Grup ${l}`).join("+") || "Group Stage"} • Top ${adv}/grup • ${rankedTeams.length} tim)`;
+  }
   const championsSize = Math.max(parseInt(championsCutoff) || 4, 2);
   const playoffSize = Math.max(parseInt(playoffCutoff) || 6, championsSize);
   const requestedSize =
-    sizeSelection === "auto" ? playoffSize :
+    sizeSelection === "auto" ? (hasGroupStage() ? rankedTeams.length : playoffSize) :
     sizeSelection === "champions" ? championsSize :
-    (parseInt(sizeSelection) || playoffSize);
+    (parseInt(sizeSelection) || (hasGroupStage() ? rankedTeams.length : playoffSize));
 
-  const qualifierLabel =
-    sizeSelection === "champions" ? `Zona Champions Top ${championsSize}` :
-    sizeSelection === "auto" ? `Zona Play-off Top ${playoffSize}` :
-    `Manual Top ${requestedSize}`;
+  if (!qualifierLabel) {
+    qualifierLabel =
+      sizeSelection === "champions" ? `Zona Champions Top ${championsSize}` :
+      sizeSelection === "auto" ? `Zona Play-off Top ${playoffSize}` :
+      `Manual Top ${requestedSize}`;
+  }
 
   if (format === "double") {
     const doubleTeamCount = Math.max(4, Math.min(requestedSize, rankedTeams.length, 8));
@@ -3571,13 +4074,17 @@ async function generateBracket() {
       sizeSelection === "auto" ? `Zona Play-off Top ${normalizedDoubleTeamCount}` :
       `Manual Top ${normalizedDoubleTeamCount}`;
 
-    if (!confirm(`Generate Double Elimination bracket untuk ${doubleLabel}?`)) return;
+    if (!confirm(`Generate Double Elimination bracket untuk ${doubleLabel}? Tie ${tieLabel}${mirrorLabel}.`)) return;
+    const doubleRounds = buildDoubleEliminationRounds(rankedTeams, normalizedDoubleTeamCount);
+    doubleRounds.forEach((r) => r.matches.forEach((mm) => { mm.tieFormat = tieFormat; mm.mirrorTeam = mirrorTeam; }));
     knockout = {
       format: "double",
+      tieFormat,
+      mirrorTeam,
       bracketSize: normalizedDoubleTeamCount,
-      qualifierZone: doubleLabel,
+      qualifierZone: `${doubleLabel} • ${tieLabel}${mirrorLabel}`,
       qualifiedCount: normalizedDoubleTeamCount,
-      rounds: buildDoubleEliminationRounds(rankedTeams, normalizedDoubleTeamCount)
+      rounds: doubleRounds
     };
     await saveKnockout();
     await ensureKnockoutScheduleMatches({ resetScores: true, cleanupStale: true });
@@ -3589,14 +4096,18 @@ async function generateBracket() {
   const seeded = rankedTeams.slice(0, teamCount);
   const bracketSize = nextPowerOfTwo(teamCount);
 
-  if (!confirm(`Generate Single Elimination untuk ${qualifierLabel} (${teamCount} tim, bracket ${bracketSize})?`)) return;
+  if (!confirm(`Generate Single Elimination untuk ${qualifierLabel} (${teamCount} tim, bracket ${bracketSize})? Tie ${tieLabel}${mirrorLabel}.`)) return;
 
+  const singleRounds = buildSingleEliminationRounds(seeded, bracketSize);
+  singleRounds.forEach((r) => r.matches.forEach((mm) => { mm.tieFormat = tieFormat; mm.mirrorTeam = mirrorTeam; }));
   knockout = {
     format: "single",
+    tieFormat,
+    mirrorTeam,
     bracketSize: teamCount,
-    qualifierZone: qualifierLabel,
+    qualifierZone: `${qualifierLabel} • ${tieLabel}${mirrorLabel}`,
     qualifiedCount: teamCount,
-    rounds: buildSingleEliminationRounds(seeded, bracketSize)
+    rounds: singleRounds
   };
 
   await saveKnockout();
@@ -3606,7 +4117,7 @@ async function generateBracket() {
 
 const clearKnockoutData = async () => {
   if (!isAdmin) return;
-  knockout = { format: "single", bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
+  knockout = { format: "single", tieFormat: "single", mirrorTeam: false, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
   await saveKnockout();
   await cleanupGeneratedKnockoutSchedules(new Set());
   renderKnockout();
@@ -3616,7 +4127,9 @@ const clearKnockoutData = async () => {
     // --- INIT & SCORERS LOGIC ---
     (function populateMatchweek() {
       const s = document.getElementById("matchMatchweek");
-      if (s) s.innerHTML = Array.from({ length: 22 }, (_, i) => `<option value="${i+1}">Matchweek ${i+1}</option>`).join('');
+      if (s) s.innerHTML = Array.from({ length: 60 }, (_, i) => `<option value="${i+1}">Matchweek ${i+1}</option>`).join('');
+      const compModeEl = document.getElementById("compMode");
+      if (compModeEl) compModeEl.addEventListener("change", syncCompetitionUI);
     })();
 
     const updateScorerGoals = async (id, val) => {
@@ -3825,7 +4338,7 @@ window.showHofDetail = (id) => {
 };
 
     const BACKUP_COLLECTIONS = ["teams", "matches", "scorers", "players", "news", "halloffame", "hofManagers"];
-    const BACKUP_DOCUMENTS = ["config/standings", "settings/liveBanner", "settings/trophyCabinet", "tournament/knockout"];
+    const BACKUP_DOCUMENTS = ["config/standings", "config/competition", "settings/liveBanner", "settings/trophyCabinet", "tournament/knockout"];
 
     const serializeForBackup = (value) => {
       if (value instanceof Timestamp) {
@@ -4414,7 +4927,7 @@ document.addEventListener('click', async (e) => {
     // 1. Navigasi & UI
     if (action === 'toggleSidebar') toggleSidebar();
     else if (action === 'openTab') openTab(btn.dataset.tab, btn);
-    else if (action === 'toggleFolder') toggleFolder(parseInt(btn.dataset.mw));
+    else if (action === 'toggleFolder') toggleFolder(btn.dataset.mw);
     else if (action === 'openHofModal') {
         const modal = document.getElementById('hofModal');
         if(modal) modal.classList.remove('hidden');
@@ -4483,7 +4996,7 @@ document.addEventListener('click', async (e) => {
     else if (action === 'updateScore') await updateScore(target.dataset.id, target.value, target.dataset.side);
     else if (action === 'updateScorerGoals') await updateScorerGoals(target.dataset.id, target.value);
     else if (action === 'updateScorerAssists') await updateScorerAssists(target.dataset.id, target.value);
-    else if (action === 'updateScoreKO') await updateScoreKO(target.dataset.id, parseInt(target.dataset.side), target.value);
+    else if (action === 'updateScoreKO') await updateScoreKO(target.dataset.id, target.dataset.side, target.value);
     else if (action === 'importBackup') await importBackup(e);
     else if (action === 'importRosterPlayers') await importRosterPlayers(e);
     else if (action === 'selectScorerTeam') renderRosterPlayerOptions();
