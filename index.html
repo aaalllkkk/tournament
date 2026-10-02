@@ -943,6 +943,26 @@ select[data-action="filterMatches"]:focus {
     .ko-logo { width: 28px; height: 28px; object-fit: contain; background: rgba(0,0,0,0.35); border-radius: 8px; padding: 2px; }
     .ko-team-name { min-width: 0; }
     .ko-games { line-height: 1.6; }
+    /* --- Double-elim classic layout: winner (green) / loser (yellow) / champion --- */
+    .ko-grid.de { display: flex; align-items: stretch; gap: 26px; }
+    .ko-grid.de > svg.ko-wires { z-index: 0; }
+    .de-left { display: flex; flex-direction: column; gap: 26px; }
+    .de-panel { border-radius: 22px; padding: 16px; position: relative; z-index: 1; }
+    .de-winner { background: rgba(142,255,113,0.07); border: 1px solid rgba(142,255,113,0.25); }
+    .de-lower { background: rgba(255,215,9,0.07); border: 1px solid rgba(255,215,9,0.25); }
+    .de-champ { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); min-width: 300px; display: flex; flex-direction: column; }
+    .de-title { font-family: 'Space Grotesk', sans-serif; font-weight: 900; text-transform: uppercase; font-size: 15px; letter-spacing: 0.06em; margin-bottom: 12px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .de-title-win { color: #8eff71; }
+    .de-title-lose { color: #ffd709; }
+    .de-title .de-sub { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; color: rgba(255,255,255,0.4); text-transform: uppercase; }
+    .de-lane { display: flex; gap: 26px; align-items: stretch; }
+    .de-lane .ko-round { background: transparent; border-color: transparent; padding: 6px; }
+    .de-lane .ko-round-title { background: transparent; padding: 4px 2px; font-size: 11px; }
+    .de-champ-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+    .de-trophy { font-size: 56px; color: #ffd709; filter: drop-shadow(0 0 18px rgba(255,215,9,0.4)); }
+    .de-champ-label { font-size: 10px; font-weight: 800; letter-spacing: 0.24em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+    .de-champ-name { font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-style: italic; text-transform: uppercase; font-size: 26px; color: #8eff71; line-height: 1; margin-top: 4px; }
+    .de-note { margin-top: 14px; font-size: 11px; line-height: 1.6; color: #81ecff; background: rgba(129,236,255,0.06); border: 1px solid rgba(129,236,255,0.15); border-radius: 12px; padding: 10px 12px; max-width: 300px; }
     
   </style>
 </head>

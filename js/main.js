@@ -3837,7 +3837,8 @@ const renderKnockout = () => {
     return;
   }
 
-  const roundsHtml = visibleRounds.map((round, roundIndex) => {
+  const sectionHtmlById = {};
+  visibleRounds.forEach((round, roundIndex) => {
     const baseGap = resolved.format === "single" ? Math.max(14, 14 * Math.pow(2, roundIndex)) : 14;
     const rn = String(round.name || "").toLowerCase();
     const sectionTone = rn.includes("grand") ? "grand" : rn.includes("lower") ? "lower" : rn.includes("upper") ? "upper" : "";
@@ -3921,7 +3922,7 @@ const renderKnockout = () => {
       })
       .join("");
 
-    return `
+    sectionHtmlById[round.id] = `
       <section class="ko-round ${sectionTone}">
         <h3 class="ko-round-title">${round.name}</h3>
         <div class="ko-stack" style="gap: ${baseGap}px;">
@@ -3929,11 +3930,43 @@ const renderKnockout = () => {
         </div>
       </section>
     `;
-  }).join("");
+  });
 
   const champion = getKnockoutChampion(resolved);
   const pathPanel = renderKnockoutPath(resolved, champion);
-  const championPanel = champion
+  const isDouble = resolved.format === "double";
+  const isUpper = (r) => /upper/i.test(r.name || "");
+  const isLower = (r) => /lower/i.test(r.name || "");
+  const laneHtml = (list) => list.map((r) => sectionHtmlById[r.id] || "").join("");
+  let gridInner = "";
+  if (isDouble) {
+    const up = visibleRounds.filter(isUpper);
+    const lo = visibleRounds.filter(isLower);
+    const fin = visibleRounds.filter((r) => !isUpper(r) && !isLower(r));
+    gridInner = `
+      <div class="de-left">
+        <div class="de-panel de-winner">
+          <div class="de-title de-title-win">Winner's bracket <span class="de-sub">kalah 1x → turun ke loser's</span></div>
+          <div class="de-lane">${laneHtml(up)}</div>
+        </div>
+        <div class="de-panel de-lower">
+          <div class="de-title de-title-lose">Loser's bracket <span class="de-sub">kalah = gugur</span></div>
+          <div class="de-lane">${laneHtml(lo)}</div>
+        </div>
+      </div>
+      <div class="de-panel de-champ">
+        <div class="de-champ-head">
+          <span class="material-symbols-outlined de-trophy">workspace_premium</span>
+          <div><p class="de-champ-label">Champion</p><p class="de-champ-name">${champion || "TBD"}</p></div>
+        </div>
+        <div class="de-lane de-lane-final">${laneHtml(fin)}</div>
+        <p class="de-note">Jika juara loser's bracket mengalahkan juara winner's bracket di Grand Final, mereka tanding ulang (Grand Final Reset).</p>
+      </div>`;
+  } else {
+    gridInner = visibleRounds.map((r) => sectionHtmlById[r.id] || "").join("");
+  }
+
+  const championPanel = champion && !isDouble
     ? `
       <div class="mb-6 bg-[#11192a] border border-primary/20 rounded-2xl p-5 shadow-xl">
         <p class="text-[10px] uppercase tracking-[0.24em] font-bold text-white/50 mb-2">Pemenang Partai Final</p>
@@ -3960,9 +3993,9 @@ const renderKnockout = () => {
     ${championPanel}
     ${pathPanel}
     <div id="ko-canvas">
-      <div class="ko-grid">
+      <div class="ko-grid${isDouble ? " de" : ""}">
         <svg class="ko-wires" aria-hidden="true"></svg>
-        ${roundsHtml}
+        ${gridInner}
       </div>
     </div>
   `;
