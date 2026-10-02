@@ -16,7 +16,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     let rosterPlayers = [];
     let playerMatchStats = [];
     let news = [];
-    let knockout = { format: "single", tieFormat: "single", byeFill: "1", mirrorTeam: false, bracketSize: 0, rounds: [] };
+    let knockout = { format: "single", tieFormat: "single", byeFill: "1", seedSnapshot: [], mirrorTeam: false, bracketSize: 0, rounds: [] };
     let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
     let championsCutoff = 4;
     let playoffCutoff = 6;
@@ -37,7 +37,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     let activeTeamDetailId = "";
     let activeDraggedRosterPlayerId = "";
     let activeTacticDropTargetId = "";
-    let competitionConfig = { mode: "league", groupFormat: "normal-single", numGroups: 2, advancePerGroup: 2, cupDirect: "1", bestPos: 3, bestPosCount: 0, mirrorTeam: false, updatedAtMs: 0 };
+    let competitionConfig = { mode: "league", groupFormat: "normal-single", numGroups: 2, advancePerGroup: 2, cupDirect: "1", bestPos: 3, bestPosCount: 0, tiebreak: "gd", mirrorTeam: false, updatedAtMs: 0 };
     
     // Variabel Global untuk Slideshow
     let slideshowInterval = null;
@@ -1108,10 +1108,11 @@ const getStarIcons = (rating) => {
       const bestPosCount = Math.max(0, Number.isFinite(bestPosCountRaw) ? bestPosCountRaw : 0);
       // Cup langsung per grup: "all" = semua yang lolos langsung Cup (tanpa tier playoff).
       const cupRaw = document.getElementById("cupDirect")?.value ?? competitionConfig.cupDirect ?? "1";
+      const tiebreakRaw = String(document.getElementById("tiebreak")?.value ?? competitionConfig.tiebreak ?? "gd").toLowerCase();
       const clearExisting = document.getElementById("clearExistingMatches")?.checked !== false;
       const mirrorEl = document.getElementById("compMirrorTeam");
       const mirrorTeam = mirrorEl ? mirrorEl.checked === true : competitionConfig.mirrorTeam === true;
-      return { mode, leagueLegs: leagueLegs === 2 ? 2 : 1, numGroups, groupFormat, advancePerGroup, bestPos, bestPosCount, cupDirect: ["1", "2", "3", "all"].includes(String(cupRaw)) ? String(cupRaw) : "1", clearExisting, mirrorTeam };
+      return { mode, leagueLegs: leagueLegs === 2 ? 2 : 1, numGroups, groupFormat, advancePerGroup, bestPos, bestPosCount, cupDirect: ["1", "2", "3", "all"].includes(String(cupRaw)) ? String(cupRaw) : "1", tiebreak: tiebreakRaw === "h2h" ? "h2h" : "gd", clearExisting, mirrorTeam };
     };
 
     // Normalisasi: berapa slot per grup yang badge Cup (sisanya yang lolos = Playoff).
@@ -1422,7 +1423,7 @@ const getStarIcons = (rating) => {
             });
           });
           await clearTeamGroups();
-          await saveCompetitionConfig({ mode: "league", groupFormat: "normal-single", numGroups: 1, advancePerGroup: 0, cupDirect: "1", bestPos: 3, bestPosCount: 0, mirrorTeam: ui.mirrorTeam });
+          await saveCompetitionConfig({ mode: "league", groupFormat: "normal-single", numGroups: 1, advancePerGroup: 0, cupDirect: "1", bestPos: 3, bestPosCount: 0, tiebreak: ui.tiebreak, mirrorTeam: ui.mirrorTeam });
         } else {
           const groups = splitTeamsIntoGroups(teams, ui.numGroups);
           const legs = ui.groupFormat === "normal-double" ? 2 : 1;
@@ -1444,7 +1445,7 @@ const getStarIcons = (rating) => {
             });
           });
           await assignTeamGroups(groups);
-          await saveCompetitionConfig({ mode: "group", groupFormat: ui.groupFormat, numGroups: ui.numGroups, advancePerGroup: ui.advancePerGroup, cupDirect: ui.cupDirect, bestPos: ui.bestPos, bestPosCount: ui.bestPosCount, mirrorTeam: ui.mirrorTeam });
+          await saveCompetitionConfig({ mode: "group", groupFormat: ui.groupFormat, numGroups: ui.numGroups, advancePerGroup: ui.advancePerGroup, cupDirect: ui.cupDirect, bestPos: ui.bestPos, bestPosCount: ui.bestPosCount, tiebreak: ui.tiebreak, mirrorTeam: ui.mirrorTeam });
         }
 
         if (!payloads.length) return alert("Tidak ada jadwal baru (semua sudah ada / duplikat dicegah).");
@@ -1471,7 +1472,7 @@ const getStarIcons = (rating) => {
     } catch (scorerErr) { console.warn("Reset top scorer warning:", scorerErr); }
     try {
       await clearTeamGroups();
-      await saveCompetitionConfig({ mode: "league", groupFormat: "normal-single", numGroups: 1, advancePerGroup: 0, cupDirect: "1", bestPos: 3, bestPosCount: 0, mirrorTeam: false });
+      await saveCompetitionConfig({ mode: "league", groupFormat: "normal-single", numGroups: 1, advancePerGroup: 0, cupDirect: "1", bestPos: 3, bestPosCount: 0, tiebreak: "gd", mirrorTeam: false });
     } catch (cfgErr) { console.warn("Reset competition config warning:", cfgErr); }
     alert("Reset selesai: jadwal + top scorer dihapus! Mode kembali ke Liga.");
   } catch (e) {
@@ -1761,6 +1762,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
           cupDirect: ["1", "2", "3", "all"].includes(String(d.cupDirect ?? "1")) ? String(d.cupDirect ?? "1") : "1",
           bestPos: [2, 3, 4, 5].includes(parseInt(d.bestPos)) ? parseInt(d.bestPos) : 3,
           bestPosCount: Math.max(0, parseInt(d.bestPosCount ?? d.thirdPlaceCount) || 0),
+          tiebreak: String(d.tiebreak || "gd").toLowerCase() === "h2h" ? "h2h" : "gd",
           mirrorTeam: d.mirrorTeam === true,
           updatedAtMs: d.updatedAtMs || 0
         };
@@ -1772,6 +1774,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
           const cd = document.getElementById("cupDirect"); if (cd) cd.value = competitionConfig.cupDirect || "1";
           const bp = document.getElementById("bestPosRank"); if (bp) bp.value = String(competitionConfig.bestPos || 3);
           const bc = document.getElementById("bestPosCount"); if (bc) bc.value = String(competitionConfig.bestPosCount || 0);
+          const tb = document.getElementById("tiebreak"); if (tb) tb.value = competitionConfig.tiebreak || "gd";
           const mt = document.getElementById("compMirrorTeam"); if (mt) mt.checked = competitionConfig.mirrorTeam === true;
         }
       }
@@ -2726,9 +2729,50 @@ const renderAllTimeHofScorers = () => {
       Number.isFinite(Number(match.s2))
     );
 
+    // Tiebreaker ikut settingan kompetisi (berlaku di liga + grup + dashboard + kualifikasi).
+    // "gd" (Inggris): Pts → GD → GF → H2H → nama.
+    // "h2h" (UEFA/Spanyol): Pts → head-to-head (mini-table sesama yang poin sama) → GD → GF → nama.
+    const sortStandingsRows = (rows, pool) => {
+      const gdCompare = (a, b) => (b.pts - a.pts) || ((b.gf - b.ga) - (a.gf - a.ga)) || (b.gf - a.gf);
+      if ((competitionConfig.tiebreak || "gd") !== "h2h") {
+        return rows.slice().sort((a, b) => gdCompare(a, b) || String(a.team).localeCompare(String(b.team)));
+      }
+      const h2hStats = (set) => {
+        const st = new Map(set.map((t) => [t, { pts: 0, gf: 0, ga: 0 }]));
+        (pool || []).forEach((m) => {
+          if (!st.has(m.team1) || !st.has(m.team2)) return;
+          const s1 = Number(m.s1), s2 = Number(m.s2);
+          const A = st.get(m.team1), B = st.get(m.team2);
+          A.gf += s1; A.ga += s2; B.gf += s2; B.ga += s1;
+          if (s1 > s2) A.pts += 3; else if (s1 < s2) B.pts += 3; else { A.pts += 1; B.pts += 1; }
+        });
+        return st;
+      };
+      const out = [];
+      const byPts = rows.slice().sort((a, b) => (b.pts - a.pts));
+      let i = 0;
+      while (i < byPts.length) {
+        let j = i;
+        while (j < byPts.length && byPts[j].pts === byPts[i].pts) j++;
+        const tied = byPts.slice(i, j);
+        if (tied.length > 1) {
+          const st = h2hStats(tied.map((r) => r.team));
+          tied.sort((a, b) => {
+            const A = st.get(a.team), B = st.get(b.team);
+            return (B.pts - A.pts) || ((B.gf - B.ga) - (A.gf - A.ga)) || (B.gf - A.gf)
+              || gdCompare(a, b) || String(a.team).localeCompare(String(b.team));
+          });
+        }
+        out.push(...tied);
+        i = j;
+      }
+      return out;
+    };
+
     const calculateStandings = (groupFilter = "") => {
       let table = teams.reduce((acc, t) => ({ ...acc, [t.name]: { team: t.name, group: t.group || "", p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 } }), {});
       const gf = (groupFilter || "").toString().trim().toUpperCase();
+      const pool = [];
       matches.forEach(m => {
         if (!isLeagueMatch(m) || !hasMatchScore(m)) return;
         // Jika filter grup aktif: hanya hitung match grup tersebut.
@@ -2742,6 +2786,7 @@ const renderAllTimeHofScorers = () => {
         const h = table[m.team1],
           a = table[m.team2];
         if (!h || !a) return;
+        pool.push(m);
         const score1 = Number(m.s1);
         const score2 = Number(m.s2);
         h.p++;
@@ -2765,7 +2810,7 @@ const renderAllTimeHofScorers = () => {
           a.pts += 1;
         }
       });
-      let rows = Object.values(table).sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf);
+      let rows = Object.values(table);
       if (gf) {
         const inGroup = new Set(teams.filter((t) => (t.group || "").toUpperCase() === gf).map((t) => t.name));
         // Jika team.group belum terset (data lama), fallback: tim yang pernah main di grup tsb
@@ -2774,7 +2819,7 @@ const renderAllTimeHofScorers = () => {
         }
         if (inGroup.size) rows = rows.filter((r) => inGroup.has(r.team));
       }
-      return rows;
+      return sortStandingsRows(rows, pool);
     };
 
     const listGroupLetters = () => {
@@ -2810,9 +2855,11 @@ const renderAllTimeHofScorers = () => {
       return ranked.sort((a, b) => b.pts - a.pts || ((b.gf - b.ga) - (a.gf - a.ga)) || b.gf - a.gf || String(a.team).localeCompare(String(b.team)));
     };
 
-    const getLockedStandingsZones = (data, cCut, pCut, hCut) => {
+    // Zona yang terkunci dihitung dari sisa match (matematis pasti). Pool bisa dioverride
+    // (mis. hanya match 1 grup) agar berlaku per grup, bukan cuma tabel liga tunggal.
+    const getLockedStandingsZones = (data, cCut, pCut, hCut, poolMatches = null) => {
       const remainingGames = new Map(data.map((row) => [row.team, 0]));
-      const leagueMatches = matches.filter(isLeagueMatch);
+      const leagueMatches = poolMatches || matches.filter(isLeagueMatch);
       leagueMatches
         .filter((match) => !hasMatchScore(match))
         .forEach((match) => {
@@ -2904,6 +2951,14 @@ const renderAllTimeHofScorers = () => {
       bgGradient = "bg-error/10";
       borderClass = "border-l-4 border-error";
       zoneBadge = `<span class="hidden md:inline-flex rounded-full bg-error/10 border border-error/20 px-2 py-1 text-[8px] uppercase tracking-widest text-error font-black">Hina</span>`;
+    } else if (zone && zone.endsWith("-line")) {
+      // Posisi incaran tapi BELUM matematis pasti → garis kiri saja, tanpa fill.
+      const lineCls = { "champion-line": "border-[#f6c453]", "cup-line": "border-[#8eff71]", "playoff-line": "border-[#ffd709]", "hina-line": "border-[#ff7351]" };
+      const lineColors = { "champion-line": "#f6c453", "cup-line": "#8eff71", "playoff-line": "#ffd709", "hina-line": "#ff7351" };
+      const lineLabels = { "champion-line": "Champions", "cup-line": "Cup", "playoff-line": "Play Off", "hina-line": "Hina" };
+      const lc = lineColors[zone] || "#a4abbe";
+      borderClass = `border-l-4 ${lineCls[zone] || ""}`;
+      zoneBadge = `<span class="hidden md:inline-flex rounded-full px-2 py-1 text-[8px] uppercase tracking-widest font-black" style="border:1px solid ${lc}55;color:${lc}">${lineLabels[zone] || ""}</span>`;
     }
     return `<tr class="group hover:bg-surface-container-highest transition-colors ${bgGradient} ${borderClass}">
         <td class="py-5 px-6 font-headline font-black text-lg ${textClass}">${rank.toString().padStart(2, '0')}</td>
@@ -2942,13 +2997,20 @@ const renderAllTimeHofScorers = () => {
     const legendHtml = `<div class="px-6 py-4 bg-surface-container-lowest/50 border-t border-outline-variant/10 flex flex-wrap gap-4 items-center">
       <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-primary"></div><span class="text-[10px] uppercase tracking-widest font-label font-bold text-on-surface-variant">Cup (Top ${cupTop})</span></div>
       <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-secondary"></div><span class="text-[10px] uppercase tracking-widest font-label font-bold text-on-surface-variant">Play-off${bestN > 0 ? ` / Best #${bestPos}` : ""}</span></div>
-      <span class="text-[10px] uppercase tracking-widest font-label text-on-surface-variant/70">Poin 3/M • Urutan: Pts → GD → GF</span>
+      <span class="text-[10px] uppercase tracking-widest font-label text-on-surface-variant/70">Garis = incaran • Fill = sudah pasti • Poin 3/M • Urutan: Pts → GD → GF</span>
     </div>`;
+    const allGroupsComplete = (() => {
+      const gm = matches.filter(isGroupMatch);
+      return gm.length > 0 && gm.every(hasMatchScore);
+    })();
     if (leagueWrap) leagueWrap.style.display = "none";
     if (groupWrap) {
       groupWrap.style.display = "grid";
       const groupsHtml = letters.map((letter) => {
         const data = calculateStandings(letter);
+        // Lock matematis per grup: pool hanya match grup ini (cupTop/adv sebagai cutoff).
+        const pool = matches.filter((m) => (m.type || "") === "group" && matchGroup(m) === letter);
+        const locked = getLockedStandingsZones(data, cupTop, adv, 0, pool);
         return `<section class="bg-surface-container-high rounded-[2rem] overflow-hidden shadow-2xl border border-outline-variant/10">
           <div class="px-6 py-5 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-highest/50">
             <div><h3 class="font-headline font-black uppercase italic text-xl">Group ${letter}</h3>
@@ -2957,11 +3019,14 @@ const renderAllTimeHofScorers = () => {
           </div>
           <div class="overflow-x-auto"><table class="w-full border-collapse min-w-[680px]">${headHtml}<tbody class="divide-y divide-outline-variant/5 font-label">
             ${data.map((t, i) => {
-              const isQ = i < adv;
-              const isBestPos = !isQ && i === bestPos - 1 && bestSet.has(t.team);
+              let z = locked.get(t.team);
+              if (z === "champion") z = "cup"; // grup tidak punya mahkota — rank 1 = Cup
               const zones = new Map();
-              if (isQ) zones.set(t.team, i < cupTop ? "cup" : "playoff");
-              if (isBestPos) zones.set(t.team, "playoff");
+              if (z) zones.set(t.team, z);
+              else if (i < cupTop) zones.set(t.team, "cup-line");
+              else if (i < adv) zones.set(t.team, "playoff-line");
+              const isBestPos = !zones.has(t.team) && i === bestPos - 1 && bestSet.has(t.team);
+              if (isBestPos) zones.set(t.team, allGroupsComplete ? "playoff" : "playoff-line");
               return rowHtml(t, i, zones);
             }).join("") || `<tr><td colspan="10" class="p-6 text-white/30 italic text-sm">Belum ada data grup ${letter}.</td></tr>`}
           </tbody></table></div>${legendHtml}</section>`;
@@ -3003,7 +3068,17 @@ const renderAllTimeHofScorers = () => {
   const pCut = Math.max(parseInt(playoffCutoff) || 6, cCut);
   const hCut = Math.max(parseInt(relegationCutoff) || 1, 0);
   const lockedZones = getLockedStandingsZones(data, cCut, pCut, hCut);
-  standingsTable.innerHTML = data.map((t, i) => rowHtml(t, i, lockedZones)).join("");
+  // Belum pasti → garis saja (ikut settingan zona liga).
+  const showZones = new Map(lockedZones);
+  data.forEach((t, i) => {
+    if (showZones.has(t.team)) return;
+    const rank = i + 1;
+    if (rank === 1) showZones.set(t.team, "champion-line");
+    else if (rank <= cCut) showZones.set(t.team, "cup-line");
+    else if (rank <= pCut) showZones.set(t.team, "playoff-line");
+    else if (hCut > 0 && rank > data.length - hCut) showZones.set(t.team, "hina-line");
+  });
+  standingsTable.innerHTML = data.map((t, i) => rowHtml(t, i, showZones)).join("");
 };
 
 
@@ -3195,7 +3270,7 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
         renderKnockout();
         ensureKnockoutScheduleMatches();
     } else {
-  knockout = { format: "single", tieFormat: "single", byeFill: "1", mirrorTeam: false, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
+  knockout = { format: "single", tieFormat: "single", byeFill: "1", seedSnapshot: [], mirrorTeam: false, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
         renderKnockout();
     }
 });
@@ -3479,8 +3554,9 @@ const sanitizeKnockout = (raw) => {
   const tie = String(raw?.tieFormat || "single").toLowerCase();
   const tieFormat = ["single", "h2", "bo3", "bo5"].includes(tie) ? tie : "single";
   const byeFill = String(raw?.byeFill ?? "1") === "0" ? "0" : "1";
+  const seedSnapshot = Array.isArray(raw?.seedSnapshot) ? raw.seedSnapshot.filter((t) => typeof t === "string") : [];
   if (!raw || !Array.isArray(raw.rounds)) {
-    return { format: "single", tieFormat, byeFill, mirrorTeam: raw?.mirrorTeam === true, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
+    return { format: "single", tieFormat, byeFill, seedSnapshot, mirrorTeam: raw?.mirrorTeam === true, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
   }
 
   const rounds = raw.rounds.map((round, roundIndex) => ({
@@ -3507,6 +3583,7 @@ const sanitizeKnockout = (raw) => {
     format: raw.format === "double" ? "double" : "single",
     tieFormat,
     byeFill,
+    seedSnapshot,
     mirrorTeam: raw?.mirrorTeam === true,
     bracketSize: parseInt(raw.bracketSize) || 0,
     qualifierZone: raw.qualifierZone || "",
@@ -4101,6 +4178,19 @@ const renderKnockout = () => {
       <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70">Teams: ${resolved.qualifiedCount || resolved.bracketSize || "-"}</span>
       ${champion ? `<span class="px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary">Champion: ${champion}</span>` : ""}
     </div>
+    ${(() => {
+      // Banner bila seeding bracket kedaluwarsa terhadap klasemen kini.
+      const snap = Array.isArray(knockout.seedSnapshot) ? knockout.seedSnapshot : [];
+      if (!snap.length) return "";
+      let cur = [];
+      try { cur = computeKnockoutSeeds().rankedTeams || []; } catch (e) { return ""; }
+      const stale = cur.length !== snap.length || cur.some((t, i) => t !== snap[i]);
+      if (!stale) return "";
+      return `<div class="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-secondary/30 bg-secondary/10 px-4 py-3">
+        <span class="text-[10px] font-black uppercase tracking-widest text-secondary">Seeding kedaluwarsa — klasemen berubah</span>
+        ${isAdmin ? `<button class="admin-btn !py-2 !px-3" data-action="reseedKnockout">Reseed dari klasemen kini</button>` : ""}
+      </div>`;
+    })()}
     ${championPanel}
     ${pathPanel}
     <div id="ko-canvas">
@@ -4386,8 +4476,13 @@ async function generateBracket() {
   const tieSel = String(document.getElementById("koTieFormat")?.value || knockout?.tieFormat || "single").toLowerCase();
   const tieFormat = ["single", "h2", "bo3", "bo5"].includes(tieSel) ? tieSel : "single";
   const mirrorTeam = document.getElementById("koMirrorTeam")?.checked === true;
-  const tieLabel = TIE_META[tieFormat]?.label || "1 Game";
-  const mirrorLabel = mirrorTeam ? " • Mirror ON (away pakai tim home)" : "";
+  const { rankedTeams, qualifierLabel } = computeKnockoutSeeds();
+  await runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, byeFill: readByeFill(), rankedTeams, qualifierLabel, skipConfirm: false });
+}
+
+// Urutan seeding knockout dari klasemen KINI (dipakai generate, cek kedaluwarsa, reseed).
+// Grup: Top N/grup interleaved cross-grup + Best #P. Liga: urutan klasemen penuh.
+const computeKnockoutSeeds = () => {
   // Grup-aware: Top N tiap grup (interleaved cross-grup) + Best K peringkat #P → knockout/lower bracket.
   // Cup langsung = posisi teratas per grup (ikut settingan cupDirect); sisanya Play-off.
   // Seeding menaruh Cup duluan → bila ada BYE, jatahnya ke seed teratas (= tier Cup).
@@ -4416,6 +4511,14 @@ async function generateBracket() {
     else if (qualified.length >= 2) rankedTeams = qualified;
     qualifierLabel = `Grup (${letters.map((l) => `Grup ${l}`).join("+") || "Group Stage"} • Top ${adv}/grup [Cup: ${cupNames.join(", ") || "-"}${playoffNames.length ? ` • Playoff: ${playoffNames.join(", ")}` : " (semua Cup)"}]${bestN > 0 ? ` + Best ${Math.min(bestN, bestRanked.length)}x#${bestPos}` : ""} • ${rankedTeams.length} tim)`;
   }
+  return { rankedTeams, qualifierLabel, cupNames, playoffNames };
+};
+
+// Inti build bracket — dipakai generate (dengan confirm) maupun reseed (tanpa confirm).
+// seedSnapshot = urutan saat build, untuk deteksi klasemen berubah.
+async function runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, byeFill, rankedTeams, qualifierLabel, skipConfirm }) {
+  const tieLabel = TIE_META[tieFormat]?.label || "1 Game";
+  const mirrorLabel = mirrorTeam ? " • Mirror ON (away pakai tim home)" : "";
   const championsSize = Math.max(parseInt(championsCutoff) || 4, 2);
   const playoffSize = Math.max(parseInt(playoffCutoff) || 6, championsSize);
   const requestedSize =
@@ -4444,32 +4547,33 @@ async function generateBracket() {
       sizeSelection === "champions" ? `Zona Champions Top ${normalizedDoubleTeamCount}` :
       sizeSelection === "auto" ? `Zona Play-off Top ${normalizedDoubleTeamCount}` :
       `Manual Top ${normalizedDoubleTeamCount}`;
-    const byeFill = readByeFill();
+    const byeFillParam = byeFill;
     // Peringkat terbaik = urutan klasemen keseluruhan pertama di luar kuota lolos —
-    // ngikutin Top N apa pun (Top 2/4/6/8, grup + 3rd, manual). Bukan hardcode peringkat 7.
+    // ngikutin Top N apa pun (Top 2/4/6/8, grup + best, manual). Bukan hardcode peringkat 7.
     const fullRanking = calculateStandings().map((row) => row.team);
     const qualifiedSet = new Set(rankedTeams.slice(0, normalizedDoubleTeamCount));
-    const fillerPool = byeFill === "1" ? fullRanking.filter((t) => !qualifiedSet.has(t)).slice(0, 1) : [];
-    const fillerLabel = fillerPool.length ? ` + Best next (${fillerPool.join(", ")}) isi slot lower` : (byeFill !== "0" ? " (tim kurang — sisa slot jadi BYE)" : "");
+    const fillerPool = byeFillParam === "1" ? fullRanking.filter((t) => !qualifiedSet.has(t)).slice(0, 1) : [];
+    const fillerLabel = fillerPool.length ? ` + Best next (${fillerPool.join(", ")}) isi slot lower` : (byeFillParam !== "0" ? " (tim kurang — sisa slot jadi BYE)" : "");
 
-    if (!confirm(`Generate Double Elimination bracket untuk ${doubleLabel}? Tie ${tieLabel}${mirrorLabel}${fillerLabel}.${trimNote}`)) return;
+    if (!skipConfirm && !confirm(`Generate Double Elimination bracket untuk ${doubleLabel}? Tie ${tieLabel}${mirrorLabel}${fillerLabel}.${trimNote}`)) return false;
     const doubleRounds = buildDoubleEliminationRounds(rankedTeams.slice(0, normalizedDoubleTeamCount), normalizedDoubleTeamCount, fillerPool);
     repairOpeningTies((doubleRounds.find((r) => r.id === "d1") || { matches: [] }).matches);
     doubleRounds.forEach((r) => r.matches.forEach((mm) => { mm.tieFormat = tieFormat; mm.mirrorTeam = mirrorTeam; }));
     knockout = {
       format: "double",
       tieFormat,
-      byeFill,
+      byeFill: byeFillParam,
       mirrorTeam,
       bracketSize: normalizedDoubleTeamCount,
       qualifierZone: `${doubleLabel} • ${tieLabel}${mirrorLabel}${fillerLabel}`,
       qualifiedCount: normalizedDoubleTeamCount,
+      seedSnapshot: rankedTeams.slice(),
       rounds: doubleRounds
     };
     await saveKnockout();
     await ensureKnockoutScheduleMatches({ resetScores: true, cleanupStale: true });
     renderKnockout();
-    return;
+    return true;
   }
 
   const teamCount = Math.max(2, Math.min(requestedSize, rankedTeams.length));
@@ -4479,7 +4583,7 @@ async function generateBracket() {
   const byeCount = bracketSize - teamCount;
   const byeNote = byeCount > 0 ? ` ${byeCount} BYE untuk seed teratas.` : " Tanpa BYE.";
 
-  if (!confirm(`Generate Single Elimination untuk ${qualifierLabel} (${teamCount} tim, bracket ${bracketSize})? Tie ${tieLabel}${mirrorLabel}.${byeNote}`)) return;
+  if (!skipConfirm && !confirm(`Generate Single Elimination untuk ${qualifierLabel} (${teamCount} tim, bracket ${bracketSize})? Tie ${tieLabel}${mirrorLabel}.${byeNote}`)) return false;
 
   const singleRounds = buildSingleEliminationRounds(seeded, bracketSize);
   repairOpeningTies((singleRounds[0] || { matches: [] }).matches); // hindari rematch segrup di ronde 1
@@ -4487,22 +4591,42 @@ async function generateBracket() {
   knockout = {
     format: "single",
     tieFormat,
-    byeFill: readByeFill(),
+    byeFill: byeFill,
     mirrorTeam,
     bracketSize: teamCount,
     qualifierZone: `${qualifierLabel} • ${tieLabel}${mirrorLabel}`,
     qualifiedCount: teamCount,
+    seedSnapshot: rankedTeams.slice(),
     rounds: singleRounds
   };
 
   await saveKnockout();
   await ensureKnockoutScheduleMatches({ resetScores: true, cleanupStale: true });
   renderKnockout();
+  return true;
+}
+
+// Reseed: ikutkan bracket ke klasemen KINI tanpa generate ulang manual.
+// Aman: hanya bila BELUM ada hasil KO (skor apa pun memblokir agar tidak rusak).
+async function reseedKnockout() {
+  if (!isAdmin) return;
+  if (!knockout?.rounds?.length) return alert("Belum ada bracket untuk di-reseed. Generate dulu.");
+  const scored = knockout.rounds.some((r) => (r.matches || []).some((m) =>
+    !isScoreEmpty(m.s1) && !isScoreEmpty(m.s2)));
+  if (scored) return alert("Bracket sudah ada hasilnya — reseed diblokir agar skor tidak rusak. Generate ulang bila perlu.");
+  const format = document.getElementById("koType")?.value || knockout.format || "single";
+  const sizeSelection = document.getElementById("koSize")?.value || "auto";
+  const tieSel = String(document.getElementById("koTieFormat")?.value || knockout?.tieFormat || "single").toLowerCase();
+  const tieFormat = ["single", "h2", "bo3", "bo5"].includes(tieSel) ? tieSel : "single";
+  const mirrorTeam = document.getElementById("koMirrorTeam")?.checked === true;
+  const { rankedTeams, qualifierLabel } = computeKnockoutSeeds();
+  const ok = await runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, byeFill: readByeFill(), rankedTeams, qualifierLabel, skipConfirm: true });
+  if (ok) alert("Seeding bracket diperbarui mengikuti klasemen kini.");
 }
 
 const clearKnockoutData = async () => {
   if (!isAdmin) return;
-  knockout = { format: "single", tieFormat: "single", byeFill: "1", mirrorTeam: false, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
+  knockout = { format: "single", tieFormat: "single", byeFill: "1", seedSnapshot: [], mirrorTeam: false, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
   await saveKnockout();
   await cleanupGeneratedKnockoutSchedules(new Set());
   renderKnockout();
@@ -5382,6 +5506,7 @@ document.addEventListener('click', async (e) => {
       
     // 7. Knockout System (Dibersihkan dari duplikasi)
     else if (action === 'generateBracket') await generateBracket();
+    else if (action === 'reseedKnockout') await reseedKnockout();
     else if (action === 'clearKnockout') {
         if(confirm("Hapus semua data knockout?")) {
             await clearKnockoutData();
