@@ -1177,6 +1177,10 @@ select[data-action="filterMatches"]:focus {
                     <input type="checkbox" id="compMirrorTeam" class="rounded mt-0.5">
                     <span>Tim mirror tuan rumah <span class="normal-case font-medium">(away pakai tim home, mis. Home MU vs Away City → dua-duanya pakai MU)</span></span>
                   </label>
+                  <label class="flex items-start gap-2 text-xs text-on-surface-variant font-bold uppercase tracking-widest">
+                    <input type="checkbox" id="compByeFill" class="rounded mt-0.5" checked>
+                    <span>Slot lower kosong: isi peringkat terbaik <span class="normal-case font-medium">(ngikut ke knockout — sama kayak toggle di panel Bracket)</span></span>
+                  </label>
                   <p id="compStatus" class="text-[11px] text-on-surface-variant leading-relaxed">Mode: Liga. Grup normal = round-robin penuh. ASEAN Cup = 1x ketemu, home/away diseimbangkan (mis. grup isi 5 → 2 kandang + 2 tandang).</p>
                 </div>
                 <div class="flex gap-4 mt-4">
@@ -1330,6 +1334,9 @@ select[data-action="filterMatches"]:focus {
                     <option value="8">Top 8</option>
                     <option value="16">Top 16</option>
                 </select>
+                <label class="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/60" title="Kalau hidup, slot lower yang kosong diisi peringkat terbaik berikutnya. Kalau mati, dibiarkan BYE.">
+                    <input type="checkbox" id="koByeFill" class="rounded" checked> Isi slot kosong: peringkat terbaik
+                </label>
                 <label class="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/60">
                     <input type="checkbox" id="koMirrorTeam" class="rounded"> Mirror tim tuan rumah
                 </label>
@@ -1351,7 +1358,7 @@ select[data-action="filterMatches"]:focus {
           <button class="w-8 h-8 rounded-full bg-white/5 hover:bg-primary hover:text-black text-white text-lg font-black transition-all" data-action="koZoomIn" title="Zoom in">+</button>
           <button class="h-8 px-3 rounded-full bg-white/5 hover:bg-secondary hover:text-black text-white text-[10px] font-black uppercase tracking-widest transition-all" data-action="koZoomReset" title="Reset view">Reset</button>
         </div>
-        <p class="text-[10px] uppercase tracking-widest text-white/35 font-bold">Drag map untuk geser • Scroll untuk jelajah • Hijau = lolos, kuning = tunggu hasil</p>
+        <p class="text-[10px] uppercase tracking-widest text-white/35 font-bold">Drag map untuk geser • Scroll untuk jelajah • Garis hijau = jalur menang • Garis merah = turun ke lower</p>
     </div>
     <div class="w-full bg-[#0f172a] rounded-[2.5rem] border border-white/5 relative overflow-hidden" style="height: 75vh;">
         <div id="knockout-viewport" class="overflow-auto w-full h-full p-10 custom-scroll ko-map">

@@ -16,7 +16,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     let rosterPlayers = [];
     let playerMatchStats = [];
     let news = [];
-    let knockout = { format: "single", tieFormat: "single", mirrorTeam: false, bracketSize: 0, rounds: [] };
+    let knockout = { format: "single", tieFormat: "single", byeFill: "1", mirrorTeam: false, bracketSize: 0, rounds: [] };
     let collapsed = JSON.parse(localStorage.getItem("collapsedMW") || "{}");
     let championsCutoff = 4;
     let playoffCutoff = 6;
@@ -1105,6 +1105,15 @@ const getStarIcons = (rating) => {
       const mirrorEl = document.getElementById("compMirrorTeam");
       const mirrorTeam = mirrorEl ? mirrorEl.checked === true : competitionConfig.mirrorTeam === true;
       return { mode, leagueLegs: leagueLegs === 2 ? 2 : 1, numGroups, groupFormat, advancePerGroup, thirdPlaceCount, clearExisting, mirrorTeam };
+    };
+
+    // Satu nilai, dua checkbox (panel Competition + panel Bracket) — selalu sinkron via snapshot.
+    const readByeFill = () => {
+      const ko = document.getElementById("koByeFill");
+      if (ko) return ko.checked ? "1" : "0";
+      const cp = document.getElementById("compByeFill");
+      if (cp) return cp.checked ? "1" : "0";
+      return (knockout?.byeFill || "1") !== "0" ? "1" : "0";
     };
 
     const syncCompetitionUI = () => {
@@ -3086,12 +3095,14 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
         knockout = sanitizeKnockout(docSnap.data());
         if (isAdmin) {
           const kt = document.getElementById("koTieFormat"); if (kt) kt.value = knockout.tieFormat || "single";
+          const kb = document.getElementById("koByeFill"); if (kb) kb.checked = (knockout.byeFill || "1") !== "0";
+          const cb = document.getElementById("compByeFill"); if (cb) cb.checked = (knockout.byeFill || "1") !== "0";
           const km = document.getElementById("koMirrorTeam"); if (km) km.checked = knockout.mirrorTeam === true;
         }
         renderKnockout();
         ensureKnockoutScheduleMatches();
     } else {
-        knockout = { format: "single", tieFormat: "single", mirrorTeam: false, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
+  knockout = { format: "single", tieFormat: "single", byeFill: "1", mirrorTeam: false, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
         renderKnockout();
     }
 });
@@ -3374,8 +3385,9 @@ const createSeedOrder = (size) => {
 const sanitizeKnockout = (raw) => {
   const tie = String(raw?.tieFormat || "single").toLowerCase();
   const tieFormat = ["single", "h2", "bo3", "bo5"].includes(tie) ? tie : "single";
+  const byeFill = String(raw?.byeFill ?? "1") === "0" ? "0" : "1";
   if (!raw || !Array.isArray(raw.rounds)) {
-    return { format: "single", tieFormat, mirrorTeam: raw?.mirrorTeam === true, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
+    return { format: "single", tieFormat, byeFill, mirrorTeam: raw?.mirrorTeam === true, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
   }
 
   const rounds = raw.rounds.map((round, roundIndex) => ({
@@ -3401,6 +3413,7 @@ const sanitizeKnockout = (raw) => {
   return {
     format: raw.format === "double" ? "double" : "single",
     tieFormat,
+    byeFill,
     mirrorTeam: raw?.mirrorTeam === true,
     bracketSize: parseInt(raw.bracketSize) || 0,
     qualifierZone: raw.qualifierZone || "",
@@ -3519,8 +3532,11 @@ const buildDoubleEliminationTop4 = (rankedTeams) => {
   ];
 };
 
-const buildDoubleEliminationTop6 = (rankedTeams) => {
+const buildDoubleEliminationTop6 = (rankedTeams, fillers = []) => {
   const seeds = rankedTeams.slice(0, 6);
+  // Slot lb3 (pecundang WB4) tidak punya lawan jika 6 tim pas — diisi peringkat terbaik
+  // berikutnya agar tidak walkover. Tanpa filler, seed2 kosong = BYE.
+  const fill1 = fillers[0] || "";
   return [
     {
       id: "d1",
@@ -3550,7 +3566,7 @@ const buildDoubleEliminationTop6 = (rankedTeams) => {
       name: "Lower Bracket - Round 2",
       matches: [
         { id: "lb2", seed1: "", seed2: "", source1: { matchId: "wb3", outcome: "loser" }, source2: { matchId: "lb1", outcome: "winner" }, s1: null, s2: null },
-        { id: "lb3", seed1: "", seed2: "", source1: { matchId: "wb4", outcome: "loser" }, source2: null, s1: null, s2: null }
+        { id: "lb3", seed1: "", seed2: fill1, source1: { matchId: "wb4", outcome: "loser" }, source2: null, s1: null, s2: null }
       ]
     },
     {
@@ -3666,9 +3682,9 @@ const buildDoubleEliminationTop8 = (rankedTeams) => {
   ];
 };
 
-const buildDoubleEliminationRounds = (rankedTeams, teamCount) => {
+const buildDoubleEliminationRounds = (rankedTeams, teamCount, fillers = []) => {
   if (teamCount <= 4) return buildDoubleEliminationTop4(rankedTeams);
-  if (teamCount <= 6) return buildDoubleEliminationTop6(rankedTeams);
+  if (teamCount <= 6) return buildDoubleEliminationTop6(rankedTeams, fillers);
   return buildDoubleEliminationTop8(rankedTeams);
 };
 
@@ -3849,22 +3865,8 @@ const renderKnockout = () => {
         const locked = !match.team1 || !match.team2;
         const team1Class = match.winner && match.winner === match.team1 ? "win" : "";
         const team2Class = match.winner && match.winner === match.team2 ? "win" : "";
-        const tie = tieFormatOf(match, resolved.tieFormat);
-        const tieLabel = TIE_META[tie]?.label || "1 Game";
-        const mirror = match.mirrorTeam === true || resolved.mirrorTeam === true;
         const logo1 = resolveTeam(match.team1).logo || "https://i.imgur.com/xnTuRnl.png";
         const logo2 = resolveTeam(match.team2).logo || "https://i.imgur.com/xnTuRnl.png";
-        const games = matches
-          .filter((s) => s.type === "knockout" && s.knockoutMatchId === match.id && s.knockoutGenerated === true)
-          .sort((a, b) => (parseInt(a.knockoutGame) || 1) - (parseInt(b.knockoutGame) || 1));
-        const gamesSummary = games.length > 1
-          ? games.map((g) => {
-              const lbl = g.knockoutGameLabel || `G${g.knockoutGame || 1}`;
-              const sc = hasFinalScore(g) ? `${g.s1}-${g.s2}` : "vs";
-              return `${lbl} ${sc}`;
-            }).join(" • ")
-          : "";
-        const mirrorBadge = mirror && match.team1 ? `<div class="mt-2 rounded-lg border border-tertiary/20 bg-tertiary/5 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-tertiary">Mirror: dua-duanya pakai ${match.team1}</div>` : "";
         const showPens = !locked && match.s1 !== null && match.s2 !== null && match.s1 === match.s2;
         const status = match.isDraw
           ? `<span class="text-secondary">Draw — isi penalti</span>`
@@ -3872,37 +3874,24 @@ const renderKnockout = () => {
             ? `<span class="text-primary">✓ ${match.winner}</span>`
             : (locked ? `<span class="text-white/40">Waiting Teams</span>` : `<span class="text-secondary">Waiting Result</span>`);
 
-        const teamRow = (side, logo, name, cls, inputHtml) => `
+        const teamRow = (logo, name, cls, inputHtml) => `
           <div class="ko-team-row ${cls}">
             <img src="${logo}" class="ko-logo" alt="">
             <p class="ko-team-name">${name || "BYE"}</p>
             ${inputHtml}
           </div>`;
 
-        const feedChip = (source) => {
-          if (!source || !source.matchId) return "";
-          const lbl = String(source.matchId).toUpperCase();
-          const out = String(source.outcome || "");
-          const cls = out === "winner" ? "w" : out === "loser" ? "l" : "";
-          const prefix = out === "winner" ? "W" : out === "loser" ? "L" : "F";
-          return `<span class="ko-feed ${cls}" title="${out === "winner" ? "Pemenang" : out === "loser" ? "Pecundang (turun ke lower)" : "Finalis"} dari ${lbl}">${prefix} ${lbl}</span>`;
-        };
-        const feedsHtml = (match.source1 || match.source2)
-          ? `<div class="ko-feeds">${feedChip(match.source1)}${feedChip(match.source2)}</div>`
-          : "";
-
         return `
           <article class="ko-match-card ${locked ? "ko-locked" : ""}" id="ko-${match.id}" data-ko-id="${match.id}" data-src1="${match.source1?.matchId || ""}" data-out1="${match.source1?.outcome || ""}" data-src2="${match.source2?.matchId || ""}" data-out2="${match.source2?.outcome || ""}">
             <div class="ko-match-head">
-              <span>${match.id.toUpperCase()} • ${tieLabel}</span>
+              <span>${match.id.toUpperCase()}</span>
               <span>${status}</span>
             </div>
-            ${feedsHtml}
             <div class="space-y-2">
-              ${teamRow(1, logo1, match.team1, team1Class, isAdmin
+              ${teamRow(logo1, match.team1, team1Class, isAdmin
                 ? `<input type="number" class="ko-score" value="${match.s1 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="s1" ${locked ? "disabled" : ""}>`
                 : `<span class="ko-score text-center ${locked ? "opacity-50" : ""}">${match.s1 ?? "-"}</span>`)}
-              ${teamRow(2, logo2, match.team2, team2Class, isAdmin
+              ${teamRow(logo2, match.team2, team2Class, isAdmin
                 ? `<input type="number" class="ko-score" value="${match.s2 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="s2" ${locked ? "disabled" : ""}>`
                 : `<span class="ko-score text-center ${locked ? "opacity-50" : ""}">${match.s2 ?? "-"}</span>`)}
               ${showPens ? `
@@ -3914,8 +3903,6 @@ const renderKnockout = () => {
                   ${isAdmin ? `<input type="number" class="ko-score mt-1 w-full" value="${match.p2 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="p2">` : `<span>${match.p2 ?? "-"}</span>`}
                 </label>
               </div>` : ""}
-              ${gamesSummary ? `<p class="ko-games text-[9px] uppercase tracking-widest text-white/40 font-bold">${gamesSummary}</p>` : ""}
-              ${mirrorBadge}
             </div>
           </article>
         `;
@@ -3946,11 +3933,11 @@ const renderKnockout = () => {
     gridInner = `
       <div class="de-left">
         <div class="de-panel de-winner">
-          <div class="de-title de-title-win">Winner's bracket <span class="de-sub">kalah 1x → turun ke loser's</span></div>
+          <div class="de-title de-title-win">Winner's bracket</div>
           <div class="de-lane">${laneHtml(up)}</div>
         </div>
         <div class="de-panel de-lower">
-          <div class="de-title de-title-lose">Loser's bracket <span class="de-sub">kalah = gugur</span></div>
+          <div class="de-title de-title-lose">Loser's bracket</div>
           <div class="de-lane">${laneHtml(lo)}</div>
         </div>
       </div>
@@ -3960,7 +3947,6 @@ const renderKnockout = () => {
           <div><p class="de-champ-label">Champion</p><p class="de-champ-name">${champion || "TBD"}</p></div>
         </div>
         <div class="de-lane de-lane-final">${laneHtml(fin)}</div>
-        <p class="de-note">Jika juara loser's bracket mengalahkan juara winner's bracket di Grand Final, mereka tanding ulang (Grand Final Reset).</p>
       </div>`;
   } else {
     gridInner = visibleRounds.map((r) => sectionHtmlById[r.id] || "").join("");
@@ -4321,16 +4307,24 @@ async function generateBracket() {
       sizeSelection === "champions" ? `Zona Champions Top ${normalizedDoubleTeamCount}` :
       sizeSelection === "auto" ? `Zona Play-off Top ${normalizedDoubleTeamCount}` :
       `Manual Top ${normalizedDoubleTeamCount}`;
+    const byeFill = readByeFill();
+    // Peringkat terbaik = urutan klasemen keseluruhan pertama di luar kuota lolos —
+    // ngikutin Top N apa pun (Top 2/4/6/8, grup + 3rd, manual). Bukan hardcode peringkat 7.
+    const fullRanking = calculateStandings().map((row) => row.team);
+    const qualifiedSet = new Set(rankedTeams.slice(0, normalizedDoubleTeamCount));
+    const fillerPool = byeFill === "1" ? fullRanking.filter((t) => !qualifiedSet.has(t)).slice(0, 1) : [];
+    const fillerLabel = fillerPool.length ? ` + Best next (${fillerPool.join(", ")}) isi slot lower` : (byeFill !== "0" ? " (tim kurang — sisa slot jadi BYE)" : "");
 
-    if (!confirm(`Generate Double Elimination bracket untuk ${doubleLabel}? Tie ${tieLabel}${mirrorLabel}.`)) return;
-    const doubleRounds = buildDoubleEliminationRounds(rankedTeams, normalizedDoubleTeamCount);
+    if (!confirm(`Generate Double Elimination bracket untuk ${doubleLabel}? Tie ${tieLabel}${mirrorLabel}${fillerLabel}.`)) return;
+    const doubleRounds = buildDoubleEliminationRounds(rankedTeams.slice(0, normalizedDoubleTeamCount), normalizedDoubleTeamCount, fillerPool);
     doubleRounds.forEach((r) => r.matches.forEach((mm) => { mm.tieFormat = tieFormat; mm.mirrorTeam = mirrorTeam; }));
     knockout = {
       format: "double",
       tieFormat,
+      byeFill,
       mirrorTeam,
       bracketSize: normalizedDoubleTeamCount,
-      qualifierZone: `${doubleLabel} • ${tieLabel}${mirrorLabel}`,
+      qualifierZone: `${doubleLabel} • ${tieLabel}${mirrorLabel}${fillerLabel}`,
       qualifiedCount: normalizedDoubleTeamCount,
       rounds: doubleRounds
     };
@@ -4351,6 +4345,7 @@ async function generateBracket() {
   knockout = {
     format: "single",
     tieFormat,
+    byeFill: readByeFill(),
     mirrorTeam,
     bracketSize: teamCount,
     qualifierZone: `${qualifierLabel} • ${tieLabel}${mirrorLabel}`,
@@ -4365,7 +4360,7 @@ async function generateBracket() {
 
 const clearKnockoutData = async () => {
   if (!isAdmin) return;
-  knockout = { format: "single", tieFormat: "single", mirrorTeam: false, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
+  knockout = { format: "single", tieFormat: "single", byeFill: "1", mirrorTeam: false, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
   await saveKnockout();
   await cleanupGeneratedKnockoutSchedules(new Set());
   renderKnockout();
@@ -4378,6 +4373,20 @@ const clearKnockoutData = async () => {
       if (s) s.innerHTML = Array.from({ length: 60 }, (_, i) => `<option value="${i+1}">Matchweek ${i+1}</option>`).join('');
       const compModeEl = document.getElementById("compMode");
       if (compModeEl) compModeEl.addEventListener("change", syncCompetitionUI);
+      const compByeEl = document.getElementById("compByeFill");
+      if (compByeEl) compByeEl.addEventListener("change", async () => {
+        if (!isAdmin) return;
+        try {
+          await setDoc(doc(db, "tournament", "knockout"), { byeFill: compByeEl.checked ? "1" : "0" }, { merge: true });
+        } catch (e) { console.error("Gagal simpan byeFill:", e); }
+      });
+      const koByeEl = document.getElementById("koByeFill");
+      if (koByeEl) koByeEl.addEventListener("change", async () => {
+        if (!isAdmin) return;
+        try {
+          await setDoc(doc(db, "tournament", "knockout"), { byeFill: koByeEl.checked ? "1" : "0" }, { merge: true });
+        } catch (e) { console.error("Gagal simpan byeFill:", e); }
+      });
       initKoPanZoom();
       applyKoZoom();
     })();
