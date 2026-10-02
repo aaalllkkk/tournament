@@ -1071,7 +1071,7 @@ select[data-action="filterMatches"]:focus {
                       </select>
                     </div>
                   </div>
-                  <div id="groupOptsWrap" style="display:none;" class="grid grid-cols-3 gap-3">
+                  <div id="groupOptsWrap" style="display:none;" class="grid grid-cols-2 gap-3">
                     <div>
                       <label class="text-[10px] uppercase font-bold text-on-surface-variant block mb-2">Jml Grup</label>
                       <select id="groupCount" class="admin-input mb-0">
@@ -1097,6 +1097,16 @@ select[data-action="filterMatches"]:focus {
                         <option value="2" selected>Top 2</option>
                         <option value="3">Top 3</option>
                         <option value="4">Top 4</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="text-[10px] uppercase font-bold text-on-surface-variant block mb-2">Peringkat 3 Terbaik Lolos</label>
+                      <select id="thirdPlaceCount" class="admin-input mb-0">
+                        <option value="0" selected>0 (tidak ada)</option>
+                        <option value="1">Best 1x 3rd</option>
+                        <option value="2">Best 2x 3rd</option>
+                        <option value="3">Best 3x 3rd</option>
+                        <option value="4">Best 4x 3rd</option>
                       </select>
                     </div>
                   </div>
@@ -1253,7 +1263,7 @@ select[data-action="filterMatches"]:focus {
                     <option value="bo5">Tie: Best of 5</option>
                 </select>
                 <select id="koSize" class="bg-black/40 border-white/10 rounded-xl text-white text-xs p-2 focus:ring-primary focus:border-primary">
-                    <option value="auto">Auto (Zona Play-off / Grup)</option>
+                    <option value="auto">Auto (Grup + 3rd terbaik)</option>
                     <option value="champions">Zona Champions</option>
                     <option value="4">Top 4</option>
                     <option value="6">Top 6</option>
@@ -1669,6 +1679,18 @@ select[data-action="filterMatches"]:focus {
         <input id="modalTeamFormation" class="admin-input" placeholder="Formation, e.g. 4-3-3">
         <input id="modalTeamManager" class="admin-input" placeholder="Nama manager">
         <input id="modalTeamManagerPhoto" class="admin-input" placeholder="Manager photo URL (optional, auto ambil dari season kalau nama sama)">
+        <div>
+          <label class="text-[10px] uppercase font-bold text-on-surface-variant block mb-2">Pot Undian (1–5)</label>
+          <select id="modalTeamPot" class="admin-input">
+            <option value="">- Pilih Pot -</option>
+            <option value="1">Pot 1 (unggulan teratas)</option>
+            <option value="2">Pot 2</option>
+            <option value="3" selected>Pot 3</option>
+            <option value="4">Pot 4</option>
+            <option value="5">Pot 5</option>
+          </select>
+        </div>
+        <p class="text-[11px] text-on-surface-variant leading-relaxed self-center">Pot dipakai saat generate grup: tiap grup ambil 1 tim dari tiap pot (Pot 1 paling kuat). Tim tanpa pot masuk undian terakhir.</p>
       </div>
       <div class="mt-6 rounded-2xl border border-outline-variant/10 bg-black/20 p-4">
         <label class="block text-[10px] uppercase tracking-widest font-bold text-primary mb-3">Import PES Roster + Faces</label>

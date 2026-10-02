@@ -37,7 +37,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     let activeTeamDetailId = "";
     let activeDraggedRosterPlayerId = "";
     let activeTacticDropTargetId = "";
-    let competitionConfig = { mode: "league", groupFormat: "normal-single", numGroups: 2, advancePerGroup: 2, mirrorTeam: false, updatedAtMs: 0 };
+    let competitionConfig = { mode: "league", groupFormat: "normal-single", numGroups: 2, advancePerGroup: 2, thirdPlaceCount: 0, mirrorTeam: false, updatedAtMs: 0 };
     
     // Variabel Global untuk Slideshow
     let slideshowInterval = null;
@@ -1100,10 +1100,11 @@ const getStarIcons = (rating) => {
       const numGroups = parseInt(document.getElementById("groupCount")?.value) || competitionConfig.numGroups || 2;
       const groupFormat = document.getElementById("groupFormat")?.value || competitionConfig.groupFormat || "normal-single";
       const advancePerGroup = parseInt(document.getElementById("advancePerGroup")?.value) || competitionConfig.advancePerGroup || 2;
+      const thirdPlaceCount = Math.max(0, parseInt(document.getElementById("thirdPlaceCount")?.value ?? competitionConfig.thirdPlaceCount ?? 0) || 0);
       const clearExisting = document.getElementById("clearExistingMatches")?.checked !== false;
       const mirrorEl = document.getElementById("compMirrorTeam");
       const mirrorTeam = mirrorEl ? mirrorEl.checked === true : competitionConfig.mirrorTeam === true;
-      return { mode, leagueLegs: leagueLegs === 2 ? 2 : 1, numGroups, groupFormat, advancePerGroup, clearExisting, mirrorTeam };
+      return { mode, leagueLegs: leagueLegs === 2 ? 2 : 1, numGroups, groupFormat, advancePerGroup, thirdPlaceCount, clearExisting, mirrorTeam };
     };
 
     const syncCompetitionUI = () => {
@@ -1120,7 +1121,8 @@ const getStarIcons = (rating) => {
             : ui.groupFormat === "normal-double"
               ? "Grup Normal 2x: setiap tim ketemu 2x home & away."
               : "Grup Normal 1x: setiap tim ketemu 1x.";
-          status.textContent = `Mode: Grup (${ui.numGroups} grup, ${desc} Top ${ui.advancePerGroup}/grup lolos ke knockout.)`;
+          const third = ui.thirdPlaceCount > 0 ? ` + Best ${ui.thirdPlaceCount}x peringkat 3` : "";
+          status.textContent = `Mode: Grup (${ui.numGroups} grup, ${desc} Top ${ui.advancePerGroup}/grup${third} lolos ke knockout. Drawing 1 tim per pot per grup.)`;
         } else {
           status.textContent = `Mode: Liga (${ui.leagueLegs}x ketemu). Grup normal = round-robin penuh. ASEAN Cup = 1x ketemu, home/away diseimbangkan.`;
         }
@@ -1128,23 +1130,42 @@ const getStarIcons = (rating) => {
       const badge = document.getElementById("competitionBadge");
       if (badge) {
         const mirrorTxt = competitionConfig.mirrorTeam ? " • Mirror ON" : "";
+        const thirdTxt = competitionConfig.mode === "group" && (competitionConfig.thirdPlaceCount || 0) > 0 ? ` • Best ${competitionConfig.thirdPlaceCount}x3rd` : "";
         badge.textContent = competitionConfig.mode === "group"
-          ? `Mode: Grup • ${competitionConfig.numGroups} grup • ${competitionConfig.groupFormat} • Top ${competitionConfig.advancePerGroup}/grup${mirrorTxt}`
+          ? `Mode: Grup • ${competitionConfig.numGroups} grup • ${competitionConfig.groupFormat} • Top ${competitionConfig.advancePerGroup}/grup${thirdTxt}${mirrorTxt}`
           : `Mode: Liga${mirrorTxt}`;
       }
     };
 
+    const potOf = (team) => {
+      const p = parseInt(team?.pot);
+      return [1, 2, 3, 4, 5].includes(p) ? p : 99;
+    };
+    const shuffleInPlace = (arr) => {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    };
+    // Drawing grup sesuai Pot 1-5: tiap grup ambil 1 tim dari tiap pot (diundi acak dalam pot).
+    // Tim tanpa pot (99) diundi terakhir. Sisa yang tidak pas tetap disebar ke grup paling kecil.
     const splitTeamsIntoGroups = (teamList, numGroups) => {
-      const sorted = teamList.slice().sort((a, b) => ((parseFloat(b.stars) || 0) - (parseFloat(a.stars) || 0)) || String(a.name || "").localeCompare(String(b.name || "")));
       const groups = Array.from({ length: numGroups }, () => []);
-      let forward = true;
-      sorted.forEach((team, i) => {
-        const round = Math.floor(i / numGroups);
-        const pos = i % numGroups;
-        const gi = forward || true ? (round % 2 === 0 ? pos : (numGroups - 1 - pos)) : pos;
-        groups[gi].push(team);
+      [1, 2, 3, 4, 5, 99].forEach((pot, potIdx) => {
+        const pool = shuffleInPlace(teamList.filter((t) => potOf(t) === pot).slice());
+        // Urutan grup diputar per pot agar Pot 1 tidak selalu mulai dari Grup A.
+        const start = potIdx % Math.max(1, numGroups);
+        pool.forEach((team, i) => {
+          groups[(start + i) % numGroups].push(team);
+        });
       });
       return groups;
+    };
+    const potDistributionText = (teamList) => {
+      const counts = [1, 2, 3, 4, 5].map((p) => `${teamList.filter((t) => potOf(t) === p).length}xP${p}`).join(" + ");
+      const unseeded = teamList.filter((t) => potOf(t) === 99).length;
+      return unseeded > 0 ? `${counts} + ${unseeded}xNoPot` : counts;
     };
 
     // Circle method: seimbang, 1 tim main 1x per MW. BYE otomatis bila ganjil.
@@ -1267,7 +1288,7 @@ const getStarIcons = (rating) => {
       }
 
       const summary = ui.mode === "group"
-        ? `Generate GROUP: ${teams.length} tim → ${ui.numGroups} grup (${ui.groupFormat}, top ${ui.advancePerGroup}/grup lolos)?`
+        ? `Generate GROUP: ${teams.length} tim → ${ui.numGroups} grup (${ui.groupFormat}, top ${ui.advancePerGroup}/grup${ui.thirdPlaceCount > 0 ? ` + best ${ui.thirdPlaceCount}x 3rd` : ""} lolos)?\nPot: ${potDistributionText(teams)}`
         : `Generate LIGA: ${teams.length} tim, ${ui.leagueLegs}x ketemu?`;
       if (!confirm(summary)) return;
       if (ui.clearExisting && !confirm("Hapus jadwal Liga/Grup lama dulu? (Knockout tidak ikut terhapus)")) return;
@@ -1309,7 +1330,7 @@ const getStarIcons = (rating) => {
             });
           });
           await clearTeamGroups();
-          await saveCompetitionConfig({ mode: "league", groupFormat: "normal-single", numGroups: 1, advancePerGroup: 0, mirrorTeam: ui.mirrorTeam });
+          await saveCompetitionConfig({ mode: "league", groupFormat: "normal-single", numGroups: 1, advancePerGroup: 0, thirdPlaceCount: 0, mirrorTeam: ui.mirrorTeam });
         } else {
           const groups = splitTeamsIntoGroups(teams, ui.numGroups);
           const legs = ui.groupFormat === "normal-double" ? 2 : 1;
@@ -1330,7 +1351,7 @@ const getStarIcons = (rating) => {
             });
           });
           await assignTeamGroups(groups);
-          await saveCompetitionConfig({ mode: "group", groupFormat: ui.groupFormat, numGroups: ui.numGroups, advancePerGroup: ui.advancePerGroup, mirrorTeam: ui.mirrorTeam });
+          await saveCompetitionConfig({ mode: "group", groupFormat: ui.groupFormat, numGroups: ui.numGroups, advancePerGroup: ui.advancePerGroup, thirdPlaceCount: ui.thirdPlaceCount, mirrorTeam: ui.mirrorTeam });
         }
 
         if (!payloads.length) return alert("Tidak ada jadwal baru (semua sudah ada / duplikat dicegah).");
@@ -1353,7 +1374,7 @@ const getStarIcons = (rating) => {
     await Promise.all(batch);
     try {
       await clearTeamGroups();
-      await saveCompetitionConfig({ mode: "league", groupFormat: "normal-single", numGroups: 1, advancePerGroup: 0, mirrorTeam: false });
+      await saveCompetitionConfig({ mode: "league", groupFormat: "normal-single", numGroups: 1, advancePerGroup: 0, thirdPlaceCount: 0, mirrorTeam: false });
     } catch (cfgErr) { console.warn("Reset competition config warning:", cfgErr); }
     alert("Semua pertandingan berhasil dihapus! Mode kembali ke Liga.");
   } catch (e) {
@@ -1591,6 +1612,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
           groupFormat: d.groupFormat || "normal-single",
           numGroups: parseInt(d.numGroups) || 2,
           advancePerGroup: parseInt(d.advancePerGroup) || 2,
+          thirdPlaceCount: Math.max(0, parseInt(d.thirdPlaceCount) || 0),
           mirrorTeam: d.mirrorTeam === true,
           updatedAtMs: d.updatedAtMs || 0
         };
@@ -1599,6 +1621,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
           const gc = document.getElementById("groupCount"); if (gc) gc.value = String(competitionConfig.numGroups);
           const gf = document.getElementById("groupFormat"); if (gf) gf.value = competitionConfig.groupFormat;
           const ap = document.getElementById("advancePerGroup"); if (ap) ap.value = String(competitionConfig.advancePerGroup);
+          const tp = document.getElementById("thirdPlaceCount"); if (tp) tp.value = String(competitionConfig.thirdPlaceCount || 0);
           const mt = document.getElementById("compMirrorTeam"); if (mt) mt.checked = competitionConfig.mirrorTeam === true;
         }
       }
@@ -1764,6 +1787,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
         if (field) field.value = "";
       });
       document.getElementById("modalTeamStars").value = "3.0";
+      const potEl = document.getElementById("modalTeamPot"); if (potEl) potEl.value = "3";
       modal.classList.remove("hidden");
       modal.classList.add("flex");
     };
@@ -1779,6 +1803,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       document.getElementById("modalTeamFormation").value = team.formation || "";
       document.getElementById("modalTeamManager").value = team.managerName || "";
       document.getElementById("modalTeamManagerPhoto").value = team.managerPhoto || findManagerPhoto(team.managerName) || "";
+      const potEl = document.getElementById("modalTeamPot"); if (potEl) potEl.value = String(team.pot || "");
       modal.classList.remove("hidden");
       modal.classList.add("flex");
     };
@@ -1807,6 +1832,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       const name = document.getElementById("modalTeamName")?.value.trim();
       if (!name) return null;
       const managerName = document.getElementById("modalTeamManager")?.value.trim();
+      const potRaw = parseInt(document.getElementById("modalTeamPot")?.value);
       return {
         id,
         name,
@@ -1815,6 +1841,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
         formation: document.getElementById("modalTeamFormation")?.value.trim() || "",
         managerName,
         managerPhoto: document.getElementById("modalTeamManagerPhoto")?.value.trim() || findManagerPhoto(managerName),
+        pot: [1, 2, 3, 4, 5].includes(potRaw) ? potRaw : "",
         teamKey: slugKey(name)
       };
     };
@@ -1831,6 +1858,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
         formation: payload.formation,
         managerName: payload.managerName,
         managerPhoto: payload.managerPhoto,
+        pot: payload.pot,
         teamKey: payload.teamKey,
         updatedAtMs: Date.now()
       };
@@ -2108,13 +2136,14 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
         const rosterCount = playersForTeam(t).length;
         const managerPhoto = t.managerPhoto || findManagerPhoto(t.managerName) || placeholderImage;
         const groupBadge = (t.group || "").toUpperCase() ? `<span class="ml-2 rounded-full bg-tertiary/10 border border-tertiary/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-tertiary">Grp ${String(t.group).toUpperCase()}</span>` : "";
+        const potBadge = [1, 2, 3, 4, 5].includes(parseInt(t.pot)) ? `<span class="ml-2 rounded-full bg-secondary/10 border border-secondary/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-secondary">Pot ${t.pot}</span>` : "";
         html += `
                 <li class="bg-surface-container-high rounded-[2rem] p-6 border border-outline-variant/10 shadow-lg group hover:-translate-y-1 transition-transform cursor-pointer" data-action="openTeamDetail" data-id="${t.id}">
                     <div class="flex items-center justify-between gap-4">
                       <div class="flex items-center gap-4 min-w-0">
                           <img src="${t.logo || placeholderImage}" class="w-14 h-14 object-contain bg-surface-container-highest p-2 rounded-[1rem] group-hover:scale-110 transition-transform">
                           <div class="min-w-0">
-                            <span class="block truncate font-headline font-bold text-xl">${t.name}${groupBadge}</span>
+                            <span class="block truncate font-headline font-bold text-xl">${t.name}${groupBadge}${potBadge}</span>
                             <span class="text-[10px] uppercase tracking-widest text-on-surface-variant">${rosterCount} roster</span>
                           </div>
                       </div>
@@ -2125,7 +2154,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
                       <button class="deleteBtn" data-action="deleteTeam" data-id="${t.id}">Delete</button>
                     </div>` : ""}
                 </li>`;
-        opts += `<option value="${t.name}">${t.name}${t.group ? ` (Grp ${String(t.group).toUpperCase()})` : ""}</option>`;
+        opts += `<option value="${t.name}">${t.name}${t.group ? ` (Grp ${String(t.group).toUpperCase()})` : ""}${t.pot ? ` [P${t.pot}]` : ""}</option>`;
         filterOpts += `<option value="${t.name.toLowerCase()}">${t.name}</option>`;
       });
 
@@ -2606,13 +2635,26 @@ const renderAllTimeHofScorers = () => {
       return [];
     };
 
-    const getQualifiedFromGroups = (advancePerGroup) => {
+    const getQualifiedFromGroups = (advancePerGroup, thirdPlaceCount = 0) => {
       const letters = listGroupLetters();
       const qualified = [];
       letters.forEach((letter) => {
         calculateStandings(letter).slice(0, Math.max(1, advancePerGroup)).forEach((row) => qualified.push(row.team));
       });
-      return { letters, qualified };
+      const bestThirds = getBestThirdRanked().slice(0, Math.max(0, thirdPlaceCount)).map((r) => r.team);
+      bestThirds.forEach((t) => { if (!qualified.includes(t)) qualified.push(t); });
+      return { letters, qualified, bestThirds };
+    };
+
+    // Peringkat 3 terbaik lintas grup (poin → selisih gol → gol). Dipakai untuk slot lower-bracket/knockout.
+    const getBestThirdRanked = () => {
+      const letters = listGroupLetters();
+      const thirds = [];
+      letters.forEach((letter) => {
+        const rows = calculateStandings(letter);
+        if (rows.length >= 3) thirds.push({ ...rows[2], group: letter });
+      });
+      return thirds.sort((a, b) => b.pts - a.pts || ((b.gf - b.ga) - (a.gf - a.ga)) || b.gf - a.gf || String(a.team).localeCompare(String(b.team)));
     };
 
     const getLockedStandingsZones = (data, cCut, pCut, hCut) => {
@@ -2731,10 +2773,13 @@ const renderAllTimeHofScorers = () => {
   if (hasGroupStage()) {
     const letters = listGroupLetters();
     const adv = Math.max(1, parseInt(competitionConfig.advancePerGroup) || 2);
+    const thirdN = Math.max(0, parseInt(competitionConfig.thirdPlaceCount) || 0);
+    const bestThirds = getBestThirdRanked();
+    const bestSet = new Set(bestThirds.slice(0, thirdN).map((r) => r.team));
     if (leagueWrap) leagueWrap.style.display = "none";
     if (groupWrap) {
       groupWrap.style.display = "grid";
-      groupWrap.innerHTML = letters.map((letter) => {
+      const groupsHtml = letters.map((letter) => {
         const data = calculateStandings(letter);
         return `<section class="bg-surface-container-high rounded-[2rem] overflow-hidden shadow-2xl border border-outline-variant/10">
           <div class="px-6 py-5 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-highest/50">
@@ -2744,12 +2789,31 @@ const renderAllTimeHofScorers = () => {
           <div class="overflow-x-auto"><table class="w-full border-collapse"><tbody class="divide-y divide-outline-variant/5 font-label">
             ${data.map((t, i) => {
               const isQ = i < adv;
+              const isBestThird = !isQ && i === 2 && bestSet.has(t.team);
               const zones = new Map();
               if (isQ) zones.set(t.team, i === 0 ? "cup" : "playoff");
+              if (isBestThird) zones.set(t.team, "playoff");
               return rowHtml(t, i, zones);
             }).join("") || `<tr><td class="p-6 text-white/30 italic text-sm">Belum ada data grup ${letter}.</td></tr>`}
           </tbody></table></div></section>`;
-      }).join("") || `<p class="text-white/30 italic">Belum ada grup.</p>`;
+      }).join("");
+      const thirdHtml = thirdN > 0 ? `<section class="bg-surface-container-high rounded-[2rem] overflow-hidden shadow-2xl border border-secondary/20 xl:col-span-2">
+          <div class="px-6 py-5 border-b border-outline-variant/10 flex items-center justify-between bg-secondary/5">
+            <h3 class="font-headline font-black uppercase italic text-xl">Best 3rd Place</h3>
+            <span class="rounded-full bg-secondary/10 border border-secondary/20 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-secondary">Best ${thirdN} lolos ke knockout</span>
+          </div>
+          <div class="p-4 space-y-2">
+            ${bestThirds.map((t, i) => `
+              <div class="flex items-center justify-between gap-3 rounded-xl px-4 py-3 ${i < thirdN ? "bg-secondary/10 border border-secondary/20" : "bg-black/20 border border-white/5 opacity-60"}">
+                <div class="flex items-center gap-3 min-w-0">
+                  <span class="font-headline font-black ${i < thirdN ? "text-secondary" : "text-on-surface-variant"}">${i + 1}</span>
+                  <img src="${resolveTeam(t.team).logo}" class="w-8 h-8 object-contain bg-surface-container-highest p-1 rounded-lg">
+                  <div class="min-w-0"><p class="truncate font-bold text-white">${t.team}</p><p class="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold">Grup ${t.group} • ${t.pts} pts • GD ${t.gf - t.ga}</p></div>
+                </div>
+                <span class="text-[9px] font-black uppercase tracking-widest ${i < thirdN ? "text-secondary" : "text-on-surface-variant"}">${i < thirdN ? "Lolos" : "Out"}</span>
+              </div>`).join("") || `<p class="p-4 text-white/30 italic text-sm">Belum ada peringkat 3.</p>`}
+          </div></section>` : "";
+      groupWrap.innerHTML = (groupsHtml + thirdHtml) || `<p class="text-white/30 italic">Belum ada grup.</p>`;
     }
     // Tetap isi tabel liga tersembunyi untuk kompatibilitas dashboard
     const data = calculateStandings();
@@ -4032,12 +4096,13 @@ async function generateBracket() {
   const mirrorTeam = document.getElementById("koMirrorTeam")?.checked === true;
   const tieLabel = TIE_META[tieFormat]?.label || "1 Game";
   const mirrorLabel = mirrorTeam ? " • Mirror ON (away pakai tim home)" : "";
-  // Grup-aware: jika ada fase grup, ambil Top N dari tiap grup (interleaved agar semifinal cross-grup).
+  // Grup-aware: Top N tiap grup (interleaved cross-grup) + Best K peringkat 3 → knockout/lower bracket.
   let rankedTeams = calculateStandings().map((row) => row.team);
   let qualifierLabel = "";
   if (hasGroupStage()) {
     const adv = Math.max(1, parseInt(competitionConfig.advancePerGroup) || 2);
-    const letters = listGroupLetters();
+    const thirdN = Math.max(0, parseInt(competitionConfig.thirdPlaceCount) || 0);
+    const { letters, qualified, bestThirds } = getQualifiedFromGroups(adv, thirdN);
     const perGroup = letters.map((letter) => calculateStandings(letter).map((r) => r.team));
     const interleaved = [];
     for (let pos = 0; pos < adv; pos++) {
@@ -4045,8 +4110,10 @@ async function generateBracket() {
         if (perGroup[gi][pos]) interleaved.push(perGroup[gi][pos]);
       }
     }
+    bestThirds.forEach((t) => { if (!interleaved.includes(t)) interleaved.push(t); });
     if (interleaved.length >= 2) rankedTeams = interleaved;
-    qualifierLabel = `Grup (${letters.map((l) => `Grup ${l}`).join("+") || "Group Stage"} • Top ${adv}/grup • ${rankedTeams.length} tim)`;
+    else if (qualified.length >= 2) rankedTeams = qualified;
+    qualifierLabel = `Grup (${letters.map((l) => `Grup ${l}`).join("+") || "Group Stage"} • Top ${adv}/grup${thirdN > 0 ? ` + Best ${Math.min(thirdN, bestThirds.length)}x3rd` : ""} • ${rankedTeams.length} tim)`;
   }
   const championsSize = Math.max(parseInt(championsCutoff) || 4, 2);
   const playoffSize = Math.max(parseInt(playoffCutoff) || 6, championsSize);
