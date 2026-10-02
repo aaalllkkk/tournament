@@ -1451,6 +1451,55 @@ const getStarIcons = (rating) => {
       renderMatches();
     };
 
+    // --- Knockout map: drag-pan + zoom ---
+    let koZoom = 1;
+    let koPanBound = false;
+    const applyKoZoom = () => {
+      const canvas = document.getElementById("ko-canvas");
+      const label = document.getElementById("koZoomLabel");
+      const z = Math.min(1.6, Math.max(0.55, koZoom));
+      koZoom = z;
+      if (canvas) {
+        canvas.style.transform = `scale(${z})`;
+        canvas.style.transformOrigin = "0 0";
+      }
+      if (label) label.textContent = `${Math.round(z * 100)}%`;
+    };
+    const setKoZoom = (next) => { koZoom = next; applyKoZoom(); };
+    const initKoPanZoom = () => {
+      if (koPanBound) return;
+      const vp = document.getElementById("knockout-viewport");
+      if (!vp) return;
+      koPanBound = true;
+      let dragging = false, moved = false, sx = 0, sy = 0, sl = 0, st = 0;
+      const interactive = (el) => el && el.closest && el.closest("input,select,textarea,button,a,[data-action]");
+      vp.addEventListener("pointerdown", (e) => {
+        if (e.button !== undefined && e.button !== 0) return;
+        if (interactive(e.target)) return;
+        dragging = true; moved = false;
+        sx = e.clientX; sy = e.clientY; sl = vp.scrollLeft; st = vp.scrollTop;
+        vp.classList.add("ko-panning");
+      });
+      vp.addEventListener("pointermove", (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - sx, dy = e.clientY - sy;
+        if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
+        if (moved) { vp.scrollLeft = sl - dx; vp.scrollTop = st - dy; }
+      });
+      const endPan = () => { dragging = false; vp.classList.remove("ko-panning"); };
+      vp.addEventListener("pointerup", endPan);
+      vp.addEventListener("pointercancel", endPan);
+      vp.addEventListener("pointerleave", endPan);
+      vp.addEventListener("click", (e) => {
+        if (moved && !interactive(e.target)) { e.preventDefault(); e.stopPropagation(); moved = false; }
+      }, true);
+      vp.addEventListener("wheel", (e) => {
+        if (!e.ctrlKey) return;
+        e.preventDefault();
+        setKoZoom(koZoom + (e.deltaY < 0 ? 0.08 : -0.08));
+      }, { passive: false });
+    };
+
     const syncScorersFromBridgeEvents = async (events) => {
       if (!isAdmin || !Array.isArray(events) || !events.length) return;
       const totals = new Map();
@@ -2776,6 +2825,23 @@ const renderAllTimeHofScorers = () => {
     const thirdN = Math.max(0, parseInt(competitionConfig.thirdPlaceCount) || 0);
     const bestThirds = getBestThirdRanked();
     const bestSet = new Set(bestThirds.slice(0, thirdN).map((r) => r.team));
+    const headHtml = `<thead><tr class="bg-surface-container-highest/50 border-b border-outline-variant/10">
+      <th class="py-4 px-4 text-left text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant">Rank</th>
+      <th class="py-4 px-4 text-left text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant">Club</th>
+      <th class="py-4 px-2 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant" title="Main (Matches Played)">MP</th>
+      <th class="py-4 px-2 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant" title="Menang (Wins)">W</th>
+      <th class="py-4 px-2 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant" title="Seri (Draws)">D</th>
+      <th class="py-4 px-2 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant" title="Kalah (Losses)">L</th>
+      <th class="py-4 px-2 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant" title="Gol Memasukkan (Goals For)">GF</th>
+      <th class="py-4 px-2 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant" title="Gol Kemasukan (Goals Against)">GA</th>
+      <th class="py-4 px-2 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant" title="Selisih Gol (Goal Difference)">GD</th>
+      <th class="py-4 px-4 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-primary" title="Poin (Points)">Pts</th>
+    </tr></thead>`;
+    const legendHtml = `<div class="px-6 py-4 bg-surface-container-lowest/50 border-t border-outline-variant/10 flex flex-wrap gap-4 items-center">
+      <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-primary"></div><span class="text-[10px] uppercase tracking-widest font-label font-bold text-on-surface-variant">Lolos Knockout</span></div>
+      <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-secondary"></div><span class="text-[10px] uppercase tracking-widest font-label font-bold text-on-surface-variant">Perebutan Best 3rd</span></div>
+      <span class="text-[10px] uppercase tracking-widest font-label text-on-surface-variant/70">Poin 3/M • Urutan: Pts → GD → GF</span>
+    </div>`;
     if (leagueWrap) leagueWrap.style.display = "none";
     if (groupWrap) {
       groupWrap.style.display = "grid";
@@ -2783,10 +2849,11 @@ const renderAllTimeHofScorers = () => {
         const data = calculateStandings(letter);
         return `<section class="bg-surface-container-high rounded-[2rem] overflow-hidden shadow-2xl border border-outline-variant/10">
           <div class="px-6 py-5 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-highest/50">
-            <h3 class="font-headline font-black uppercase italic text-xl">Group ${letter}</h3>
+            <div><h3 class="font-headline font-black uppercase italic text-xl">Group ${letter}</h3>
+            <p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mt-1">${data.length} tim • Top ${adv} lolos${thirdN > 0 ? ` • Best ${thirdN}x 3rd lanjut` : ""}</p></div>
             <span class="rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-primary">Top ${adv} lolos</span>
           </div>
-          <div class="overflow-x-auto"><table class="w-full border-collapse"><tbody class="divide-y divide-outline-variant/5 font-label">
+          <div class="overflow-x-auto"><table class="w-full border-collapse min-w-[680px]">${headHtml}<tbody class="divide-y divide-outline-variant/5 font-label">
             ${data.map((t, i) => {
               const isQ = i < adv;
               const isBestThird = !isQ && i === 2 && bestSet.has(t.team);
@@ -2794,8 +2861,8 @@ const renderAllTimeHofScorers = () => {
               if (isQ) zones.set(t.team, i === 0 ? "cup" : "playoff");
               if (isBestThird) zones.set(t.team, "playoff");
               return rowHtml(t, i, zones);
-            }).join("") || `<tr><td class="p-6 text-white/30 italic text-sm">Belum ada data grup ${letter}.</td></tr>`}
-          </tbody></table></div></section>`;
+            }).join("") || `<tr><td colspan="10" class="p-6 text-white/30 italic text-sm">Belum ada data grup ${letter}.</td></tr>`}
+          </tbody></table></div>${legendHtml}</section>`;
       }).join("");
       const thirdHtml = thirdN > 0 ? `<section class="bg-surface-container-high rounded-[2rem] overflow-hidden shadow-2xl border border-secondary/20 xl:col-span-2">
           <div class="px-6 py-5 border-b border-outline-variant/10 flex items-center justify-between bg-secondary/5">
@@ -2805,12 +2872,15 @@ const renderAllTimeHofScorers = () => {
           <div class="p-4 space-y-2">
             ${bestThirds.map((t, i) => `
               <div class="flex items-center justify-between gap-3 rounded-xl px-4 py-3 ${i < thirdN ? "bg-secondary/10 border border-secondary/20" : "bg-black/20 border border-white/5 opacity-60"}">
-                <div class="flex items-center gap-3 min-w-0">
+                <div class="flex items-center gap-3 min-w-0 flex-1">
                   <span class="font-headline font-black ${i < thirdN ? "text-secondary" : "text-on-surface-variant"}">${i + 1}</span>
                   <img src="${resolveTeam(t.team).logo}" class="w-8 h-8 object-contain bg-surface-container-highest p-1 rounded-lg">
-                  <div class="min-w-0"><p class="truncate font-bold text-white">${t.team}</p><p class="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold">Grup ${t.group} • ${t.pts} pts • GD ${t.gf - t.ga}</p></div>
+                  <div class="min-w-0"><p class="truncate font-bold text-white">${t.team}</p><p class="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold">Grup ${t.group} • MP ${t.p} • W${t.w}-D${t.d}-L${t.l} • GF${t.gf}-GA${t.ga}</p></div>
                 </div>
-                <span class="text-[9px] font-black uppercase tracking-widest ${i < thirdN ? "text-secondary" : "text-on-surface-variant"}">${i < thirdN ? "Lolos" : "Out"}</span>
+                <div class="text-right shrink-0">
+                  <p class="font-headline font-black text-xl ${i < thirdN ? "text-secondary" : "text-on-surface-variant"}">${t.pts}<span class="text-[10px] font-bold"> pts</span></p>
+                  <p class="text-[9px] uppercase tracking-widest ${i < thirdN ? "text-secondary" : "text-on-surface-variant"} font-bold">GD ${t.gf - t.ga > 0 ? "+" : ""}${t.gf - t.ga} • <span class="${i < thirdN ? "" : ""}">${i < thirdN ? "Lolos" : "Out"}</span></p>
+                </div>
               </div>`).join("") || `<p class="p-4 text-white/30 italic text-sm">Belum ada peringkat 3.</p>`}
           </div></section>` : "";
       groupWrap.innerHTML = (groupsHtml + thirdHtml) || `<p class="text-white/30 italic">Belum ada grup.</p>`;
@@ -3759,6 +3829,8 @@ const renderKnockout = () => {
 
   const roundsHtml = visibleRounds.map((round, roundIndex) => {
     const baseGap = resolved.format === "single" ? Math.max(14, 14 * Math.pow(2, roundIndex)) : 14;
+    const rn = String(round.name || "").toLowerCase();
+    const sectionTone = rn.includes("grand") ? "grand" : rn.includes("lower") ? "lower" : rn.includes("upper") ? "upper" : "";
 
     const matchesHtml = round.matches
       .filter((match) => match.visible !== false)
@@ -3769,6 +3841,8 @@ const renderKnockout = () => {
         const tie = tieFormatOf(match, resolved.tieFormat);
         const tieLabel = TIE_META[tie]?.label || "1 Game";
         const mirror = match.mirrorTeam === true || resolved.mirrorTeam === true;
+        const logo1 = resolveTeam(match.team1).logo || "https://i.imgur.com/xnTuRnl.png";
+        const logo2 = resolveTeam(match.team2).logo || "https://i.imgur.com/xnTuRnl.png";
         const games = matches
           .filter((s) => s.type === "knockout" && s.knockoutMatchId === match.id && s.knockoutGenerated === true)
           .sort((a, b) => (parseInt(a.knockoutGame) || 1) - (parseInt(b.knockoutGame) || 1));
@@ -3784,8 +3858,15 @@ const renderKnockout = () => {
         const status = match.isDraw
           ? `<span class="text-secondary">Draw — isi penalti</span>`
           : match.winner
-            ? `<span class="text-primary">${match.winner}</span>`
+            ? `<span class="text-primary">✓ ${match.winner}</span>`
             : (locked ? `<span class="text-white/40">Waiting Teams</span>` : `<span class="text-secondary">Waiting Result</span>`);
+
+        const teamRow = (side, logo, name, cls, inputHtml) => `
+          <div class="ko-team-row ${cls}">
+            <img src="${logo}" class="ko-logo" alt="">
+            <p class="ko-team-name">${name || "BYE"}</p>
+            ${inputHtml}
+          </div>`;
 
         return `
           <article class="ko-match-card ${locked ? "ko-locked" : ""}">
@@ -3794,20 +3875,12 @@ const renderKnockout = () => {
               <span>${status}</span>
             </div>
             <div class="space-y-2">
-              <div class="ko-team-row ${team1Class}">
-                <p class="ko-team-name">${match.team1 || "BYE"}</p>
-                ${isAdmin
-                  ? `<input type="number" class="ko-score" value="${match.s1 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="s1" ${locked ? "disabled" : ""}>`
-                  : `<span class="ko-score text-center ${locked ? "opacity-50" : ""}">${match.s1 ?? "-"}</span>`
-                }
-              </div>
-              <div class="ko-team-row ${team2Class}">
-                <p class="ko-team-name">${match.team2 || "BYE"}</p>
-                ${isAdmin
-                  ? `<input type="number" class="ko-score" value="${match.s2 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="s2" ${locked ? "disabled" : ""}>`
-                  : `<span class="ko-score text-center ${locked ? "opacity-50" : ""}">${match.s2 ?? "-"}</span>`
-                }
-              </div>
+              ${teamRow(1, logo1, match.team1, team1Class, isAdmin
+                ? `<input type="number" class="ko-score" value="${match.s1 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="s1" ${locked ? "disabled" : ""}>`
+                : `<span class="ko-score text-center ${locked ? "opacity-50" : ""}">${match.s1 ?? "-"}</span>`)}
+              ${teamRow(2, logo2, match.team2, team2Class, isAdmin
+                ? `<input type="number" class="ko-score" value="${match.s2 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="s2" ${locked ? "disabled" : ""}>`
+                : `<span class="ko-score text-center ${locked ? "opacity-50" : ""}">${match.s2 ?? "-"}</span>`)}
               ${showPens ? `
               <div class="grid grid-cols-2 gap-2">
                 <label class="rounded-lg bg-black/30 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-secondary">Pens ${match.team1 || ""}
@@ -3817,7 +3890,7 @@ const renderKnockout = () => {
                   ${isAdmin ? `<input type="number" class="ko-score mt-1 w-full" value="${match.p2 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="p2">` : `<span>${match.p2 ?? "-"}</span>`}
                 </label>
               </div>` : ""}
-              ${gamesSummary ? `<p class="text-[9px] uppercase tracking-widest text-white/40 font-bold">${gamesSummary}</p>` : ""}
+              ${gamesSummary ? `<p class="ko-games text-[9px] uppercase tracking-widest text-white/40 font-bold">${gamesSummary}</p>` : ""}
               ${mirrorBadge}
             </div>
           </article>
@@ -3826,7 +3899,7 @@ const renderKnockout = () => {
       .join("");
 
     return `
-      <section class="ko-round">
+      <section class="ko-round ${sectionTone}">
         <h3 class="ko-round-title">${round.name}</h3>
         <div class="ko-stack" style="gap: ${baseGap}px;">
           ${matchesHtml}
@@ -3863,10 +3936,13 @@ const renderKnockout = () => {
     </div>
     ${championPanel}
     ${pathPanel}
-    <div class="ko-grid">
-      ${roundsHtml}
+    <div id="ko-canvas">
+      <div class="ko-grid">
+        ${roundsHtml}
+      </div>
     </div>
   `;
+  applyKoZoom();
 };
 
 const knockoutScheduleDocId = (matchId, game = 1, total = 1) => {
@@ -4197,6 +4273,8 @@ const clearKnockoutData = async () => {
       if (s) s.innerHTML = Array.from({ length: 60 }, (_, i) => `<option value="${i+1}">Matchweek ${i+1}</option>`).join('');
       const compModeEl = document.getElementById("compMode");
       if (compModeEl) compModeEl.addEventListener("change", syncCompetitionUI);
+      initKoPanZoom();
+      applyKoZoom();
     })();
 
     const updateScorerGoals = async (id, val) => {
@@ -4995,6 +5073,13 @@ document.addEventListener('click', async (e) => {
     if (action === 'toggleSidebar') toggleSidebar();
     else if (action === 'openTab') openTab(btn.dataset.tab, btn);
     else if (action === 'toggleFolder') toggleFolder(btn.dataset.mw);
+    else if (action === 'koZoomIn') setKoZoom(koZoom + 0.1);
+    else if (action === 'koZoomOut') setKoZoom(koZoom - 0.1);
+    else if (action === 'koZoomReset') {
+      setKoZoom(1);
+      const vp = document.getElementById("knockout-viewport");
+      if (vp) { vp.scrollLeft = 0; vp.scrollTop = 0; }
+    }
     else if (action === 'openHofModal') {
         const modal = document.getElementById('hofModal');
         if(modal) modal.classList.remove('hidden');

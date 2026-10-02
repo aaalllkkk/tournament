@@ -903,6 +903,38 @@ select[data-action="filterMatches"]:focus {
       z-index: 10;
       width: 100%;
     }
+
+    /* --- Knockout map UX --- */
+    #knockout-viewport.ko-map { cursor: grab; touch-action: pan-x pan-y; }
+    #knockout-viewport.ko-map.ko-panning { cursor: grabbing; }
+    #knockout-viewport.ko-map.ko-panning input,
+    #knockout-viewport.ko-map.ko-panning button { cursor: auto; }
+    #ko-canvas { transform-origin: 0 0; }
+    .ko-grid { align-items: stretch; }
+    .ko-round {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 20px;
+      padding: 14px;
+    }
+    .ko-round.upper { border-color: rgba(142,255,113,0.18); }
+    .ko-round.lower { border-color: rgba(255,215,9,0.18); }
+    .ko-round.grand { border-color: rgba(246,196,83,0.45); background: rgba(246,196,83,0.05); }
+    .ko-round-title {
+      position: sticky;
+      top: 0;
+      background: rgba(15,23,42,0.9);
+      backdrop-filter: blur(8px);
+      border-radius: 12px;
+      padding: 8px 10px;
+      z-index: 2;
+    }
+    .ko-match-card { transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+    .ko-match-card:hover { transform: translateY(-2px); border-color: rgba(142,255,113,0.4); }
+    .ko-team-row { grid-template-columns: 28px 1fr auto; }
+    .ko-logo { width: 28px; height: 28px; object-fit: contain; background: rgba(0,0,0,0.35); border-radius: 8px; padding: 2px; }
+    .ko-team-name { min-width: 0; }
+    .ko-games { line-height: 1.6; }
     
   </style>
 </head>
@@ -1284,8 +1316,17 @@ select[data-action="filterMatches"]:focus {
         </div>
     </div>
 
+    <div class="w-full max-w-5xl mb-4 flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1">
+          <button class="w-8 h-8 rounded-full bg-white/5 hover:bg-primary hover:text-black text-white text-lg font-black transition-all" data-action="koZoomOut" title="Zoom out">−</button>
+          <span id="koZoomLabel" class="text-[10px] font-black uppercase tracking-widest text-white/60 w-12 text-center">100%</span>
+          <button class="w-8 h-8 rounded-full bg-white/5 hover:bg-primary hover:text-black text-white text-lg font-black transition-all" data-action="koZoomIn" title="Zoom in">+</button>
+          <button class="h-8 px-3 rounded-full bg-white/5 hover:bg-secondary hover:text-black text-white text-[10px] font-black uppercase tracking-widest transition-all" data-action="koZoomReset" title="Reset view">Reset</button>
+        </div>
+        <p class="text-[10px] uppercase tracking-widest text-white/35 font-bold">Drag map untuk geser • Scroll untuk jelajah • Hijau = lolos, kuning = tunggu hasil</p>
+    </div>
     <div class="w-full bg-[#0f172a] rounded-[2.5rem] border border-white/5 relative overflow-hidden" style="height: 75vh;">
-        <div id="knockout-viewport" class="overflow-auto w-full h-full p-10 custom-scroll">
+        <div id="knockout-viewport" class="overflow-auto w-full h-full p-10 custom-scroll ko-map">
             <div id="knockoutBracket" class="min-w-max">
                 <p class="text-white/30 text-sm italic">Belum ada bracket. Generate dari panel admin.</p>
             </div>
