@@ -3700,10 +3700,16 @@ const resolveKnockout = (state) => {
     return "";
   };
 
-  rounds.forEach((round) => {
-    round.matches.forEach((match) => {
-      match.team1 = match.source1 ? teamFromOutcome(match.source1) : (match.seed1 || "");
-      match.team2 = match.source2 ? teamFromOutcome(match.source2) : (match.seed2 || "");
+  // Multi-pass agar aliran winner/loser selalu tuntas walau urutan round tidak topologis
+  // (mis. lower bracket yang feed dari upper final yang posisinya belakangan).
+  const totalMatches = Object.keys(matchMap).length;
+  for (let pass = 0; pass <= totalMatches + 1; pass++) {
+    let stable = true;
+    rounds.forEach((round) => {
+      round.matches.forEach((match) => {
+        const prev = `${match.team1}|${match.team2}|${match.winner}|${match.loser}|${match.isDraw ? 1 : 0}`;
+        match.team1 = match.source1 ? teamFromOutcome(match.source1) : (match.seed1 || "");
+        match.team2 = match.source2 ? teamFromOutcome(match.source2) : (match.seed2 || "");
       match.s1 = sanitizeScore(match.s1);
       match.s2 = sanitizeScore(match.s2);
       match.p1 = sanitizeScore(match.p1);
@@ -3744,8 +3750,12 @@ const resolveKnockout = (state) => {
       } else if (!match.team1 && match.team2 && !match.source1) {
         match.winner = match.team2;
       }
+        const next = `${match.team1}|${match.team2}|${match.winner}|${match.loser}|${match.isDraw ? 1 : 0}`;
+        if (next !== prev) stable = false;
+      });
     });
-  });
+    if (stable) break;
+  }
 
   if (safe.format === "double") {
     const gf1 = matchMap.gf1;
@@ -3868,12 +3878,25 @@ const renderKnockout = () => {
             ${inputHtml}
           </div>`;
 
+        const feedChip = (source) => {
+          if (!source || !source.matchId) return "";
+          const lbl = String(source.matchId).toUpperCase();
+          const out = String(source.outcome || "");
+          const cls = out === "winner" ? "w" : out === "loser" ? "l" : "";
+          const prefix = out === "winner" ? "W" : out === "loser" ? "L" : "F";
+          return `<span class="ko-feed ${cls}" title="${out === "winner" ? "Pemenang" : out === "loser" ? "Pecundang (turun ke lower)" : "Finalis"} dari ${lbl}">${prefix} ${lbl}</span>`;
+        };
+        const feedsHtml = (match.source1 || match.source2)
+          ? `<div class="ko-feeds">${feedChip(match.source1)}${feedChip(match.source2)}</div>`
+          : "";
+
         return `
-          <article class="ko-match-card ${locked ? "ko-locked" : ""}">
+          <article class="ko-match-card ${locked ? "ko-locked" : ""}" id="ko-${match.id}" data-ko-id="${match.id}" data-src1="${match.source1?.matchId || ""}" data-out1="${match.source1?.outcome || ""}" data-src2="${match.source2?.matchId || ""}" data-out2="${match.source2?.outcome || ""}">
             <div class="ko-match-head">
               <span>${match.id.toUpperCase()} • ${tieLabel}</span>
               <span>${status}</span>
             </div>
+            ${feedsHtml}
             <div class="space-y-2">
               ${teamRow(1, logo1, match.team1, team1Class, isAdmin
                 ? `<input type="number" class="ko-score" value="${match.s1 ?? ""}" data-action="updateScoreKO" data-id="${match.id}" data-side="s1" ${locked ? "disabled" : ""}>`
@@ -3938,11 +3961,60 @@ const renderKnockout = () => {
     ${pathPanel}
     <div id="ko-canvas">
       <div class="ko-grid">
+        <svg class="ko-wires" aria-hidden="true"></svg>
         ${roundsHtml}
       </div>
     </div>
   `;
   applyKoZoom();
+  requestAnimationFrame(drawKoWires);
+};
+
+// Gambar garis tree antar match: dari sisi kanan kartu sumber ke sisi kiri kartu tujuan.
+// Hijau = jalur pemenang, merah = jalur pecundang (drop ke lower bracket).
+const drawKoWires = () => {
+  document.querySelectorAll("#knockoutBracket .ko-grid").forEach((grid) => {
+    const svg = grid.querySelector(":scope > svg.ko-wires");
+    if (!svg) return;
+    const cards = new Map();
+    grid.querySelectorAll(":scope article.ko-match-card[data-ko-id]").forEach((el) => {
+      cards.set(el.dataset.koId, el);
+    });
+    const posIn = (el) => {
+      let x = 0, y = 0, node = el;
+      while (node && node !== grid) {
+        x += node.offsetLeft || 0;
+        y += node.offsetTop || 0;
+        node = node.offsetParent;
+      }
+      return { x, y, w: el.offsetWidth || 0, h: el.offsetHeight || 0 };
+    };
+    let html = "";
+    grid.querySelectorAll(":scope article.ko-match-card[data-ko-id]").forEach((target) => {
+      const t = posIn(target);
+      if (!t.w) return;
+      [
+        { id: target.dataset.src1, out: target.dataset.out1, frac: 0.36 },
+        { id: target.dataset.src2, out: target.dataset.out2, frac: 0.64 }
+      ].forEach((feed) => {
+        if (!feed.id) return;
+        const src = cards.get(feed.id);
+        if (!src) return;
+        const s = posIn(src);
+        if (!s.w) return;
+        const x1 = s.x + s.w, y1 = s.y + s.h / 2;
+        const x2 = t.x, y2 = t.y + t.h * feed.frac;
+        if (x2 <= x1 + 2) return; // sumber di belakang/tidak searah — lewati agar tidak coret kartu
+        const dx = Math.max(24, (x2 - x1) / 2);
+        const cls = feed.out === "winner" ? "win" : feed.out === "loser" ? "lose" : "";
+        html += `<path class="ko-wire ${cls}" d="M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}"/>`;
+      });
+    });
+    svg.setAttribute("viewBox", `0 0 ${grid.scrollWidth} ${grid.scrollHeight}`);
+    svg.setAttribute("width", grid.scrollWidth);
+    svg.setAttribute("height", grid.scrollHeight);
+    svg.innerHTML = html;
+  });
 };
 
 const knockoutScheduleDocId = (matchId, game = 1, total = 1) => {
