@@ -37,7 +37,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     let activeTeamDetailId = "";
     let activeDraggedRosterPlayerId = "";
     let activeTacticDropTargetId = "";
-    let competitionConfig = { mode: "league", groupFormat: "normal-single", numGroups: 2, advancePerGroup: 2, thirdPlaceCount: 0, mirrorTeam: false, updatedAtMs: 0 };
+    let competitionConfig = { mode: "league", groupFormat: "normal-single", numGroups: 2, advancePerGroup: 2, cupDirect: "1", bestPos: 3, bestPosCount: 0, mirrorTeam: false, updatedAtMs: 0 };
     
     // Variabel Global untuk Slideshow
     let slideshowInterval = null;
@@ -1100,11 +1100,26 @@ const getStarIcons = (rating) => {
       const numGroups = parseInt(document.getElementById("groupCount")?.value) || competitionConfig.numGroups || 2;
       const groupFormat = document.getElementById("groupFormat")?.value || competitionConfig.groupFormat || "normal-single";
       const advancePerGroup = parseInt(document.getElementById("advancePerGroup")?.value) || competitionConfig.advancePerGroup || 2;
-      const thirdPlaceCount = Math.max(0, parseInt(document.getElementById("thirdPlaceCount")?.value ?? competitionConfig.thirdPlaceCount ?? 0) || 0);
+      // Migrasi: config lama hanya punya thirdPlaceCount (= Best 3rd).
+      const legacyThird = parseInt(competitionConfig.thirdPlaceCount) || 0;
+      const bestPosRaw = parseInt(document.getElementById("bestPosRank")?.value ?? competitionConfig.bestPos ?? 3);
+      const bestPos = [2, 3, 4, 5].includes(bestPosRaw) ? bestPosRaw : 3;
+      const bestPosCountRaw = parseInt(document.getElementById("bestPosCount")?.value ?? competitionConfig.bestPosCount ?? legacyThird);
+      const bestPosCount = Math.max(0, Number.isFinite(bestPosCountRaw) ? bestPosCountRaw : 0);
+      // Cup langsung per grup: "all" = semua yang lolos langsung Cup (tanpa tier playoff).
+      const cupRaw = document.getElementById("cupDirect")?.value ?? competitionConfig.cupDirect ?? "1";
       const clearExisting = document.getElementById("clearExistingMatches")?.checked !== false;
       const mirrorEl = document.getElementById("compMirrorTeam");
       const mirrorTeam = mirrorEl ? mirrorEl.checked === true : competitionConfig.mirrorTeam === true;
-      return { mode, leagueLegs: leagueLegs === 2 ? 2 : 1, numGroups, groupFormat, advancePerGroup, thirdPlaceCount, clearExisting, mirrorTeam };
+      return { mode, leagueLegs: leagueLegs === 2 ? 2 : 1, numGroups, groupFormat, advancePerGroup, bestPos, bestPosCount, cupDirect: ["1", "2", "3", "all"].includes(String(cupRaw)) ? String(cupRaw) : "1", clearExisting, mirrorTeam };
+    };
+
+    // Normalisasi: berapa slot per grup yang badge Cup (sisanya yang lolos = Playoff).
+    const cupDirectCount = (adv) => {
+      const v = String(competitionConfig.cupDirect ?? "1");
+      if (v === "all") return Math.max(1, adv);
+      const n = parseInt(v);
+      return Math.min(Math.max(1, Number.isFinite(n) ? n : 1), Math.max(1, adv));
     };
 
     // Satu nilai, dua checkbox (panel Competition + panel Bracket) — selalu sinkron via snapshot.
@@ -1130,8 +1145,9 @@ const getStarIcons = (rating) => {
             : ui.groupFormat === "normal-double"
               ? "Grup Normal 2x: setiap tim ketemu 2x home & away."
               : "Grup Normal 1x: setiap tim ketemu 1x.";
-          const third = ui.thirdPlaceCount > 0 ? ` + Best ${ui.thirdPlaceCount}x peringkat 3` : "";
-          status.textContent = `Mode: Grup (${ui.numGroups} grup, ${desc} Top ${ui.advancePerGroup}/grup${third} lolos ke knockout. Drawing 1 tim per pot per grup.)`;
+          const third = ui.bestPosCount > 0 ? ` + Best ${ui.bestPosCount}x peringkat ${ui.bestPos}` : "";
+          const cupTxt = ui.cupDirect === "all" ? "Semua lolos langsung Cup" : `Rank 1–${Math.min(parseInt(ui.cupDirect) || 1, ui.advancePerGroup)} Cup langsung`;
+          status.textContent = `Mode: Grup (${ui.numGroups} grup, ${desc} Top ${ui.advancePerGroup}/grup${third} lolos ke knockout [${cupTxt}]. Drawing 1 tim per pot per grup.)`;
         } else {
           status.textContent = `Mode: Liga (${ui.leagueLegs}x ketemu). Grup normal = round-robin penuh. ASEAN Cup = 1x ketemu, home/away diseimbangkan.`;
         }
@@ -1139,9 +1155,10 @@ const getStarIcons = (rating) => {
       const badge = document.getElementById("competitionBadge");
       if (badge) {
         const mirrorTxt = competitionConfig.mirrorTeam ? " • Mirror ON" : "";
-        const thirdTxt = competitionConfig.mode === "group" && (competitionConfig.thirdPlaceCount || 0) > 0 ? ` • Best ${competitionConfig.thirdPlaceCount}x3rd` : "";
+        const thirdTxt = competitionConfig.mode === "group" && (competitionConfig.bestPosCount || 0) > 0 ? ` • Best ${competitionConfig.bestPosCount}x#${competitionConfig.bestPos || 3}` : "";
+        const cupTxt = competitionConfig.mode === "group" ? ` • Cup ${String(competitionConfig.cupDirect ?? "1") === "all" ? "semua" : "top " + cupDirectCount(parseInt(competitionConfig.advancePerGroup) || 2)}` : "";
         badge.textContent = competitionConfig.mode === "group"
-          ? `Mode: Grup • ${competitionConfig.numGroups} grup • ${competitionConfig.groupFormat} • Top ${competitionConfig.advancePerGroup}/grup${thirdTxt}${mirrorTxt}`
+          ? `Mode: Grup • ${competitionConfig.numGroups} grup • ${competitionConfig.groupFormat} • Top ${competitionConfig.advancePerGroup}/grup${cupTxt}${thirdTxt}${mirrorTxt}`
           : `Mode: Liga${mirrorTxt}`;
       }
     };
@@ -1157,16 +1174,23 @@ const getStarIcons = (rating) => {
       }
       return arr;
     };
-    // Drawing grup sesuai Pot 1-5: tiap grup ambil 1 tim dari tiap pot (diundi acak dalam pot).
-    // Tim tanpa pot (99) diundi terakhir. Sisa yang tidak pas tetap disebar ke grup paling kecil.
+    // Drawing grup sesuai Pot 1-5 (terbukti rata max-min ≤1 di semua kasus uji):
+    // tiap tim masuk ke grup TERKECIL saat itu, prioritas grup yang belum punya tim
+    // dari pot yang sama. Menggantikan rotasi-start per pot yang bikin drift
+    // (mis. pot 3+3+2 utk 4 grup dulu jadi 1-2-3-2, sekarang 2-2-2-2).
     const splitTeamsIntoGroups = (teamList, numGroups) => {
       const groups = Array.from({ length: numGroups }, () => []);
-      [1, 2, 3, 4, 5, 99].forEach((pot, potIdx) => {
+      [1, 2, 3, 4, 5, 99].forEach((pot) => {
         const pool = shuffleInPlace(teamList.filter((t) => potOf(t) === pot).slice());
-        // Urutan grup diputar per pot agar Pot 1 tidak selalu mulai dari Grup A.
-        const start = potIdx % Math.max(1, numGroups);
-        pool.forEach((team, i) => {
-          groups[(start + i) % numGroups].push(team);
+        pool.forEach((team) => {
+          let bi = 0;
+          for (let g = 1; g < numGroups; g++) {
+            const aHas = groups[bi].filter((x) => potOf(x) === pot).length;
+            const bHas = groups[g].filter((x) => potOf(x) === pot).length;
+            if (groups[g].length < groups[bi].length ||
+              (groups[g].length === groups[bi].length && bHas < aHas)) bi = g;
+          }
+          groups[bi].push(team);
         });
       });
       return groups;
@@ -1177,7 +1201,9 @@ const getStarIcons = (rating) => {
       return unseeded > 0 ? `${counts} + ${unseeded}xNoPot` : counts;
     };
 
-    // Circle method: seimbang, 1 tim main 1x per MW. BYE otomatis bila ganjil.
+    // Circle method (standar liga dunia, Lucas 1883): n tim genap → n-1 MW,
+    // tiap tim main tepat 1x per MW. Ganjil → 1 BYE per MW (tiap tim istirahat 1x).
+    // Pasangan TANPA orientasi venue di sini — venue ditentukan optimizer di bawah.
     const circleMethodRoundRobin = (names) => {
       const list = names.slice();
       if (list.length % 2 === 1) list.push("__BYE__");
@@ -1190,8 +1216,7 @@ const getStarIcons = (rating) => {
           const h = arr[i];
           const a = arr[n - 1 - i];
           if (h === "__BYE__" || a === "__BYE__") continue;
-          // Alternasi home/away per round agar adil
-          pairs.push(r % 2 === 0 ? [h, a] : [a, h]);
+          pairs.push([h, a]);
         }
         rounds.push(pairs);
         arr.splice(1, 0, arr.pop());
@@ -1199,53 +1224,110 @@ const getStarIcons = (rating) => {
       return rounds;
     };
 
-    const balanceHomeAwayASEAN = (rounds, teamNames) => {
-      const home = new Map(teamNames.map((n) => [n, 0]));
-      const away = new Map(teamNames.map((n) => [n, 0]));
+    // Kualitas venue per literatur (de Werra): break = 2 kandang/tandang beruntun.
+    // Minimum teoritis 2n-2 utk 2n tim. Optimizer multi-start hill-climb deterministik
+    // (flip 1 fixture + flip 2 fixture se-tim), terverifikasi capai minimum:
+    // n=4→2, n=6→4 (tiap tim ≤1 break), n=8→6; ganjil + hardBalance (ASEAN) = selisih
+    // H-A tiap tim ≤1 (grup 5 → 2H2A semua + cuma 2 break, optimum timetable ini).
+    const hapCost = (names, rounds, hardBalance) => {
+      const seq = new Map(names.map((n) => [n, ""]));
+      const home = new Map(names.map((n) => [n, 0]));
       rounds.forEach((pairs) => pairs.forEach(([h, a]) => {
+        seq.set(h, (seq.get(h) || "") + "H");
+        seq.set(a, (seq.get(a) || "") + "A");
         home.set(h, (home.get(h) || 0) + 1);
-        away.set(a, (away.get(a) || 0) + 1);
       }));
-      const balanced = rounds.map((pairs) => pairs.slice());
-      for (let iter = 0; iter < 20; iter++) {
-        let flipped = false;
-        const diffs = teamNames.map((n) => ({ n, d: (home.get(n) || 0) - (away.get(n) || 0) }));
-        const maxHome = diffs.sort((x, y) => y.d - x.d)[0];
-        if (!maxHome || maxHome.d <= 1) break;
-        outer: for (let r = 0; r < balanced.length; r++) {
-          for (let k = 0; k < balanced[r].length; k++) {
-            const [h, a] = balanced[r][k];
-            if (h === maxHome.n && (home.get(a) || 0) < (away.get(a) || 0) + 1) continue;
-            if (h === maxHome.n) {
-              balanced[r][k] = [a, h];
-              home.set(h, home.get(h) - 1);
-              away.set(h, away.get(h) + 1);
-              home.set(a, (home.get(a) || 0) + 1);
-              away.set(a, (away.get(a) || 0) - 1);
-              flipped = true;
-              break outer;
+      let breaks = 0, imb = 0, viol = 0;
+      names.forEach((n) => {
+        const s = seq.get(n) || "";
+        for (let k = 1; k < s.length; k++) if (s[k] === s[k - 1]) breaks++;
+        const played = s.length;
+        imb += Math.abs((home.get(n) || 0) - played / 2);
+        if (hardBalance && Math.abs((home.get(n) || 0) - played / 2) > 0.5) viol += 100;
+      });
+      return breaks * 10 + imb + viol;
+    };
+
+    const optimizeHomeAway = (names, rounds, hardBalance = false) => {
+      const starts = [(r) => r % 2 === 1, (r) => r % 2 === 0, (r, i) => (r + i) % 2 === 1, (r, i) => (r + i) % 2 === 0];
+      let best = null, bestCost = Infinity;
+      starts.forEach((flipFn) => {
+        const work = rounds.map((pairs, r) => pairs.map(([t1, t2], i) => (flipFn(r, i) ? [t2, t1] : [t1, t2])));
+        const flat = work.flat();
+        const flipAt = (idx) => { const p = flat[idx]; const t = p[0]; p[0] = p[1]; p[1] = t; };
+        let cost = hapCost(names, work, hardBalance);
+        let improved = true, iter = 0;
+        while (improved && iter < 60) {
+          improved = false; iter++;
+          for (let x = 0; x < flat.length; x++) {
+            flipAt(x);
+            const sc = hapCost(names, work, hardBalance);
+            if (sc < cost) { cost = sc; improved = true; }
+            else flipAt(x);
+          }
+          if (!improved) {
+            outer: for (let x = 0; x < flat.length; x++) {
+              for (let y = x + 1; y < flat.length; y++) {
+                const fx = flat[x], fy = flat[y];
+                if (!(fx[0] === fy[0] || fx[0] === fy[1] || fx[1] === fy[0] || fx[1] === fy[1])) continue;
+                flipAt(x); flipAt(y);
+                const sc = hapCost(names, work, hardBalance);
+                if (sc < cost) { cost = sc; improved = true; break outer; }
+                flipAt(x); flipAt(y);
+              }
             }
           }
         }
-        if (!flipped) break;
-      }
-      return balanced;
+        if (cost < bestCost) { bestCost = cost; best = work; }
+      });
+      return best || rounds;
+    };
+
+    // Istirahat adil antar MW (literatur rest-difference): tim yang baru main dijadwalkan
+    // belakangan di MW berikut. Greedy deterministik per urutan slot global.
+    // Jaminan: tidak ada back-to-back antar MW bila tiap MW ≥3 match
+    // (MW isi 2 match mustahil struktural — selalu ada tim nyambung).
+    const orderRoundsByRest = (names, rounds, state = null) => {
+      const last = (state && state.last) || new Map(names.map((n) => [n, -9999]));
+      let slot = (state && state.slot) || 0;
+      const out = rounds.map((pairs) => {
+        const remaining = pairs.slice();
+        const ordered = [];
+        while (remaining.length) {
+          let bi = 0, bs = -Infinity;
+          remaining.forEach(([t1, t2], i) => {
+            const s = Math.min(slot - (last.get(t1) ?? -9999), slot - (last.get(t2) ?? -9999));
+            if (s > bs) { bs = s; bi = i; }
+          });
+          const pick = remaining.splice(bi, 1)[0];
+          ordered.push(pick);
+          last.set(pick[0], slot);
+          last.set(pick[1], slot);
+          slot++;
+        }
+        return ordered;
+      });
+      return { rounds: out, last, slot };
     };
 
     const buildFixturesFromNames = (names, legs = 1, balanceASEAN = false) => {
-      let rounds = circleMethodRoundRobin(names);
-      if (balanceASEAN) rounds = balanceHomeAwayASEAN(rounds, names);
+      const raw = circleMethodRoundRobin(names);
+      const optimized = optimizeHomeAway(names, raw.map((pairs) => pairs.map(([t1, t2]) => [t1, t2])), balanceASEAN);
+      let rest = orderRoundsByRest(names, optimized);
       const fixtures = [];
-      rounds.forEach((pairs, ri) => {
+      rest.rounds.forEach((pairs, ri) => {
         pairs.forEach(([t1, t2]) => fixtures.push({ t1, t2, mw: ri + 1, leg: 1 }));
       });
       if (legs === 2) {
-        const base = rounds.length;
-        rounds.forEach((pairs, ri) => {
-          // Leg 2: tukar kandang-tandang
-          pairs.forEach(([t1, t2]) => fixtures.push({ t1: t2, t2: t1, mw: base + ri + 1, leg: 2 }));
+        const base = rest.rounds.length;
+        // Leg 2: kandang ditukar + rest-ordering LANJUTAN (bukan dari nol) agar jeda antar leg adil
+        rest = orderRoundsByRest(names, optimized.map((pairs) => pairs.map(([t1, t2]) => [t2, t1])), rest);
+        rest.rounds.forEach((pairs, ri) => {
+          pairs.forEach(([t1, t2]) => fixtures.push({ t1, t2, mw: base + ri + 1, leg: 2 }));
         });
       }
+      // slot = urutan tampil global (dipakai urutan render agar jeda istirahat kelihatan)
+      fixtures.forEach((f, idx) => { f.slot = idx; });
       return fixtures;
     };
 
@@ -1297,7 +1379,7 @@ const getStarIcons = (rating) => {
       }
 
       const summary = ui.mode === "group"
-        ? `Generate GROUP: ${teams.length} tim → ${ui.numGroups} grup (${ui.groupFormat}, top ${ui.advancePerGroup}/grup${ui.thirdPlaceCount > 0 ? ` + best ${ui.thirdPlaceCount}x 3rd` : ""} lolos)?\nPot: ${potDistributionText(teams)}`
+        ? `Generate GROUP: ${teams.length} tim → ${ui.numGroups} grup (${ui.groupFormat}, top ${ui.advancePerGroup}/grup${ui.bestPosCount > 0 ? ` + best ${ui.bestPosCount}x #${ui.bestPos}` : ""} lolos)?\nPot: ${potDistributionText(teams)}`
         : `Generate LIGA: ${teams.length} tim, ${ui.leagueLegs}x ketemu?`;
       if (!confirm(summary)) return;
       if (ui.clearExisting && !confirm("Hapus jadwal Liga/Grup lama dulu? (Knockout tidak ikut terhapus)")) return;
@@ -1334,12 +1416,13 @@ const getStarIcons = (rating) => {
               team1: f.t1, team2: f.t2, s1: null, s2: null, p1: null, p2: null,
               date: "TBD", live: false, type: "league", group: "",
               Matchweek: f.mw, leg: f.leg, stage: `League MW ${f.mw}`,
+              slot: f.slot,
               mirrorTeam: ui.mirrorTeam, useTeam: ui.mirrorTeam ? f.t1 : "",
               createdAtMs: Date.now()
             });
           });
           await clearTeamGroups();
-          await saveCompetitionConfig({ mode: "league", groupFormat: "normal-single", numGroups: 1, advancePerGroup: 0, thirdPlaceCount: 0, mirrorTeam: ui.mirrorTeam });
+          await saveCompetitionConfig({ mode: "league", groupFormat: "normal-single", numGroups: 1, advancePerGroup: 0, cupDirect: "1", bestPos: 3, bestPosCount: 0, mirrorTeam: ui.mirrorTeam });
         } else {
           const groups = splitTeamsIntoGroups(teams, ui.numGroups);
           const legs = ui.groupFormat === "normal-double" ? 2 : 1;
@@ -1354,13 +1437,14 @@ const getStarIcons = (rating) => {
                 team1: f.t1, team2: f.t2, s1: null, s2: null, p1: null, p2: null,
                 date: "TBD", live: false, type: "group", group: letter,
                 Matchweek: f.mw, leg: f.leg, stage: `Group ${letter} MW ${f.mw}`,
+                slot: f.slot,
                 mirrorTeam: ui.mirrorTeam, useTeam: ui.mirrorTeam ? f.t1 : "",
                 createdAtMs: Date.now()
               });
             });
           });
           await assignTeamGroups(groups);
-          await saveCompetitionConfig({ mode: "group", groupFormat: ui.groupFormat, numGroups: ui.numGroups, advancePerGroup: ui.advancePerGroup, thirdPlaceCount: ui.thirdPlaceCount, mirrorTeam: ui.mirrorTeam });
+          await saveCompetitionConfig({ mode: "group", groupFormat: ui.groupFormat, numGroups: ui.numGroups, advancePerGroup: ui.advancePerGroup, cupDirect: ui.cupDirect, bestPos: ui.bestPos, bestPosCount: ui.bestPosCount, mirrorTeam: ui.mirrorTeam });
         }
 
         if (!payloads.length) return alert("Tidak ada jadwal baru (semua sudah ada / duplikat dicegah).");
@@ -1373,7 +1457,7 @@ const getStarIcons = (rating) => {
     };
 
     const hardReset = async () => {
-  if (!confirm("Hapus SEMUA jadwal pertandingan (liga/grup/knockout)?")) return;
+  if (!confirm("Hapus SEMUA jadwal pertandingan (liga/grup/knockout) + TOP SCORER?")) return;
   const code = prompt("Ketik 'RESET' untuk konfirmasi:");
   if (code !== "RESET") return alert("Dibatalkan.");
 
@@ -1382,10 +1466,14 @@ const getStarIcons = (rating) => {
     const batch = snap.docs.map(d => deleteDoc(doc(db, "matches", d.id)));
     await Promise.all(batch);
     try {
+      const scorersSnap = await getDocs(collection(db, "scorers"));
+      await Promise.all(scorersSnap.docs.map(d => deleteDoc(d.ref)));
+    } catch (scorerErr) { console.warn("Reset top scorer warning:", scorerErr); }
+    try {
       await clearTeamGroups();
-      await saveCompetitionConfig({ mode: "league", groupFormat: "normal-single", numGroups: 1, advancePerGroup: 0, thirdPlaceCount: 0, mirrorTeam: false });
+      await saveCompetitionConfig({ mode: "league", groupFormat: "normal-single", numGroups: 1, advancePerGroup: 0, cupDirect: "1", bestPos: 3, bestPosCount: 0, mirrorTeam: false });
     } catch (cfgErr) { console.warn("Reset competition config warning:", cfgErr); }
-    alert("Semua pertandingan berhasil dihapus! Mode kembali ke Liga.");
+    alert("Reset selesai: jadwal + top scorer dihapus! Mode kembali ke Liga.");
   } catch (e) {
     alert("Gagal reset: " + e.message);
   }
@@ -1670,7 +1758,9 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
           groupFormat: d.groupFormat || "normal-single",
           numGroups: parseInt(d.numGroups) || 2,
           advancePerGroup: parseInt(d.advancePerGroup) || 2,
-          thirdPlaceCount: Math.max(0, parseInt(d.thirdPlaceCount) || 0),
+          cupDirect: ["1", "2", "3", "all"].includes(String(d.cupDirect ?? "1")) ? String(d.cupDirect ?? "1") : "1",
+          bestPos: [2, 3, 4, 5].includes(parseInt(d.bestPos)) ? parseInt(d.bestPos) : 3,
+          bestPosCount: Math.max(0, parseInt(d.bestPosCount ?? d.thirdPlaceCount) || 0),
           mirrorTeam: d.mirrorTeam === true,
           updatedAtMs: d.updatedAtMs || 0
         };
@@ -1679,7 +1769,9 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
           const gc = document.getElementById("groupCount"); if (gc) gc.value = String(competitionConfig.numGroups);
           const gf = document.getElementById("groupFormat"); if (gf) gf.value = competitionConfig.groupFormat;
           const ap = document.getElementById("advancePerGroup"); if (ap) ap.value = String(competitionConfig.advancePerGroup);
-          const tp = document.getElementById("thirdPlaceCount"); if (tp) tp.value = String(competitionConfig.thirdPlaceCount || 0);
+          const cd = document.getElementById("cupDirect"); if (cd) cd.value = competitionConfig.cupDirect || "1";
+          const bp = document.getElementById("bestPosRank"); if (bp) bp.value = String(competitionConfig.bestPos || 3);
+          const bc = document.getElementById("bestPosCount"); if (bc) bc.value = String(competitionConfig.bestPosCount || 0);
           const mt = document.getElementById("compMirrorTeam"); if (mt) mt.checked = competitionConfig.mirrorTeam === true;
         }
       }
@@ -1750,7 +1842,8 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       if (team1 === team2) return alert("Same teams! Tampilan fixture tetap beda tim (mis. MU vs City) — mirror hanya soal tim yang dipakai main.");
       if (type === "group" && !group) return alert("Pilih grup (A/B/C…) untuk match grup!");
       const stage = type === "group" ? `Group ${group} MW ${Matchweek}` : type === "knockout" ? "Knockout" : `League MW ${Matchweek}`;
-      await addDoc(collection(db, "matches"), { team1, team2, Matchweek, date, s1: null, s2: null, p1: null, p2: null, y1: 0, y2: 0, live: false, type, group: type === "group" ? group : "", leg, stage, mirrorTeam, useTeam: mirrorTeam ? team1 : "", createdAtMs: Date.now() });
+      const nextSlot = matches.reduce((mx, m) => Math.max(mx, parseInt(m.slot) || 0), 0) + 1;
+      await addDoc(collection(db, "matches"), { team1, team2, Matchweek, date, s1: null, s2: null, p1: null, p2: null, y1: 0, y2: 0, live: false, type, group: type === "group" ? group : "", leg, stage, slot: nextSlot, mirrorTeam, useTeam: mirrorTeam ? team1 : "", createdAtMs: Date.now() });
     };
 
     const isScoreEmpty = (value) => value === null || value === undefined || value === "";
@@ -2247,7 +2340,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
         if (f1 && !f2) return t1 === f1 || t2 === f1;
         if (!f1 && f2) return t1 === f2 || t2 === f2;
         return (t1 === f1 && t2 === f2) || (t1 === f2 && t2 === f1);
-      }).sort((a, b) => (b.live - a.live) || getMW(a) - getMW(b));
+      }).sort((a, b) => (b.live - a.live) || getMW(a) - getMW(b) || ((parseInt(a.slot) || 0) - (parseInt(b.slot) || 0)));
 
       const grouped = filtered.reduce((acc, m) => {
         const key = `${m.type || "league"}|${matchGroup(m)}|${getMW(m)}`;
@@ -2693,26 +2786,28 @@ const renderAllTimeHofScorers = () => {
       return [];
     };
 
-    const getQualifiedFromGroups = (advancePerGroup, thirdPlaceCount = 0) => {
+    const getQualifiedFromGroups = (advancePerGroup, bestPos = 3, bestPosCount = 0) => {
       const letters = listGroupLetters();
       const qualified = [];
       letters.forEach((letter) => {
         calculateStandings(letter).slice(0, Math.max(1, advancePerGroup)).forEach((row) => qualified.push(row.team));
       });
-      const bestThirds = getBestThirdRanked().slice(0, Math.max(0, thirdPlaceCount)).map((r) => r.team);
-      bestThirds.forEach((t) => { if (!qualified.includes(t)) qualified.push(t); });
-      return { letters, qualified, bestThirds };
+      const bestRanked = getBestRankedAtPosition(bestPos).slice(0, Math.max(0, bestPosCount)).map((r) => r.team);
+      bestRanked.forEach((t) => { if (!qualified.includes(t)) qualified.push(t); });
+      return { letters, qualified, bestRanked };
     };
 
-    // Peringkat 3 terbaik lintas grup (poin → selisih gol → gol). Dipakai untuk slot lower-bracket/knockout.
-    const getBestThirdRanked = () => {
+    // Peringkat terbaik lintas grup di posisi berapa pun (2/runner-up, 3, 4, 5) —
+    // di-ranking Pts → GD → GF. Dipakai untuk slot knockout/lower bracket.
+    const getBestRankedAtPosition = (pos = 3) => {
+      const idx = Math.max(1, parseInt(pos) || 3) - 1;
       const letters = listGroupLetters();
-      const thirds = [];
+      const ranked = [];
       letters.forEach((letter) => {
         const rows = calculateStandings(letter);
-        if (rows.length >= 3) thirds.push({ ...rows[2], group: letter });
+        if (rows.length > idx) ranked.push({ ...rows[idx], group: letter });
       });
-      return thirds.sort((a, b) => b.pts - a.pts || ((b.gf - b.ga) - (a.gf - a.ga)) || b.gf - a.gf || String(a.team).localeCompare(String(b.team)));
+      return ranked.sort((a, b) => b.pts - a.pts || ((b.gf - b.ga) - (a.gf - a.ga)) || b.gf - a.gf || String(a.team).localeCompare(String(b.team)));
     };
 
     const getLockedStandingsZones = (data, cCut, pCut, hCut) => {
@@ -2779,12 +2874,7 @@ const renderAllTimeHofScorers = () => {
     const isTeamLive = (teamName) => matches.some(m => m.live && (m.team1 === teamName || m.team2 === teamName));
 
     const renderStandings = () => {
-  const badge = document.getElementById("competitionBadge");
-  if (badge) {
-    badge.textContent = competitionConfig.mode === "group"
-      ? `Mode: Grup • ${competitionConfig.numGroups} grup • ${competitionConfig.groupFormat} • Top ${competitionConfig.advancePerGroup}/grup`
-      : "Mode: Liga";
-  }
+  // Badge kompetisi diurus syncCompetitionUI (sumber tunggal) agar tidak tertimpa.
   const groupWrap = document.getElementById("groupStandingsWrap");
   const leagueWrap = document.getElementById("leagueStandingsWrap");
   const standingsTable = document.getElementById("standingsTable");
@@ -2831,9 +2921,12 @@ const renderAllTimeHofScorers = () => {
   if (hasGroupStage()) {
     const letters = listGroupLetters();
     const adv = Math.max(1, parseInt(competitionConfig.advancePerGroup) || 2);
-    const thirdN = Math.max(0, parseInt(competitionConfig.thirdPlaceCount) || 0);
-    const bestThirds = getBestThirdRanked();
-    const bestSet = new Set(bestThirds.slice(0, thirdN).map((r) => r.team));
+    // Cup vs Playoff ikut settingan (bukan fix rank 1): cupTop teratas = Cup, sisanya = Playoff.
+    const cupTop = cupDirectCount(adv);
+    const bestPos = [2, 3, 4, 5].includes(parseInt(competitionConfig.bestPos)) ? parseInt(competitionConfig.bestPos) : 3;
+    const bestN = Math.max(0, parseInt(competitionConfig.bestPosCount) || 0);
+    const bestRanked = getBestRankedAtPosition(bestPos);
+    const bestSet = new Set(bestRanked.slice(0, bestN).map((r) => r.team));
     const headHtml = `<thead><tr class="bg-surface-container-highest/50 border-b border-outline-variant/10">
       <th class="py-4 px-4 text-left text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant">Rank</th>
       <th class="py-4 px-4 text-left text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant">Club</th>
@@ -2847,8 +2940,8 @@ const renderAllTimeHofScorers = () => {
       <th class="py-4 px-4 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-primary" title="Poin (Points)">Pts</th>
     </tr></thead>`;
     const legendHtml = `<div class="px-6 py-4 bg-surface-container-lowest/50 border-t border-outline-variant/10 flex flex-wrap gap-4 items-center">
-      <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-primary"></div><span class="text-[10px] uppercase tracking-widest font-label font-bold text-on-surface-variant">Lolos Knockout</span></div>
-      <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-secondary"></div><span class="text-[10px] uppercase tracking-widest font-label font-bold text-on-surface-variant">Perebutan Best 3rd</span></div>
+      <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-primary"></div><span class="text-[10px] uppercase tracking-widest font-label font-bold text-on-surface-variant">Cup (Top ${cupTop})</span></div>
+      <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-secondary"></div><span class="text-[10px] uppercase tracking-widest font-label font-bold text-on-surface-variant">Play-off${bestN > 0 ? ` / Best #${bestPos}` : ""}</span></div>
       <span class="text-[10px] uppercase tracking-widest font-label text-on-surface-variant/70">Poin 3/M • Urutan: Pts → GD → GF</span>
     </div>`;
     if (leagueWrap) leagueWrap.style.display = "none";
@@ -2859,36 +2952,36 @@ const renderAllTimeHofScorers = () => {
         return `<section class="bg-surface-container-high rounded-[2rem] overflow-hidden shadow-2xl border border-outline-variant/10">
           <div class="px-6 py-5 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-highest/50">
             <div><h3 class="font-headline font-black uppercase italic text-xl">Group ${letter}</h3>
-            <p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mt-1">${data.length} tim • Top ${adv} lolos${thirdN > 0 ? ` • Best ${thirdN}x 3rd lanjut` : ""}</p></div>
+            <p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mt-1">${data.length} tim • Cup: rank 1–${cupTop}${adv > cupTop ? ` • Play-off: rank ${cupTop + 1}–${adv}` : " (semua Cup)"}${bestN > 0 ? ` • Best ${bestN}x #${bestPos} lanjut` : ""}</p></div>
             <span class="rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-primary">Top ${adv} lolos</span>
           </div>
           <div class="overflow-x-auto"><table class="w-full border-collapse min-w-[680px]">${headHtml}<tbody class="divide-y divide-outline-variant/5 font-label">
             ${data.map((t, i) => {
               const isQ = i < adv;
-              const isBestThird = !isQ && i === 2 && bestSet.has(t.team);
+              const isBestPos = !isQ && i === bestPos - 1 && bestSet.has(t.team);
               const zones = new Map();
-              if (isQ) zones.set(t.team, i === 0 ? "cup" : "playoff");
-              if (isBestThird) zones.set(t.team, "playoff");
+              if (isQ) zones.set(t.team, i < cupTop ? "cup" : "playoff");
+              if (isBestPos) zones.set(t.team, "playoff");
               return rowHtml(t, i, zones);
             }).join("") || `<tr><td colspan="10" class="p-6 text-white/30 italic text-sm">Belum ada data grup ${letter}.</td></tr>`}
           </tbody></table></div>${legendHtml}</section>`;
       }).join("");
-      const thirdHtml = thirdN > 0 ? `<section class="bg-surface-container-high rounded-[2rem] overflow-hidden shadow-2xl border border-secondary/20 xl:col-span-2">
+      const thirdHtml = bestN > 0 ? `<section class="bg-surface-container-high rounded-[2rem] overflow-hidden shadow-2xl border border-secondary/20 xl:col-span-2">
           <div class="px-6 py-5 border-b border-outline-variant/10 flex items-center justify-between bg-secondary/5">
-            <h3 class="font-headline font-black uppercase italic text-xl">Best 3rd Place</h3>
-            <span class="rounded-full bg-secondary/10 border border-secondary/20 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-secondary">Best ${thirdN} lolos ke knockout</span>
+            <h3 class="font-headline font-black uppercase italic text-xl">Best #${bestPos} Place</h3>
+            <span class="rounded-full bg-secondary/10 border border-secondary/20 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-secondary">Best ${bestN} lolos ke knockout</span>
           </div>
           <div class="p-4 space-y-2">
-            ${bestThirds.map((t, i) => `
-              <div class="flex items-center justify-between gap-3 rounded-xl px-4 py-3 ${i < thirdN ? "bg-secondary/10 border border-secondary/20" : "bg-black/20 border border-white/5 opacity-60"}">
+            ${bestRanked.map((t, i) => `
+              <div class="flex items-center justify-between gap-3 rounded-xl px-4 py-3 ${i < bestN ? "bg-secondary/10 border border-secondary/20" : "bg-black/20 border border-white/5 opacity-60"}">
                 <div class="flex items-center gap-3 min-w-0 flex-1">
-                  <span class="font-headline font-black ${i < thirdN ? "text-secondary" : "text-on-surface-variant"}">${i + 1}</span>
+                  <span class="font-headline font-black ${i < bestN ? "text-secondary" : "text-on-surface-variant"}">${i + 1}</span>
                   <img src="${resolveTeam(t.team).logo}" class="w-8 h-8 object-contain bg-surface-container-highest p-1 rounded-lg">
                   <div class="min-w-0"><p class="truncate font-bold text-white">${t.team}</p><p class="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold">Grup ${t.group} • MP ${t.p} • W${t.w}-D${t.d}-L${t.l} • GF${t.gf}-GA${t.ga}</p></div>
                 </div>
                 <div class="text-right shrink-0">
-                  <p class="font-headline font-black text-xl ${i < thirdN ? "text-secondary" : "text-on-surface-variant"}">${t.pts}<span class="text-[10px] font-bold"> pts</span></p>
-                  <p class="text-[9px] uppercase tracking-widest ${i < thirdN ? "text-secondary" : "text-on-surface-variant"} font-bold">GD ${t.gf - t.ga > 0 ? "+" : ""}${t.gf - t.ga} • <span class="${i < thirdN ? "" : ""}">${i < thirdN ? "Lolos" : "Out"}</span></p>
+                  <p class="font-headline font-black text-xl ${i < bestN ? "text-secondary" : "text-on-surface-variant"}">${t.pts}<span class="text-[10px] font-bold"> pts</span></p>
+                  <p class="text-[9px] uppercase tracking-widest ${i < bestN ? "text-secondary" : "text-on-surface-variant"} font-bold">GD ${t.gf - t.ga > 0 ? "+" : ""}${t.gf - t.ga} • <span class="${i < bestN ? "" : ""}">${i < bestN ? "Lolos" : "Out"}</span></p>
                 </div>
               </div>`).join("") || `<p class="p-4 text-white/30 italic text-sm">Belum ada peringkat 3.</p>`}
           </div></section>` : "";
@@ -3688,6 +3781,38 @@ const buildDoubleEliminationRounds = (rankedTeams, teamCount, fillers = []) => {
   return buildDoubleEliminationTop8(rankedTeams);
 };
 
+// Standar turnamen (FIFA-style): ronde pembuka hindari rematch segrup bila bisa.
+// Repair deterministik khusus match TANPA source (ronde 1, semua seed sudah tahu):
+// tukar seed2 antar 2 tie yang clash selama total clash berkurang.
+const groupOfTeam = (name) => {
+  const t = teams.find((x) => normalizeKey(x.name) === normalizeKey(name));
+  return (t?.group || "").toString().trim().toUpperCase();
+};
+const repairOpeningTies = (openingMatches) => {
+  if (!hasGroupStage() || !Array.isArray(openingMatches)) return 0;
+  let fixed = 0;
+  for (let iter = 0; iter < 10; iter++) {
+    let moved = false;
+    for (let i = 0; i < openingMatches.length && !moved; i++) {
+      for (let j = i + 1; j < openingMatches.length && !moved; j++) {
+        const A = openingMatches[i], B = openingMatches[j];
+        if (A.source1 || A.source2 || B.source1 || B.source2) continue;
+        const clash = (m) => {
+          const g1 = groupOfTeam(m.seed1), g2 = groupOfTeam(m.seed2);
+          return g1 && g1 === g2 ? 1 : 0;
+        };
+        const before = clash(A) + clash(B);
+        if (!before) continue;
+        const tmp = A.seed2; A.seed2 = B.seed2; B.seed2 = tmp;
+        if (clash(A) + clash(B) < before) { moved = true; fixed++; }
+        else { const t2 = A.seed2; A.seed2 = B.seed2; B.seed2 = t2; }
+      }
+    }
+    if (!moved) break;
+  }
+  return fixed;
+};
+
 const resolveKnockout = (state) => {
   const safe = sanitizeKnockout(state);
   const rounds = safe.rounds.map((round) => ({
@@ -4263,24 +4388,33 @@ async function generateBracket() {
   const mirrorTeam = document.getElementById("koMirrorTeam")?.checked === true;
   const tieLabel = TIE_META[tieFormat]?.label || "1 Game";
   const mirrorLabel = mirrorTeam ? " • Mirror ON (away pakai tim home)" : "";
-  // Grup-aware: Top N tiap grup (interleaved cross-grup) + Best K peringkat 3 → knockout/lower bracket.
+  // Grup-aware: Top N tiap grup (interleaved cross-grup) + Best K peringkat #P → knockout/lower bracket.
+  // Cup langsung = posisi teratas per grup (ikut settingan cupDirect); sisanya Play-off.
+  // Seeding menaruh Cup duluan → bila ada BYE, jatahnya ke seed teratas (= tier Cup).
   let rankedTeams = calculateStandings().map((row) => row.team);
   let qualifierLabel = "";
+  let cupNames = [], playoffNames = [];
   if (hasGroupStage()) {
     const adv = Math.max(1, parseInt(competitionConfig.advancePerGroup) || 2);
-    const thirdN = Math.max(0, parseInt(competitionConfig.thirdPlaceCount) || 0);
-    const { letters, qualified, bestThirds } = getQualifiedFromGroups(adv, thirdN);
+    const cupTop = cupDirectCount(adv);
+    const bestPos = [2, 3, 4, 5].includes(parseInt(competitionConfig.bestPos)) ? parseInt(competitionConfig.bestPos) : 3;
+    const bestN = Math.max(0, parseInt(competitionConfig.bestPosCount) || 0);
+    const { letters, qualified, bestRanked } = getQualifiedFromGroups(adv, bestPos, bestN);
     const perGroup = letters.map((letter) => calculateStandings(letter).map((r) => r.team));
+    perGroup.forEach((list) => {
+      list.slice(0, cupTop).forEach((t) => { if (!cupNames.includes(t)) cupNames.push(t); });
+      list.slice(cupTop, adv).forEach((t) => { if (!playoffNames.includes(t)) playoffNames.push(t); });
+    });
     const interleaved = [];
     for (let pos = 0; pos < adv; pos++) {
       for (let gi = 0; gi < perGroup.length; gi++) {
         if (perGroup[gi][pos]) interleaved.push(perGroup[gi][pos]);
       }
     }
-    bestThirds.forEach((t) => { if (!interleaved.includes(t)) interleaved.push(t); });
+    bestRanked.forEach((t) => { if (!interleaved.includes(t)) interleaved.push(t); });
     if (interleaved.length >= 2) rankedTeams = interleaved;
     else if (qualified.length >= 2) rankedTeams = qualified;
-    qualifierLabel = `Grup (${letters.map((l) => `Grup ${l}`).join("+") || "Group Stage"} • Top ${adv}/grup${thirdN > 0 ? ` + Best ${Math.min(thirdN, bestThirds.length)}x3rd` : ""} • ${rankedTeams.length} tim)`;
+    qualifierLabel = `Grup (${letters.map((l) => `Grup ${l}`).join("+") || "Group Stage"} • Top ${adv}/grup [Cup: ${cupNames.join(", ") || "-"}${playoffNames.length ? ` • Playoff: ${playoffNames.join(", ")}` : " (semua Cup)"}]${bestN > 0 ? ` + Best ${Math.min(bestN, bestRanked.length)}x#${bestPos}` : ""} • ${rankedTeams.length} tim)`;
   }
   const championsSize = Math.max(parseInt(championsCutoff) || 4, 2);
   const playoffSize = Math.max(parseInt(playoffCutoff) || 6, championsSize);
@@ -4303,6 +4437,9 @@ async function generateBracket() {
       alert(`Double elimination butuh minimal ${normalizedDoubleTeamCount} tim untuk pilihan ini.`);
       return;
     }
+    // Double hanya support struktur 4/6/8: kelebihan tim (mis. 10 lolos) dipangkas eksplisit.
+    const droppedDouble = rankedTeams.slice(normalizedDoubleTeamCount);
+    const trimNote = droppedDouble.length ? ` Diambil ${normalizedDoubleTeamCount} teratas (${droppedDouble.join(", ")} tidak ikut).` : "";
     const doubleLabel =
       sizeSelection === "champions" ? `Zona Champions Top ${normalizedDoubleTeamCount}` :
       sizeSelection === "auto" ? `Zona Play-off Top ${normalizedDoubleTeamCount}` :
@@ -4315,8 +4452,9 @@ async function generateBracket() {
     const fillerPool = byeFill === "1" ? fullRanking.filter((t) => !qualifiedSet.has(t)).slice(0, 1) : [];
     const fillerLabel = fillerPool.length ? ` + Best next (${fillerPool.join(", ")}) isi slot lower` : (byeFill !== "0" ? " (tim kurang — sisa slot jadi BYE)" : "");
 
-    if (!confirm(`Generate Double Elimination bracket untuk ${doubleLabel}? Tie ${tieLabel}${mirrorLabel}${fillerLabel}.`)) return;
+    if (!confirm(`Generate Double Elimination bracket untuk ${doubleLabel}? Tie ${tieLabel}${mirrorLabel}${fillerLabel}.${trimNote}`)) return;
     const doubleRounds = buildDoubleEliminationRounds(rankedTeams.slice(0, normalizedDoubleTeamCount), normalizedDoubleTeamCount, fillerPool);
+    repairOpeningTies((doubleRounds.find((r) => r.id === "d1") || { matches: [] }).matches);
     doubleRounds.forEach((r) => r.matches.forEach((mm) => { mm.tieFormat = tieFormat; mm.mirrorTeam = mirrorTeam; }));
     knockout = {
       format: "double",
@@ -4337,10 +4475,14 @@ async function generateBracket() {
   const teamCount = Math.max(2, Math.min(requestedSize, rankedTeams.length));
   const seeded = rankedTeams.slice(0, teamCount);
   const bracketSize = nextPowerOfTwo(teamCount);
+  // Matematika BYE: BYE = bracket - tim, selalu jatuh ke seed teratas (seed 1..BYE).
+  const byeCount = bracketSize - teamCount;
+  const byeNote = byeCount > 0 ? ` ${byeCount} BYE untuk seed teratas.` : " Tanpa BYE.";
 
-  if (!confirm(`Generate Single Elimination untuk ${qualifierLabel} (${teamCount} tim, bracket ${bracketSize})? Tie ${tieLabel}${mirrorLabel}.`)) return;
+  if (!confirm(`Generate Single Elimination untuk ${qualifierLabel} (${teamCount} tim, bracket ${bracketSize})? Tie ${tieLabel}${mirrorLabel}.${byeNote}`)) return;
 
   const singleRounds = buildSingleEliminationRounds(seeded, bracketSize);
+  repairOpeningTies((singleRounds[0] || { matches: [] }).matches); // hindari rematch segrup di ronde 1
   singleRounds.forEach((r) => r.matches.forEach((mm) => { mm.tieFormat = tieFormat; mm.mirrorTeam = mirrorTeam; }));
   knockout = {
     format: "single",

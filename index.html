@@ -1160,13 +1160,31 @@ select[data-action="filterMatches"]:focus {
                       </select>
                     </div>
                     <div>
-                      <label class="text-[10px] uppercase font-bold text-on-surface-variant block mb-2">Peringkat 3 Terbaik Lolos</label>
-                      <select id="thirdPlaceCount" class="admin-input mb-0">
-                        <option value="0" selected>0 (tidak ada)</option>
-                        <option value="1">Best 1x 3rd</option>
-                        <option value="2">Best 2x 3rd</option>
-                        <option value="3">Best 3x 3rd</option>
-                        <option value="4">Best 4x 3rd</option>
+                      <label class="text-[10px] uppercase font-bold text-on-surface-variant block mb-2">Cup Langsung / Grup</label>
+                      <select id="cupDirect" class="admin-input mb-0">
+                        <option value="1" selected>Rank 1 Cup</option>
+                        <option value="2">Rank 1–2 Cup</option>
+                        <option value="3">Rank 1–3 Cup</option>
+                        <option value="all">Semua (langsung Cup)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="text-[10px] uppercase font-bold text-on-surface-variant block mb-2">Best Posisi</label>
+                      <select id="bestPosRank" class="admin-input mb-0">
+                        <option value="2">Peringkat 2</option>
+                        <option value="3" selected>Peringkat 3</option>
+                        <option value="4">Peringkat 4</option>
+                        <option value="5">Peringkat 5</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="text-[10px] uppercase font-bold text-on-surface-variant block mb-2">Jumlah Lolos</label>
+                      <select id="bestPosCount" class="admin-input mb-0">
+                        <option value="0" selected>0 (mati)</option>
+                        <option value="1">1 tim</option>
+                        <option value="2">2 tim</option>
+                        <option value="3">3 tim</option>
+                        <option value="4">4 tim</option>
                       </select>
                     </div>
                   </div>
@@ -1327,7 +1345,7 @@ select[data-action="filterMatches"]:focus {
                     <option value="bo5">Tie: Best of 5</option>
                 </select>
                 <select id="koSize" class="bg-black/40 border-white/10 rounded-xl text-white text-xs p-2 focus:ring-primary focus:border-primary">
-                    <option value="auto">Auto (Grup + 3rd terbaik)</option>
+                    <option value="auto">Auto (Grup + best posisi)</option>
                     <option value="champions">Zona Champions</option>
                     <option value="4">Top 4</option>
                     <option value="6">Top 6</option>
