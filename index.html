@@ -230,13 +230,17 @@
 
     body.light-theme .tab:hover {
       background-color: #edf2f8 !important;
-      color: #496a21 !important;
+      color: #0AA35D !important;
     }
 
     body.light-theme .tab.active {
-      background-color: #edf2f8;
-      color: #5c4a00;
-      border-color: #f6c453;
+      background-color: #e8f5ee;
+      color: #067A46;
+      border-color: #0AA35D;
+    }
+
+    body.light-theme .text-glow-primary {
+      text-shadow: none;
     }
 
     body.light-theme .glass-card {
@@ -471,9 +475,9 @@ select[data-action="filterMatches"]:focus {
     /* UI Elements states */
     .tab.active {
       background-color: #161616;
-      color: #9ca3af;
+      color: #0AA35D;
       border-right-width: 4px;
-      border-color: #9ca3af;
+      border-color: #0AA35D;
     }
 
     .score-font {
@@ -963,6 +967,13 @@ select[data-action="filterMatches"]:focus {
     .de-champ-label { font-size: 10px; font-weight: 800; letter-spacing: 0.24em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
     .de-champ-name { font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-style: italic; text-transform: uppercase; font-size: 26px; color: #0AA35D; line-height: 1; margin-top: 4px; }
     .de-note { margin-top: 14px; font-size: 11px; line-height: 1.6; color: #d1d5db; background: rgba(209,213,219,0.06); border: 1px solid rgba(209,213,219,0.15); border-radius: 12px; padding: 10px 12px; max-width: 300px; }
+    /* --- Mobile: hemat GPU (blur mahal), hero lebih pendek, footer tidak ketutup nav --- */
+    @media (max-width: 767px) {
+      header, #sidebar, .glass-card, .headline-overlay { backdrop-filter: none !important; }
+      #dashboardFeaturedMatch { min-height: 320px; }
+      footer { padding-bottom: 5.5rem !important; }
+      .ko-match-card:hover { transform: none; }
+    }
     
   </style>
 </head>
@@ -1286,7 +1297,6 @@ select[data-action="filterMatches"]:focus {
               </div>
               <h1 class="text-4xl md:text-6xl font-headline font-black uppercase tracking-tighter text-glow-primary">League Standings</h1>
             </div>
-            <div id="competitionBadge" class="rounded-full border border-outline-variant/20 bg-surface-container-high px-4 py-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Mode: Liga</div>
           </header>
 
           <div id="groupStandingsWrap" class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6" style="display:none;"></div>

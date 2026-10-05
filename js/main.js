@@ -1644,13 +1644,38 @@ const getStarIcons = (rating) => {
       }
     };
 
+    // Coalesce render badai snapshot jadi 1x per frame (performa desktop + mobile).
+    // Dipanggil dari onSnapshot; flush jalan async (aman dari TDZ karena dieksekusi setelah eval).
+    const dirtyRenderJobs = new Set();
+    let renderFlushScheduled = false;
+    const RENDER_JOBS = {
+      teams: () => { renderTeams(); renderRosterPlayerOptions(); },
+      standings: () => { renderStandings(); renderDashboardStandings(); },
+      matches: () => { renderMatches(); },
+      live: () => { renderLiveMatches(); },
+      hero: () => { renderDashboardHeroContent(); },
+      dashNext: () => { renderDashboardNextMatch(); },
+      bridge: () => { renderPesBridgePanel(); },
+      scorers: () => { renderScorers(); },
+      news: () => { renderNews(); },
+      knockout: () => { renderKnockout(); },
+    };
+    function requestRender(...jobs) {
+      jobs.forEach((j) => dirtyRenderJobs.add(j));
+      if (renderFlushScheduled) return;
+      renderFlushScheduled = true;
+      requestAnimationFrame(() => {
+        renderFlushScheduled = false;
+        const run = [...dirtyRenderJobs];
+        dirtyRenderJobs.clear();
+        run.forEach((j) => { try { if (RENDER_JOBS[j]) RENDER_JOBS[j](); } catch (e) { console.error("render", j, e); } });
+      });
+    }
+
     // --- DATA LISTENERS ---
     onSnapshot(collection(db, "teams"), snap => {
       teams = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderTeams();
-      renderStandings();
-      renderDashboardStandings();
-      renderDashboardNextMatch();
+      requestRender('teams', 'standings', 'dashNext');
     });
 
     onSnapshot(collection(db, "matches"), snap => {
@@ -1658,21 +1683,12 @@ const getStarIcons = (rating) => {
       handleFinishedMatchNewsTriggers(incomingMatches);
       syncKnockoutScoresFromSchedule(incomingMatches);
       matches = incomingMatches;
-      renderMatches();
-      renderLiveMatches();
-      renderStandings();
-      renderDashboardStandings();
-      renderDashboardHeroContent(); // Hanya update teks, bukan gambar
-      renderDashboardNextMatch();
-      renderPesBridgePanel();
+      requestRender('matches', 'live', 'standings', 'hero', 'dashNext', 'bridge');
     });
 
     onSnapshot(collection(db, "liveMatchStates"), snap => {
       liveMatchStates = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderMatches();
-      renderLiveMatches();
-      renderDashboardHeroContent();
-      renderPesBridgePanel();
+      requestRender('matches', 'live', 'hero', 'bridge');
     });
 
     onSnapshot(collection(db, "matchEvents"), snap => {
@@ -1689,30 +1705,23 @@ const getStarIcons = (rating) => {
       matchEventsReady = true;
       matchEvents = incomingEvents;
       syncScorersFromBridgeEvents(incomingEvents);
-      renderMatches();
-      renderLiveMatches();
-      renderPesBridgePanel();
+      requestRender('matches', 'live', 'bridge');
     });
 
     onSnapshot(collection(db, "scorers"), snap => {
       scorers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderScorers();
+      requestRender('scorers');
     });
 
     onSnapshot(collection(db, "players"), snap => {
       rosterPlayers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderTeams();
-      renderRosterPlayerOptions();
-      renderScorers();
-      renderDashboardNextMatch();
+      requestRender('teams', 'scorers', 'dashNext');
       if (activeTeamDetailId) renderTeamDetailModal(activeTeamDetailId);
     });
 
     onSnapshot(collection(db, "playerMatchStats"), snap => {
       playerMatchStats = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderMatches();
-      renderLiveMatches();
-      renderDashboardNextMatch();
+      requestRender('matches', 'live', 'dashNext');
       if (activeTeamDetailId) renderTeamDetailModal(activeTeamDetailId);
     });
     
@@ -1732,7 +1741,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
     
     onSnapshot(collection(db, "news"), snap => {
       news = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderNews();
+      requestRender('news');
     });
 
     onSnapshot(doc(db, "config", "standings"), snap => {
@@ -1747,8 +1756,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
           if (relegationInput) relegationInput.value = relegationCutoff;
         }
       }
-      renderStandings();
-      renderKnockout();
+      requestRender('standings', 'knockout');
     });
 
     onSnapshot(doc(db, "config", "competition"), (snap) => {
@@ -1779,9 +1787,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
         }
       }
       syncCompetitionUI();
-      renderStandings();
-      renderMatches();
-      renderTeams();
+      requestRender('standings', 'matches', 'teams');
     });
 
    
@@ -2295,7 +2301,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
                 <li class="bg-surface-container-high rounded-[2rem] p-6 border border-outline-variant/10 shadow-lg group hover:-translate-y-1 transition-transform cursor-pointer" data-action="openTeamDetail" data-id="${t.id}">
                     <div class="flex items-center justify-between gap-4">
                       <div class="flex items-center gap-4 min-w-0">
-                          <img src="${t.logo || placeholderImage}" class="w-14 h-14 object-contain bg-surface-container-highest p-2 rounded-[1rem] group-hover:scale-110 transition-transform">
+                          <img loading="lazy" decoding="async" src="${t.logo || placeholderImage}" class="w-14 h-14 object-contain bg-surface-container-highest p-2 rounded-[1rem] group-hover:scale-110 transition-transform">
                           <div class="min-w-0">
                             <span class="block truncate font-headline font-bold text-xl">${t.name}${groupBadge}${potBadge}</span>
                             <span class="text-[10px] uppercase tracking-widest text-on-surface-variant">${rosterCount} roster</span>
@@ -2472,7 +2478,7 @@ const renderHof = (data) => {
       </div>
 
       <div class="p-8 flex flex-col items-center">
-        <img src="${h.winnerLogo || placeholderImage}" class="w-20 h-20 object-contain mb-4 drop-shadow-2xl group-hover:rotate-6 transition-transform">
+        <img loading="lazy" decoding="async" src="${h.winnerLogo || placeholderImage}" class="w-20 h-20 object-contain mb-4 drop-shadow-2xl group-hover:rotate-6 transition-transform">
         <h3 class="text-2xl font-black text-white uppercase text-center leading-tight tracking-tight font-['Space_Grotesk']">${h.winnerTeam}</h3>
         <div class="mt-3 flex items-center gap-2">
           <img src="${winnerManagerPhoto}" class="w-8 h-8 rounded-xl object-cover border border-white/10 bg-[#161616]">
@@ -2994,11 +3000,6 @@ const renderAllTimeHofScorers = () => {
       <th class="py-4 px-2 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant" title="Selisih Gol (Goal Difference)">GD</th>
       <th class="py-4 px-4 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-primary" title="Poin (Points)">Pts</th>
     </tr></thead>`;
-    const legendHtml = `<div class="px-6 py-4 bg-surface-container-lowest/50 border-t border-outline-variant/10 flex flex-wrap gap-4 items-center">
-      <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-primary"></div><span class="text-[10px] uppercase tracking-widest font-label font-bold text-on-surface-variant">Cup (Top ${cupTop})</span></div>
-      <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-secondary"></div><span class="text-[10px] uppercase tracking-widest font-label font-bold text-on-surface-variant">Play-off${bestN > 0 ? ` / Best #${bestPos}` : ""}</span></div>
-      <span class="text-[10px] uppercase tracking-widest font-label text-on-surface-variant/70">Garis = incaran • Fill = sudah pasti • Poin 3/M • Urutan: Pts → GD → GF</span>
-    </div>`;
     const allGroupsComplete = (() => {
       const gm = matches.filter(isGroupMatch);
       return gm.length > 0 && gm.every(hasMatchScore);
@@ -3013,8 +3014,7 @@ const renderAllTimeHofScorers = () => {
         const locked = getLockedStandingsZones(data, cupTop, adv, 0, pool);
         return `<section class="bg-surface-container-high rounded-[2rem] overflow-hidden shadow-2xl border border-outline-variant/10">
           <div class="px-6 py-5 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-highest/50">
-            <div><h3 class="font-headline font-black uppercase italic text-xl">Group ${letter}</h3>
-            <p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mt-1">${data.length} tim • Cup: rank 1–${cupTop}${adv > cupTop ? ` • Play-off: rank ${cupTop + 1}–${adv}` : " (semua Cup)"}${bestN > 0 ? ` • Best ${bestN}x #${bestPos} lanjut` : ""}</p></div>
+            <div><h3 class="font-headline font-black uppercase italic text-xl">Group ${letter}</h3></div>
             <span class="rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-primary">Top ${adv} lolos</span>
           </div>
           <div class="overflow-x-auto"><table class="w-full border-collapse min-w-[680px]">${headHtml}<tbody class="divide-y divide-outline-variant/5 font-label">
@@ -3029,7 +3029,7 @@ const renderAllTimeHofScorers = () => {
               if (isBestPos) zones.set(t.team, allGroupsComplete ? "playoff" : "playoff-line");
               return rowHtml(t, i, zones);
             }).join("") || `<tr><td colspan="10" class="p-6 text-white/30 italic text-sm">Belum ada data grup ${letter}.</td></tr>`}
-          </tbody></table></div>${legendHtml}</section>`;
+          </tbody></table></div></section>`;
       }).join("");
       const thirdHtml = bestN > 0 ? `<section class="bg-surface-container-high rounded-[2rem] overflow-hidden shadow-2xl border border-secondary/20 xl:col-span-2">
           <div class="px-6 py-5 border-b border-outline-variant/10 flex items-center justify-between bg-secondary/5">
@@ -3277,11 +3277,11 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
           const cb = document.getElementById("compByeFill"); if (cb) cb.checked = (knockout.byeFill || "1") !== "0";
           const km = document.getElementById("koMirrorTeam"); if (km) km.checked = knockout.mirrorTeam === true;
         }
-        renderKnockout();
+        requestRender('knockout');
         ensureKnockoutScheduleMatches();
     } else {
   knockout = { format: "single", tieFormat: "single", byeFill: "1", seedSnapshot: [], mirrorTeam: false, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
-        renderKnockout();
+        requestRender('knockout');
     }
 });
 
@@ -3327,7 +3327,7 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
             // Desain Kartu Utama (Besar)
             return `
                 <div class="news-card md:col-span-2 relative h-[350px] rounded-[2.5rem] overflow-hidden group cursor-pointer border border-white/5 shadow-2xl" data-index="${i}">
-                    ${n.image ? `<img src="${n.image}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">` : `<div class="absolute inset-0 bg-slate-800"></div>`}
+                    ${n.image ? `<img loading="lazy" decoding="async" src="${n.image}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">` : `<div class="absolute inset-0 bg-slate-800"></div>`}
                     
                     <div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
                     
@@ -3346,7 +3346,7 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
             return `
                 <div class="news-card bg-[#111111]/60 backdrop-blur-md rounded-[2.2rem] overflow-hidden hover:bg-[#161616] transition-all duration-500 group border border-white/5 shadow-xl cursor-pointer" data-index="${i}">
                     <div class="h-44 relative overflow-hidden">
-                        ${n.image ? `<img src="${n.image}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">` : `<div class="w-full h-full bg-slate-800"></div>`}
+                        ${n.image ? `<img loading="lazy" decoding="async" src="${n.image}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">` : `<div class="w-full h-full bg-slate-800"></div>`}
                         <div class="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"></div>
                     </div>
                     <div class="p-6">
@@ -3423,10 +3423,10 @@ document.getElementById("closeBackdrop").onclick = closeModal;
       document.getElementById("scorerTable").innerHTML = sorted.map((s, i) => `
                 <div class="bg-surface-container-highest p-5 rounded-[2rem] flex items-center justify-between group hover:scale-[1.01] transition-transform border border-outline-variant/5 shadow-md">
                     <div class="flex items-center gap-6 flex-1">
-                        <span class="font-headline font-black text-2xl ${i===0?'text-secondary': i===1?'text-on-surface':'text-on-surface-variant'} w-8 italic text-center">${(i+1).toString().padStart(2,'0')}</span>
+                        <span class="font-headline font-black text-2xl ${i===0?'text-[#f6c453]': i===1?'text-on-surface':'text-on-surface-variant'} w-8 italic text-center">${(i+1).toString().padStart(2,'0')}</span>
                         <div class="relative">
-                            <img src="${s.image || 'https://i.imgur.com/xnTuRnl.png'}" class="w-14 h-14 rounded-full object-cover border-2 ${i===0?'border-secondary':'border-transparent'}">
-                            ${i===0 ? `<div class="absolute -bottom-1 -right-1 bg-secondary w-5 h-5 rounded-full flex items-center justify-center"><span class="material-symbols-outlined text-[12px] text-on-secondary" style="font-variation-settings: 'FILL' 1;">workspace_premium</span></div>` : ''}
+                            <img loading="lazy" decoding="async" src="${s.image || 'https://i.imgur.com/xnTuRnl.png'}" class="w-14 h-14 rounded-full object-cover border-2 ${i===0?'border-[#f6c453]':'border-transparent'}">
+                            ${i===0 ? `<div class="absolute -bottom-1 -right-1 bg-[#f6c453] w-5 h-5 rounded-full flex items-center justify-center"><span class="material-symbols-outlined text-[12px] text-[#221500]" style="font-variation-settings: 'FILL' 1;">workspace_premium</span></div>` : ''}
                         </div>
                         <div>
                             <p class="text-lg font-bold font-body group-hover:text-primary transition-colors">${s.player}</p>
@@ -3444,7 +3444,7 @@ document.getElementById("closeBackdrop").onclick = closeModal;
         document.getElementById("dashboardScorers").innerHTML = sorted.slice(0, 5).map((s, i) => `
                 <div class="flex items-center gap-4 group cursor-pointer bg-surface-container p-3 rounded-[1.5rem] hover:bg-surface-container-highest transition-colors">
                     <div class="relative">
-                        <img src="${s.image || 'https://i.imgur.com/xnTuRnl.png'}" class="w-12 h-12 rounded-full object-cover border-2 ${i===0?'border-[#f6c453]':'border-transparent'}">
+                        <img loading="lazy" decoding="async" src="${s.image || 'https://i.imgur.com/xnTuRnl.png'}" class="w-12 h-12 rounded-full object-cover border-2 ${i===0?'border-[#f6c453]':'border-transparent'}">
                         ${i===0 ? `<div class="absolute -bottom-1 -right-1 bg-[#f6c453] text-[#221500] text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center">1</div>` : ''}
                     </div>
                     <div class="flex-1">
@@ -3509,7 +3509,7 @@ document.getElementById("closeBackdrop").onclick = closeModal;
         <div class="bg-surface-container-high p-5 rounded-[2rem] flex items-center justify-between group">
             <div class="flex items-center gap-6">
                 <span class="font-headline font-black text-2xl text-on-surface-variant w-8 italic text-center">${i+1}</span>
-                <img src="${s.image || 'https://i.imgur.com/xnTuRnl.png'}" class="w-14 h-14 rounded-full object-cover bg-surface-container">
+                <img loading="lazy" decoding="async" src="${s.image || 'https://i.imgur.com/xnTuRnl.png'}" class="w-14 h-14 rounded-full object-cover bg-surface-container">
                 <div>
                     <p class="text-lg font-bold">${s.player}</p>
                     <p class="text-xs text-on-surface-variant uppercase font-semibold">${s.team}</p>
@@ -5550,3 +5550,5 @@ document.addEventListener('click', async (e) => {
 
       if (target.dataset.action === 'searchScorer') renderScorers();
     });
+
+
