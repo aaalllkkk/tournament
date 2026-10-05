@@ -2398,7 +2398,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
                             </div>
                             <div class="flex items-center justify-between gap-2 md:gap-4">
                                 <div class="flex-1 flex flex-col items-center gap-3">
-                                    <div class="w-16 h-16 md:w-20 md:h-20 bg-surface-container rounded-[1.2rem] flex items-center justify-center p-3"><img src="${t1.logo}" class="w-full h-full object-contain ${!m.live && !isFinished ? 'grayscale opacity-50' : ''}"></div>
+                                    <div class="w-16 h-16 md:w-20 md:h-20 bg-surface-container rounded-[1.2rem] flex items-center justify-center p-3"><img src="${t1.logo}" class="w-full h-full object-contain ${!m.live && !isFinished ? 'opacity-70' : ''}"></div>
                                     <span class="font-bold font-headline text-center uppercase tracking-tight text-sm md:text-base">${t1.name}</span>
                                 </div>
                                 <div class="flex flex-col items-center px-2">
@@ -2428,7 +2428,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
                                     `}
                                 </div>
                                 <div class="flex-1 flex flex-col items-center gap-3">
-                                    <div class="w-16 h-16 md:w-20 md:h-20 bg-surface-container rounded-[1.2rem] flex items-center justify-center p-3"><img src="${t2.logo}" class="w-full h-full object-contain ${!m.live && !isFinished ? 'grayscale opacity-50' : ''}"></div>
+                                    <div class="w-16 h-16 md:w-20 md:h-20 bg-surface-container rounded-[1.2rem] flex items-center justify-center p-3"><img src="${t2.logo}" class="w-full h-full object-contain ${!m.live && !isFinished ? 'opacity-70' : ''}"></div>
                                     <span class="font-bold font-headline text-center uppercase tracking-tight text-sm md:text-base">${t2.name}</span>
                                 </div>
                             </div>
@@ -2467,16 +2467,16 @@ const renderHof = (data) => {
     <div onclick="showHofDetail('${h.id}')" class="cursor-pointer group bg-[#111111]/40 rounded-[2.5rem] border border-white/5 overflow-hidden flex flex-col shadow-2xl transition-all hover:border-[#0AA35D]/30 hover:scale-[1.02] active:scale-95">
       
       <div class="p-6 pb-0 flex justify-between items-center">
-        <span class="text-[10px] font-black text-[#0AA35D] tracking-widest uppercase italic font-['Space_Grotesk']">${h.season}</span>
+        <span class="text-[10px] font-black text-[#0AA35D] tracking-[0.2em] uppercase font-['Space_Grotesk']">${h.season}</span>
         <div class="flex gap-0.5">${stars}</div>
       </div>
 
       <div class="p-8 flex flex-col items-center">
         <img src="${h.winnerLogo || placeholderImage}" class="w-20 h-20 object-contain mb-4 drop-shadow-2xl group-hover:rotate-6 transition-transform">
-        <h3 class="text-xl font-black text-white uppercase italic text-center leading-none font-['Space_Grotesk']">${h.winnerTeam}</h3>
+        <h3 class="text-2xl font-black text-white uppercase text-center leading-tight tracking-tight font-['Space_Grotesk']">${h.winnerTeam}</h3>
         <div class="mt-3 flex items-center gap-2">
           <img src="${winnerManagerPhoto}" class="w-8 h-8 rounded-xl object-cover border border-white/10 bg-[#161616]">
-          <p class="text-[10px] font-bold text-[#9ca3af] uppercase font-['Space_Grotesk']">Manager: <span class="text-white">${h.winnerPlayer || "-"}</span></p>
+          <p class="text-[11px] font-semibold text-[#9ca3af] font-label">Manager: <span class="text-white font-bold">${h.winnerPlayer || "-"}</span></p>
         </div>
       </div>
 
@@ -2497,11 +2497,11 @@ const renderHof = (data) => {
 
       <div class="mt-auto bg-black/40 p-6 border-t border-white/5 flex justify-between items-center backdrop-blur-md">
         <div>
-          <p class="text-[8px] font-bold text-[#9ca3af] uppercase tracking-widest font-['Space_Grotesk']">Golden Boot</p>
-          <p class="text-sm font-black text-white uppercase italic font-['Space_Grotesk'] leading-none mt-1">${h.topScorer}</p>
+          <p class="text-[8px] font-bold text-[#9ca3af] uppercase tracking-widest font-label">Golden Boot</p>
+          <p class="text-base font-black text-white uppercase font-['Space_Grotesk'] leading-tight mt-1">${h.topScorer}</p>
         </div>
         <div class="text-right">
-          <p class="text-2xl font-black text-[#0AA35D] leading-none font-['Space_Grotesk']">${h.goals}</p>
+          <p class="text-2xl font-black text-[#f6c453] leading-none font-['Space_Grotesk']">${h.goals}</p>
           <p class="text-[8px] font-bold opacity-40 uppercase">Goals</p>
         </div>
       </div>
@@ -2684,7 +2684,7 @@ const renderAllTimeHofScorers = () => {
         <img src="${leader.photo || placeholderImage}" alt="${leader.player}" class="absolute bottom-0 right-2 h-[92%] max-w-[68%] object-contain object-bottom drop-shadow-[0_20px_45px_rgba(0,0,0,0.65)]">
         <div class="relative max-w-[58%]">
           <span class="inline-flex rounded-full bg-[#f6c453] px-3 py-1 text-[9px] font-black uppercase tracking-widest text-[#221500]">#1 All-Time</span>
-          <h3 class="mt-4 text-3xl md:text-4xl font-black uppercase italic leading-none text-white font-['Space_Grotesk']">${leader.player}</h3>
+          <h3 class="mt-4 text-3xl md:text-4xl font-black uppercase leading-tight tracking-tight text-white font-['Space_Grotesk']">${leader.player}</h3>
           <p class="mt-3 text-5xl font-black text-[#f6c453] leading-none">${leader.goals}</p>
           <p class="mt-1 text-[10px] uppercase tracking-widest text-white/55 font-bold">Goals In One Season</p>
           <p class="mt-4 text-[10px] uppercase tracking-widest text-white/35 font-bold">${leader.season || "Recorded Season"}</p>
@@ -3444,15 +3444,15 @@ document.getElementById("closeBackdrop").onclick = closeModal;
         document.getElementById("dashboardScorers").innerHTML = sorted.slice(0, 5).map((s, i) => `
                 <div class="flex items-center gap-4 group cursor-pointer bg-surface-container p-3 rounded-[1.5rem] hover:bg-surface-container-highest transition-colors">
                     <div class="relative">
-                        <img src="${s.image || 'https://i.imgur.com/xnTuRnl.png'}" class="w-12 h-12 rounded-full object-cover border-2 ${i===0?'border-secondary':'border-transparent'}">
-                        ${i===0 ? `<div class="absolute -bottom-1 -right-1 bg-secondary text-on-secondary text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center">1</div>` : ''}
+                        <img src="${s.image || 'https://i.imgur.com/xnTuRnl.png'}" class="w-12 h-12 rounded-full object-cover border-2 ${i===0?'border-[#f6c453]':'border-transparent'}">
+                        ${i===0 ? `<div class="absolute -bottom-1 -right-1 bg-[#f6c453] text-[#221500] text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center">1</div>` : ''}
                     </div>
                     <div class="flex-1">
                         <p class="text-[10px] text-on-surface-variant font-bold font-label uppercase">${s.team}</p>
                         <p class="font-headline font-bold text-lg group-hover:text-primary transition-colors">${s.player}</p>
                     </div>
                     <div class="text-right">
-                        <p class="font-headline font-black text-2xl ${i===0?'text-secondary':''}">${s.goals}</p>
+                        <p class="font-headline font-black text-2xl ${i===0?'text-[#f6c453]':''}">${s.goals}</p>
                         <p class="text-[10px] text-on-surface-variant font-label uppercase">GOALS</p>
                     </div>
                 </div>`).join("");
@@ -4164,22 +4164,19 @@ const renderKnockout = () => {
       </div>`;
   } else {
     gridInner = visibleRounds.map((r) => sectionHtmlById[r.id] || "").join("");
+    gridInner += `
+      <section class="ko-round">
+        <h3 class="ko-round-title" style="color:#f6c453">Champion</h3>
+        <div class="ko-stack" style="justify-content:center;height:100%">
+          <div class="p-5 text-center" style="width:200px;background:#0b0b0b;border:1px solid rgba(246,196,83,.35);border-radius:18px">
+            <span class="material-symbols-outlined" style="font-size:48px;color:#f6c453">workspace_premium</span>
+            <p class="font-headline font-black italic text-xl" style="color:#f6c453">${champion || "TBD"}</p>
+          </div>
+        </div>
+      </section>`;
   }
 
-  const championPanel = champion && !isDouble
-    ? `
-      <div class="mb-6 bg-[#0b0b0b] border border-primary/20 rounded-2xl p-5 shadow-xl">
-        <p class="text-[10px] uppercase tracking-[0.24em] font-bold text-white/50 mb-2">Pemenang Partai Final</p>
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <p class="text-2xl md:text-3xl font-black italic uppercase text-primary leading-none">${champion}</p>
-            <p class="text-xs uppercase tracking-widest text-white/45 mt-2">Official Knockout Champion</p>
-          </div>
-          <span class="material-symbols-outlined text-secondary text-[64px] leading-none drop-shadow-[0_0_16px_rgba(156,163,175,0.35)]">workspace_premium</span>
-        </div>
-      </div>
-    `
-    : "";
+  const championPanel = "";
 
   container.innerHTML = `
     <div class="mb-5 flex flex-wrap items-center gap-3 text-xs uppercase tracking-widest font-bold">
