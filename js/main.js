@@ -419,7 +419,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
         node.classList.remove("drop-replace-target", "scale-110", "z-40");
         const img = node.querySelector("img");
         if (img) {
-          img.classList.remove("border-[#8eff71]", "shadow-[0_0_28px_rgba(142,255,113,0.9)]");
+          img.classList.remove("border-[#0AA35D]", "shadow-[0_0_28px_rgba(10,163,93,0.9)]");
           img.classList.add("border-primary");
           img.style.borderColor = "";
           img.style.boxShadow = "";
@@ -442,9 +442,9 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       const img = targetNode.querySelector("img");
       if (img) {
         img.classList.remove("border-primary");
-        img.classList.add("border-[#8eff71]", "shadow-[0_0_28px_rgba(142,255,113,0.9)]");
-        img.style.borderColor = "#8eff71";
-        img.style.boxShadow = "0 0 28px rgba(142,255,113,0.9)";
+        img.classList.add("border-[#0AA35D]", "shadow-[0_0_28px_rgba(10,163,93,0.9)]");
+        img.style.borderColor = "#0AA35D";
+        img.style.boxShadow = "0 0 28px rgba(10,163,93,0.9)";
       }
     };
 
@@ -656,7 +656,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
               <span class="rounded-md bg-black/60 px-2 py-1 text-[9px] font-black text-white">${team.formation || "4-3-3"}</span>
             </div>
             <div class="relative h-[250px] overflow-hidden rounded-[1rem] border border-primary/15 bg-surface-container-highest">
-              <div class="absolute inset-0 opacity-25" style="background-image:linear-gradient(90deg,rgba(142,255,113,.22) 1px,transparent 1px),linear-gradient(rgba(255,215,9,.16) 1px,transparent 1px);background-size:20% 16.66%;"></div>
+              <div class="absolute inset-0 opacity-25" style="background-image:linear-gradient(90deg,rgba(10,163,93,.22) 1px,transparent 1px),linear-gradient(rgba(156,163,175,.16) 1px,transparent 1px);background-size:20% 16.66%;"></div>
               <div class="absolute inset-x-[18%] top-0 h-[16%] border-x border-b border-primary/25"></div>
               <div class="absolute inset-x-[18%] bottom-0 h-[16%] border-x border-t border-primary/25"></div>
               <div class="absolute left-0 right-0 top-1/2 border-t border-secondary/25"></div>
@@ -925,7 +925,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       const overlay = document.createElement("div");
       overlay.className = "fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none";
       overlay.innerHTML = `
-        <div class="relative overflow-hidden rounded-[2rem] border border-primary/40 bg-[#070e1c]/95 px-10 py-8 text-center shadow-[0_0_80px_rgba(142,255,113,0.35)] animate-[goalPop_2.8s_ease_forwards]">
+        <div class="relative overflow-hidden rounded-[2rem] border border-primary/40 bg-[#000000]/95 px-10 py-8 text-center shadow-[0_0_80px_rgba(10,163,93,0.35)] animate-[goalPop_2.8s_ease_forwards]">
           <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-secondary to-tertiary"></div>
           <p class="font-headline text-6xl md:text-8xl font-black italic uppercase text-primary text-glow-primary leading-none">GOAL</p>
           <p class="mt-3 font-headline text-xl md:text-3xl font-black uppercase text-white">${teamName || "Liga King"}</p>
@@ -1512,7 +1512,7 @@ const getStarIcons = (rating) => {
     // 3. Reset semua section & tab
     document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
     document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
-    document.querySelectorAll(".mobile-tab").forEach(t => t.classList.remove("text-[#ffd709]"));
+    document.querySelectorAll(".mobile-tab").forEach(t => t.classList.remove("text-[#0AA35D]"));
 
     // 4. Aktifkan Section yang dituju
     targetSection.classList.add("active");
@@ -1527,7 +1527,7 @@ const getStarIcons = (rating) => {
     
     // 6. Highlight Mobile Tab
     if (targetEl && targetEl.classList.contains("mobile-tab")) {
-        targetEl.classList.add("text-[#ffd709]");
+        targetEl.classList.add("text-[#0AA35D]");
     }
 
     // --- 7. Render Knockout saat tab aktif ---
@@ -2136,8 +2136,8 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       };
       const tacticBoard = `
         <div class="tactic-board relative h-[520px] overflow-hidden rounded-[2rem] border border-primary/20 bg-surface-container-highest shadow-2xl transition-[box-shadow,border-color,transform] duration-200">
-          <div class="absolute inset-0 opacity-25" style="background-image:linear-gradient(90deg,rgba(142,255,113,.24) 1px,transparent 1px),linear-gradient(rgba(255,215,9,.18) 1px,transparent 1px);background-size:20% 16.66%;"></div>
-          <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(142,255,113,.14),transparent_42%),linear-gradient(135deg,rgba(255,215,9,.08),transparent_55%)]"></div>
+          <div class="absolute inset-0 opacity-25" style="background-image:linear-gradient(90deg,rgba(10,163,93,.24) 1px,transparent 1px),linear-gradient(rgba(156,163,175,.18) 1px,transparent 1px);background-size:20% 16.66%;"></div>
+          <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(10,163,93,.14),transparent_42%),linear-gradient(135deg,rgba(156,163,175,.08),transparent_55%)]"></div>
           <div class="absolute inset-x-[18%] top-0 h-[16%] border-x-2 border-b-2 border-primary/30"></div>
           <div class="absolute inset-x-[18%] bottom-0 h-[16%] border-x-2 border-t-2 border-primary/30"></div>
           <div class="absolute left-0 right-0 top-1/2 border-t-2 border-secondary/30"></div>
@@ -2403,7 +2403,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
                                 </div>
                                 <div class="flex flex-col items-center px-2">
                                     ${isAdmin ? `
-                                        <div class="flex items-center gap-2 bg-[#070e1c] p-2 rounded-xl border border-outline-variant/20">
+                                        <div class="flex items-center gap-2 bg-[#000000] p-2 rounded-xl border border-outline-variant/20">
                                             <input type="number" class="w-12 bg-transparent text-center text-xl font-headline font-black text-white p-0 border-none focus:ring-0" value="${m.s1 ?? ""}" data-action="updateScore" data-side="s1" data-id="${m.id}">
                                             <span class="text-on-surface-variant font-black">-</span>
                                             <input type="number" class="w-12 bg-transparent text-center text-xl font-headline font-black text-white p-0 border-none focus:ring-0" value="${m.s2 ?? ""}" data-action="updateScore" data-side="s2" data-id="${m.id}">
@@ -2464,10 +2464,10 @@ const renderHof = (data) => {
     const cupManagerPhoto = resolveManagerPhoto(cupManager, h.cupWinnerManagerPhoto);
 
     return `
-    <div onclick="showHofDetail('${h.id}')" class="cursor-pointer group bg-[#161f32]/40 rounded-[2.5rem] border border-white/5 overflow-hidden flex flex-col shadow-2xl transition-all hover:border-[#8eff71]/30 hover:scale-[1.02] active:scale-95">
+    <div onclick="showHofDetail('${h.id}')" class="cursor-pointer group bg-[#111111]/40 rounded-[2.5rem] border border-white/5 overflow-hidden flex flex-col shadow-2xl transition-all hover:border-[#0AA35D]/30 hover:scale-[1.02] active:scale-95">
       
       <div class="p-6 pb-0 flex justify-between items-center">
-        <span class="text-[10px] font-black text-[#8eff71] tracking-widest uppercase italic font-['Space_Grotesk']">${h.season}</span>
+        <span class="text-[10px] font-black text-[#0AA35D] tracking-widest uppercase italic font-['Space_Grotesk']">${h.season}</span>
         <div class="flex gap-0.5">${stars}</div>
       </div>
 
@@ -2475,33 +2475,33 @@ const renderHof = (data) => {
         <img src="${h.winnerLogo || placeholderImage}" class="w-20 h-20 object-contain mb-4 drop-shadow-2xl group-hover:rotate-6 transition-transform">
         <h3 class="text-xl font-black text-white uppercase italic text-center leading-none font-['Space_Grotesk']">${h.winnerTeam}</h3>
         <div class="mt-3 flex items-center gap-2">
-          <img src="${winnerManagerPhoto}" class="w-8 h-8 rounded-xl object-cover border border-white/10 bg-[#1c263a]">
-          <p class="text-[10px] font-bold text-[#a4abbe] uppercase font-['Space_Grotesk']">Manager: <span class="text-white">${h.winnerPlayer || "-"}</span></p>
+          <img src="${winnerManagerPhoto}" class="w-8 h-8 rounded-xl object-cover border border-white/10 bg-[#161616]">
+          <p class="text-[10px] font-bold text-[#9ca3af] uppercase font-['Space_Grotesk']">Manager: <span class="text-white">${h.winnerPlayer || "-"}</span></p>
         </div>
       </div>
 
       ${h.cupWinner && h.cupWinner !== "N/A" ? `
       <div class="mx-6 p-3 bg-white/5 rounded-2xl mb-4 flex justify-between items-center border border-white/5">
         <div>
-          <p class="text-[7px] font-bold text-[#8eff71] uppercase tracking-tighter">Cup Winner</p>
+          <p class="text-[7px] font-bold text-[#0AA35D] uppercase tracking-tighter">Cup Winner</p>
           <p class="text-[10px] font-black text-white uppercase leading-none mt-1">${h.cupWinner}</p>
           ${cupManager ? `
             <div class="mt-2 flex items-center gap-2">
-              <img src="${cupManagerPhoto}" class="w-6 h-6 rounded-lg object-cover border border-white/10 bg-[#1c263a]">
+              <img src="${cupManagerPhoto}" class="w-6 h-6 rounded-lg object-cover border border-white/10 bg-[#161616]">
               <p class="text-[8px] font-bold text-white/45 uppercase">Manager: ${cupManager}</p>
             </div>
           ` : ""}
         </div>
-        <span class="material-symbols-outlined text-[#8eff71] text-lg opacity-40">workspace_premium</span>
+        <span class="material-symbols-outlined text-[#0AA35D] text-lg opacity-40">workspace_premium</span>
       </div>` : ''}
 
       <div class="mt-auto bg-black/40 p-6 border-t border-white/5 flex justify-between items-center backdrop-blur-md">
         <div>
-          <p class="text-[8px] font-bold text-[#a4abbe] uppercase tracking-widest font-['Space_Grotesk']">Golden Boot</p>
+          <p class="text-[8px] font-bold text-[#9ca3af] uppercase tracking-widest font-['Space_Grotesk']">Golden Boot</p>
           <p class="text-sm font-black text-white uppercase italic font-['Space_Grotesk'] leading-none mt-1">${h.topScorer}</p>
         </div>
         <div class="text-right">
-          <p class="text-2xl font-black text-[#8eff71] leading-none font-['Space_Grotesk']">${h.goals}</p>
+          <p class="text-2xl font-black text-[#0AA35D] leading-none font-['Space_Grotesk']">${h.goals}</p>
           <p class="text-[8px] font-bold opacity-40 uppercase">Goals</p>
         </div>
       </div>
@@ -2594,7 +2594,7 @@ const renderHofManagers = () => {
       if (image) {
         return `<img src="${image}" alt="${label}" title="${label}" class="w-8 h-8 object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,0.45)]">`;
       }
-      return `<span title="${label}" class="material-symbols-outlined text-[28px] ${label === "League Trophy" ? "text-[#8eff71]" : "text-secondary"}">${fallbackIcon}</span>`;
+      return `<span title="${label}" class="material-symbols-outlined text-[28px] ${label === "League Trophy" ? "text-[#0AA35D]" : "text-secondary"}">${fallbackIcon}</span>`;
     }).join("");
 
     return `
@@ -2615,11 +2615,11 @@ const renderHofManagers = () => {
     ].filter(Boolean).join("");
 
     return `
-      <article class="relative overflow-hidden rounded-[1.4rem] border ${rank === 1 ? "border-[#f6c453]/70 bg-[#171421]" : "border-[#f6c453]/20 bg-[#111827]/80"} p-5 shadow-[0_18px_55px_rgba(0,0,0,0.35)]">
+      <article class="relative overflow-hidden rounded-[1.4rem] border ${rank === 1 ? "border-[#f6c453]/70 bg-[#0b0b0b]" : "border-[#f6c453]/20 bg-[#0b0b0b]/80"} p-5 shadow-[0_18px_55px_rgba(0,0,0,0.35)]">
         <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f6c453]/70 to-transparent"></div>
         <div class="flex items-start gap-4">
           <div class="relative">
-            <img src="${resolveManagerPhoto(manager.name, manager.photo)}" alt="${manager.name}" class="w-16 h-16 rounded-2xl object-cover border border-[#f6c453]/30 bg-[#161f32]">
+            <img src="${resolveManagerPhoto(manager.name, manager.photo)}" alt="${manager.name}" class="w-16 h-16 rounded-2xl object-cover border border-[#f6c453]/30 bg-[#111111]">
             <span class="absolute -bottom-2 -right-2 w-7 h-7 rounded-full bg-[#f6c453] text-[#221500] text-[10px] font-black flex items-center justify-center shadow-md">${rank}</span>
           </div>
           <div class="flex-1 min-w-0">
@@ -2677,7 +2677,7 @@ const renderAllTimeHofScorers = () => {
   const rest = leaderboard.slice(1, 9);
 
   container.innerHTML = `
-    <article class="lg:col-span-5 relative min-h-[360px] overflow-hidden rounded-[1.6rem] border border-[#f6c453]/40 bg-[#15131f] shadow-[0_18px_55px_rgba(0,0,0,0.4)]">
+    <article class="lg:col-span-5 relative min-h-[360px] overflow-hidden rounded-[1.6rem] border border-[#f6c453]/40 bg-[#0b0b0b] shadow-[0_18px_55px_rgba(0,0,0,0.4)]">
       <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f6c453] to-transparent"></div>
       <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(246,196,83,0.18),transparent_45%)]"></div>
       <div class="relative z-10 flex h-full flex-col justify-end p-6">
@@ -2696,7 +2696,7 @@ const renderAllTimeHofScorers = () => {
       ${rest.length ? rest.map((scorer, index) => `
         <article class="flex items-center gap-3 rounded-[1.2rem] border border-white/10 bg-black/20 p-3">
           <div class="relative">
-            <img src="${scorer.photo || placeholderImage}" alt="${scorer.player}" class="w-14 h-14 rounded-2xl object-cover object-top border border-[#f6c453]/20 bg-[#161f32]">
+            <img src="${scorer.photo || placeholderImage}" alt="${scorer.player}" class="w-14 h-14 rounded-2xl object-cover object-top border border-[#f6c453]/20 bg-[#111111]">
             <span class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#f6c453]/90 text-[9px] font-black text-[#221500]">${index + 2}</span>
           </div>
           <div class="min-w-0 flex-1">
@@ -2953,10 +2953,10 @@ const renderAllTimeHofScorers = () => {
       zoneBadge = `<span class="hidden md:inline-flex rounded-full bg-error/10 border border-error/20 px-2 py-1 text-[8px] uppercase tracking-widest text-error font-black">Hina</span>`;
     } else if (zone && zone.endsWith("-line")) {
       // Posisi incaran tapi BELUM matematis pasti → garis kiri saja, tanpa fill.
-      const lineCls = { "champion-line": "border-[#f6c453]", "cup-line": "border-[#8eff71]", "playoff-line": "border-[#ffd709]", "hina-line": "border-[#ff7351]" };
-      const lineColors = { "champion-line": "#f6c453", "cup-line": "#8eff71", "playoff-line": "#ffd709", "hina-line": "#ff7351" };
+      const lineCls = { "champion-line": "border-[#f6c453]", "cup-line": "border-[#0AA35D]", "playoff-line": "border-[#9ca3af]", "hina-line": "border-[#ff7351]" };
+      const lineColors = { "champion-line": "#f6c453", "cup-line": "#0AA35D", "playoff-line": "#9ca3af", "hina-line": "#ff7351" };
       const lineLabels = { "champion-line": "Champions", "cup-line": "Cup", "playoff-line": "Play Off", "hina-line": "Hina" };
-      const lc = lineColors[zone] || "#a4abbe";
+      const lc = lineColors[zone] || "#9ca3af";
       borderClass = `border-l-4 ${lineCls[zone] || ""}`;
       zoneBadge = `<span class="hidden md:inline-flex rounded-full px-2 py-1 text-[8px] uppercase tracking-widest font-black" style="border:1px solid ${lc}55;color:${lc}">${lineLabels[zone] || ""}</span>`;
     }
@@ -3083,20 +3083,30 @@ const renderAllTimeHofScorers = () => {
 
 
     const renderDashboardStandings = () => {
-      document.getElementById("dashboardStandings").innerHTML = calculateStandings().slice(0, 5).map((t, i) => {
-        const badgeClass = i === 0 ? 'bg-primary/20 text-primary' : i === 1 ? 'bg-tertiary/20 text-tertiary' : i === 2 ? 'bg-white/10 text-white' : i === 3 ? 'bg-error/20 text-error' : 'bg-secondary/20 text-secondary';
+      const container = document.getElementById("dashboardStandings");
+      if (!container) return;
+      const rowMini = (t, i, extra = "") => {
+        const badgeClass = i === 0 ? 'bg-primary/20 text-primary' : i === 1 ? 'bg-tertiary/20 text-tertiary' : 'bg-white/10 text-white';
         return `
                 <div class="grid grid-cols-12 items-center px-4 py-3 hover:bg-surface-container-highest transition-colors rounded-xl">
-                    <span class="col-span-2 font-headline font-bold ${i===0 ? 'text-secondary':''}">${(i+1).toString().padStart(2, '0')}</span>
+                    <span class="col-span-2 font-headline font-bold">${(i+1).toString().padStart(2, '0')}</span>
                     <div class="col-span-8 flex items-center gap-3">
                         <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] ${badgeClass} overflow-hidden">
                             <img src="${resolveTeam(t.team).logo}" class="w-full h-full object-cover p-1">
                         </div>
-                        <span class="font-body text-sm font-semibold truncate">${t.team}</span>
+                        <span class="font-body text-sm font-semibold truncate">${t.team}${extra}</span>
                     </div>
-                    <span class="col-span-2 text-right font-headline font-bold ${i===0 ? 'text-secondary':''}">${t.pts}</span>
+                    <span class="col-span-2 text-right font-headline font-bold">${t.pts}</span>
                 </div>`;
-      }).join("");
+      };
+      if (hasGroupStage()) {
+        container.innerHTML = listGroupLetters().map((letter) => `
+          <p class="px-4 pt-3 text-[9px] font-bold tracking-[0.2em] text-on-surface-variant uppercase">Group ${letter}</p>
+          ${calculateStandings(letter).slice(0, 2).map((t, i) => rowMini(t, i)).join("")}
+        `).join("") || "<p class='px-4 py-3 text-sm italic text-on-surface-variant'>Belum ada grup.</p>";
+        return;
+      }
+      container.innerHTML = calculateStandings().slice(0, 5).map((t, i) => rowMini(t, i)).join("");
     };
     
     // --- ACTIONS UNTUK ADMIN BANNER ---
@@ -3183,7 +3193,7 @@ const initSlideshow = (urls) => {
       contentContainer.innerHTML = `
         <div class="flex-1 w-full pt-20">
             <div class="flex items-center gap-3 mb-4">
-                ${m.live ? `<span class="px-3 py-1 bg-error rounded-full text-xs font-bold flex items-center gap-1 text-white animate-pulse">● LIVE</span>` : `<span class="px-3 py-1 bg-primary text-[#064200] rounded-full text-xs font-bold">UPCOMING</span>`}
+                ${m.live ? `<span class="px-3 py-1 bg-error rounded-full text-xs font-bold flex items-center gap-1 text-white animate-pulse">● LIVE</span>` : `<span class="px-3 py-1 bg-primary text-[#ffffff] rounded-full text-xs font-bold">UPCOMING</span>`}
                 <span class="text-secondary font-bold font-label tracking-widest text-sm uppercase italic">Matchday ${getMW(m)} • Elite Arena Stadium</span>
             </div>
             <div class="flex items-center gap-8 md:gap-16">
@@ -3276,8 +3286,10 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
 });
 
     const renderLiveMatches = () => {
+      const el = document.getElementById("liveMatches");
+      if (!el) return;
       const live = matches.filter(m => m.live);
-      document.getElementById("liveMatches").innerHTML = live.length ? live.map(m => {
+      el.innerHTML = live.length ? live.map(m => {
         const liveClock = formatLiveClock(m);
         const events = getEventsForMatch(m);
         const goalEvents = events.filter((event) => normalizeKey(event.eventType).includes("goal"));
@@ -3320,7 +3332,7 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
                     <div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
                     
                     <div class="absolute bottom-0 p-8 w-full transform transition-transform duration-500">
-                        <span class="px-4 py-1.5 bg-primary text-[#064200] text-[10px] font-black rounded-full mb-4 inline-block tracking-[0.2em] uppercase shadow-lg shadow-primary/20">Headline News</span>
+                        <span class="px-4 py-1.5 bg-primary text-[#ffffff] text-[10px] font-black rounded-full mb-4 inline-block tracking-[0.2em] uppercase shadow-lg shadow-primary/20">Headline News</span>
                         <h2 class="font-headline text-3xl md:text-4xl font-black leading-none text-white italic uppercase tracking-tighter group-hover:text-primary transition-colors duration-300">
                             ${n.title}
                         </h2>
@@ -3332,7 +3344,7 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
         } else {
             // Desain Kartu Kecil (Samping)
             return `
-                <div class="news-card bg-[#161f32]/60 backdrop-blur-md rounded-[2.2rem] overflow-hidden hover:bg-[#1c263a] transition-all duration-500 group border border-white/5 shadow-xl cursor-pointer" data-index="${i}">
+                <div class="news-card bg-[#111111]/60 backdrop-blur-md rounded-[2.2rem] overflow-hidden hover:bg-[#161616] transition-all duration-500 group border border-white/5 shadow-xl cursor-pointer" data-index="${i}">
                     <div class="h-44 relative overflow-hidden">
                         ${n.image ? `<img src="${n.image}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">` : `<div class="w-full h-full bg-slate-800"></div>`}
                         <div class="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"></div>
@@ -3429,7 +3441,7 @@ document.getElementById("closeBackdrop").onclick = closeModal;
                 </div>`).join("");
 
       if (document.getElementById("dashboardScorers")) {
-        document.getElementById("dashboardScorers").innerHTML = sorted.slice(0, 3).map((s, i) => `
+        document.getElementById("dashboardScorers").innerHTML = sorted.slice(0, 5).map((s, i) => `
                 <div class="flex items-center gap-4 group cursor-pointer bg-surface-container p-3 rounded-[1.5rem] hover:bg-surface-container-highest transition-colors">
                     <div class="relative">
                         <img src="${s.image || 'https://i.imgur.com/xnTuRnl.png'}" class="w-12 h-12 rounded-full object-cover border-2 ${i===0?'border-secondary':'border-transparent'}">
@@ -4074,7 +4086,7 @@ const renderKnockout = () => {
           ? `<span class="text-secondary">Draw — isi penalti</span>`
           : match.winner
             ? `<span class="text-primary">✓ ${match.winner}</span>`
-            : (locked ? `<span class="text-white/40">Waiting Teams</span>` : `<span class="text-secondary">Waiting Result</span>`);
+            : "";
 
         const teamRow = (logo, name, cls, inputHtml) => `
           <div class="ko-team-row ${cls}">
@@ -4156,14 +4168,14 @@ const renderKnockout = () => {
 
   const championPanel = champion && !isDouble
     ? `
-      <div class="mb-6 bg-[#11192a] border border-primary/20 rounded-2xl p-5 shadow-xl">
+      <div class="mb-6 bg-[#0b0b0b] border border-primary/20 rounded-2xl p-5 shadow-xl">
         <p class="text-[10px] uppercase tracking-[0.24em] font-bold text-white/50 mb-2">Pemenang Partai Final</p>
         <div class="flex items-center justify-between gap-4">
           <div>
             <p class="text-2xl md:text-3xl font-black italic uppercase text-primary leading-none">${champion}</p>
             <p class="text-xs uppercase tracking-widest text-white/45 mt-2">Official Knockout Champion</p>
           </div>
-          <span class="material-symbols-outlined text-secondary text-[64px] leading-none drop-shadow-[0_0_16px_rgba(255,215,9,0.35)]">workspace_premium</span>
+          <span class="material-symbols-outlined text-secondary text-[64px] leading-none drop-shadow-[0_0_16px_rgba(156,163,175,0.35)]">workspace_premium</span>
         </div>
       </div>
     `
@@ -4845,7 +4857,7 @@ window.showHofDetail = (id) => {
         // dan menambahkan drop-shadow neon hijau agar menyala.
         photoContainer.innerHTML = `
             <img src="${item.scorerPhoto || placeholderImage}" 
-                 class="max-h-full max-w-full object-contain relative z-10 drop-shadow-[0_0_40px_rgba(142,255,113,0.5)] transition-all duration-500 group-hover:scale-105"
+                 class="max-h-full max-w-full object-contain relative z-10 drop-shadow-[0_0_40px_rgba(10,163,93,0.5)] transition-all duration-500 group-hover:scale-105"
                  alt="Top Scorer ${item.topScorer}">
         `;
     }
