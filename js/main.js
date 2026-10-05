@@ -1007,15 +1007,24 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       `;
     };
     
-    // Function to calculate % based on stars
-const calculateWinProbability = (homeStars, awayStars, s1 = 0, s2 = 0) => {
+    // Function to calculate % based on stars + pot + score
+const calculateWinProbability = (homeStars, awayStars, s1 = 0, s2 = 0, homePot, awayPot) => {
   const hS = parseFloat(homeStars) || 3.0;
   const aS = parseFloat(awayStars) || 3.0;
-  
+
   // 1. Base Probability from Stars
   const baseProb = 50;
   const starDiff = hS - aS;
   let homeWinProb = baseProb + (starDiff * 15) + 5; // +5 Home Advantage
+
+  // 1b. Pot edge: tiap selisih 1 pot = 7%. Pot kecil = lebih kuat.
+  // Pot kosong/tidak valid = netral (0) agar tidak menghukum data lama.
+  const hP = parseInt(homePot), aP = parseInt(awayPot);
+  let potBias = 0;
+  if ([1, 2, 3, 4, 5].includes(hP) && [1, 2, 3, 4, 5].includes(aP)) {
+    potBias = (aP - hP) * 7;
+    homeWinProb += potBias;
+  }
 
   // 2. Score Bias (Live Update)
   // If s1 or s2 is null (match hasn't started), treat as 0
@@ -1027,11 +1036,11 @@ const calculateWinProbability = (homeStars, awayStars, s1 = 0, s2 = 0) => {
   homeWinProb += (goalDiff * 20);
 
   // 3. Realistic Caps
-  // If a team is leading, they shouldn't drop below 10% 
+  // If a team is leading, they shouldn't drop below 10%
   // unless the star difference is massive.
   homeWinProb = Math.min(Math.max(Math.round(homeWinProb), 5), 95);
-  
-  return { home: homeWinProb, away: 100 - homeWinProb };
+
+  return { home: homeWinProb, away: 100 - homeWinProb, potBias };
 };
     
 // Function to show star icons (optional but looks cool)
@@ -3187,8 +3196,9 @@ const initSlideshow = (urls) => {
       const penaltyScore = formatPenaltyScore(m);
       const liveClock = formatLiveClock(m);
 
-      // Calculate the real probability
-      const prob = calculateWinProbability(t1.stars, t2.stars, m.s1, m.s2);
+      // Calculate the real probability (stars + pot + live score)
+      const prob = calculateWinProbability(t1.stars, t2.stars, m.s1, m.s2, t1.pot, t2.pot);
+      const potLabel = (p) => [1, 2, 3, 4, 5].includes(parseInt(p)) ? ` • P${parseInt(p)}` : "";
 
       contentContainer.innerHTML = `
         <div class="flex-1 w-full pt-20">
@@ -3225,9 +3235,10 @@ const initSlideshow = (urls) => {
         <div class="bg-error transition-all duration-1000" style="width: ${prob.away}%"></div>
       </div>
       <div class="flex justify-between text-[8px] opacity-40 uppercase">
-        <span>${t1.name} (${getStarIcons(t1.stars)})</span>
-        <span>(${getStarIcons(t2.stars)}) ${t2.name}</span>
+        <span>${t1.name} (${getStarIcons(t1.stars)}${potLabel(t1.pot)})</span>
+        <span>(${getStarIcons(t2.stars)}${potLabel(t2.pot)}) ${t2.name}</span>
       </div>
+      ${prob.potBias ? `<div class="flex justify-between text-[8px] uppercase text-primary"><span>Pot edge</span><span>${prob.potBias > 0 ? "+" : ""}${prob.potBias}% home</span></div>` : ""}
     </div>
   </div>`;
     };
