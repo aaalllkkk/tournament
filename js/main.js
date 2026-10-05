@@ -31,6 +31,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     const seenMatchEventIds = new Set();
     let matchesSnapshotReady = false;
     const knownLiveByMatchId = new Map();
+    const knownScoreByMatchId = new Map();
     const autoNewsInFlight = new Set();
     let knockoutScheduleSyncing = false;
     let knockoutScoreSyncing = false;
@@ -828,6 +829,16 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       const stage = match.type === "knockout" ? (match.knockoutRoundName || "Knockout") : "League Match";
       const titlePrefix = match.type === "knockout" ? `${stage}: ` : "";
       const title = `${titlePrefix}${match.team1} ${score}${penaltyScore ? ` (${penaltyScore})` : ""} ${match.team2}`;
+      // Detail gol (bila ada dari bridge/event) agar berita natural menyebut pencetak yang benar.
+      const goalDetails = getEventsForMatch(match)
+        .filter((e) => normalizeKey(e.eventType || e.type || "").includes("goal"))
+        .slice(-12)
+        .map((e) => ({
+          min: e.minute ?? null,
+          team: e.teamSide === "away" ? (match.team2 || e.team2 || "") : (match.team1 || e.team1 || ""),
+          scorer: e.scorer || e.player || "",
+          assist: e.assist || ""
+        }));
 
       try {
         await updateDoc(matchRef, {
@@ -845,7 +856,9 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
             score,
             penaltyScore,
             matchType: match.type || "league",
-            stage
+            stage,
+            goals: goalDetails,
+            lang: "id"
           })
         });
 
@@ -897,15 +910,25 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
 
     const handleFinishedMatchNewsTriggers = (incomingMatches) => {
       if (!matchesSnapshotReady) {
-        incomingMatches.forEach((match) => knownLiveByMatchId.set(match.id, match.live === true));
+        incomingMatches.forEach((match) => {
+          knownLiveByMatchId.set(match.id, match.live === true);
+          knownScoreByMatchId.set(match.id, hasFinalScore(match));
+        });
         matchesSnapshotReady = true;
         return;
       }
 
       incomingMatches.forEach((match) => {
         const wasLive = knownLiveByMatchId.get(match.id);
-        const finishedNow = wasLive === true && match.live === false && hasFinalScore(match);
+        const wasScored = knownScoreByMatchId.get(match.id);
+        const scored = hasFinalScore(match);
+        // Langsung bikin berita saat: (a) live selesai dengan hasil, atau
+        // (b) skor final baru muncul saat match tidak live (input manual / bridge).
+        // Guard autoNewsStatus di dalam generator mencegah duplikat.
+        const finishedNow = (wasLive === true && match.live === false && scored) ||
+          (wasScored !== true && scored && match.live !== true);
         knownLiveByMatchId.set(match.id, match.live === true);
+        knownScoreByMatchId.set(match.id, scored);
         if (finishedNow) {
           maybeGenerateNewsAfterMatch(match);
         }
@@ -3727,9 +3750,10 @@ const buildDoubleEliminationTop4 = (rankedTeams) => {
 
 const buildDoubleEliminationTop6 = (rankedTeams, fillers = []) => {
   const seeds = rankedTeams.slice(0, 6);
-  // Slot lb3 (pecundang WB4) tidak punya lawan jika 6 tim pas — diisi peringkat terbaik
-  // berikutnya agar tidak walkover. Tanpa filler, seed2 kosong = BYE.
-  const fill1 = fillers[0] || "";
+  // Slot lb3 (pecundang WB4) tidak punya lawan bila 6 tim pas — diisi peringkat terbaik
+  // agar tidak walkover. Slot kosong RONDE PEMBUKA sengaja tidak diisi: itu BYE sah milik seed teratas.
+  const fill = (fillers || []).slice();
+  const takeFill = () => fill.shift() || "";
   return [
     {
       id: "d1",
@@ -3759,7 +3783,7 @@ const buildDoubleEliminationTop6 = (rankedTeams, fillers = []) => {
       name: "Lower Bracket - Round 2",
       matches: [
         { id: "lb2", seed1: "", seed2: "", source1: { matchId: "wb3", outcome: "loser" }, source2: { matchId: "lb1", outcome: "winner" }, s1: null, s2: null },
-        { id: "lb3", seed1: "", seed2: fill1, source1: { matchId: "wb4", outcome: "loser" }, source2: null, s1: null, s2: null }
+        { id: "lb3", seed1: "", seed2: takeFill(), source1: { matchId: "wb4", outcome: "loser" }, source2: null, s1: null, s2: null }
       ]
     },
     {
@@ -3876,9 +3900,9 @@ const buildDoubleEliminationTop8 = (rankedTeams) => {
 };
 
 const buildDoubleEliminationRounds = (rankedTeams, teamCount, fillers = []) => {
-  if (teamCount <= 4) return buildDoubleEliminationTop4(rankedTeams);
+  if (teamCount <= 4) return buildDoubleEliminationTop4(rankedTeams, fillers);
   if (teamCount <= 6) return buildDoubleEliminationTop6(rankedTeams, fillers);
-  return buildDoubleEliminationTop8(rankedTeams);
+  return buildDoubleEliminationTop8(rankedTeams, fillers);
 };
 
 // Standar turnamen (FIFA-style): ronde pembuka hindari rematch segrup bila bisa.
@@ -4555,39 +4579,56 @@ async function runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, b
   }
 
   if (format === "double") {
-    const doubleTeamCount = Math.max(4, Math.min(requestedSize, rankedTeams.length, 8));
-    const normalizedDoubleTeamCount = doubleTeamCount <= 4 ? 4 : doubleTeamCount <= 6 ? 6 : 8;
-    if (rankedTeams.length < normalizedDoubleTeamCount) {
-      alert(`Double elimination butuh minimal ${normalizedDoubleTeamCount} tim untuk pilihan ini.`);
-      return;
-    }
-    // Double hanya support struktur 4/6/8: kelebihan tim (mis. 10 lolos) dipangkas eksplisit.
-    const droppedDouble = rankedTeams.slice(normalizedDoubleTeamCount);
-    const trimNote = droppedDouble.length ? ` Diambil ${normalizedDoubleTeamCount} teratas (${droppedDouble.join(", ")} tidak ikut).` : "";
+    // Adaptif semua sistem: struktur mengikuti tim yang ADA (tanpa alert blokir).
+    // Kuota = min(requested, available, 8); struktur = snap ke 4/6/8 (slot kurang = BYE/filler).
+    const availCount = rankedTeams.length;
+    const cappedWant = Math.max(2, Math.min(requestedSize, availCount, 8));
+    const structSize = cappedWant <= 4 ? 4 : cappedWant <= 6 ? 6 : 8;
     const doubleLabel =
-      sizeSelection === "champions" ? `Zona Champions Top ${normalizedDoubleTeamCount}` :
-      sizeSelection === "auto" ? `Zona Play-off Top ${normalizedDoubleTeamCount}` :
-      `Manual Top ${normalizedDoubleTeamCount}`;
+      sizeSelection === "champions" ? `Zona Champions Top ${structSize}` :
+      sizeSelection === "auto" ? `Zona Play-off Top ${structSize}` :
+      `Manual Top ${structSize}`;
     const byeFillParam = byeFill;
-    // Peringkat terbaik = urutan klasemen keseluruhan pertama di luar kuota lolos —
-    // ngikutin Top N apa pun (Top 2/4/6/8, grup + best, manual). Bukan hardcode peringkat 7.
+    // Pool pengisi umum: peringkat terbaik di luar kuota (cappedWant) — untuk SEMUA
+    // slot kosong ronde pembuka + lb3. Dinamis ikut Top N (Top 2/4/6/8, grup + best, manual).
     const fullRanking = calculateStandings().map((row) => row.team);
-    const qualifiedSet = new Set(rankedTeams.slice(0, normalizedDoubleTeamCount));
-    const fillerPool = byeFillParam === "1" ? fullRanking.filter((t) => !qualifiedSet.has(t)).slice(0, 1) : [];
-    const fillerLabel = fillerPool.length ? ` + Best next (${fillerPool.join(", ")}) isi slot lower` : (byeFillParam !== "0" ? " (tim kurang — sisa slot jadi BYE)" : "");
+    const seedNames = rankedTeams.slice(0, cappedWant);
+    const seedSet = new Set(seedNames);
+    const fillerPool = byeFillParam === "1"
+      ? [...rankedTeams.slice(cappedWant), ...fullRanking.filter((t) => !seedSet.has(t))].filter((t, i, a) => a.indexOf(t) === i).slice(0, 4)
+      : [];
 
-    if (!skipConfirm && !confirm(`Generate Double Elimination bracket untuk ${doubleLabel}? Tie ${tieLabel}${mirrorLabel}${fillerLabel}.${trimNote}`)) return false;
-    const doubleRounds = buildDoubleEliminationRounds(rankedTeams.slice(0, normalizedDoubleTeamCount), normalizedDoubleTeamCount, fillerPool);
+    const doubleRounds = buildDoubleEliminationRounds(seedNames, structSize, fillerPool);
     repairOpeningTies((doubleRounds.find((r) => r.id === "d1") || { matches: [] }).matches);
+    // Hitung BYE (ronde pembuka = jatah seed teratas; lb3 = walkover bila tanpa pengisi)
+    // + filler yang benar-benar terpakai (bukan janji pool).
+    let openingByes = 0, lowerWalkover = false;
+    const usedFillers = [];
+    doubleRounds.forEach((r) => (r.matches || []).forEach((m) => {
+      const e1 = !m.seed1 && !m.source1, e2 = !m.seed2 && !m.source2;
+      if (e1 !== e2) {
+        if (m.id === "lb3") lowerWalkover = true;
+        else openingByes++;
+      }
+      [m.seed1, m.seed2].forEach((s) => { if (s && !seedSet.has(s) && !usedFillers.includes(s)) usedFillers.push(s); });
+    }));
+    // Kelebihan di atas kuota yang benar-benar tidak kepakai dipangkas eksplisit.
+    const droppedDouble = rankedTeams.slice(cappedWant).filter((t) => !usedFillers.includes(t));
+    const trimNote = droppedDouble.length ? ` Diambil kuota Top ${cappedWant} (${droppedDouble.join(", ")} tidak ikut).` : "";
+    const usedNote = usedFillers.length ? ` + Best next (${usedFillers.join(", ")}) isi slot lower` : "";
+    const walkNote = (!usedFillers.length && lowerWalkover) ? (byeFillParam !== "0" ? " Walkover di LB3 (tim kurang — tidak ada pengisi)." : " Walkover di LB3.") : "";
+    const fillerLabel = `${usedNote}${walkNote}`;
+    const byeNoteD = openingByes > 0 ? ` ${openingByes} BYE ronde pembuka (jatah seed teratas).` : " Tanpa BYE.";
+    if (!skipConfirm && !confirm(`Generate Double Elimination (Top ${structSize}) untuk ${doubleLabel}? Tie ${tieLabel}${mirrorLabel}${fillerLabel}.${trimNote}${byeNoteD}`)) return false;
     doubleRounds.forEach((r) => r.matches.forEach((mm) => { mm.tieFormat = tieFormat; mm.mirrorTeam = mirrorTeam; }));
     knockout = {
       format: "double",
       tieFormat,
       byeFill: byeFillParam,
       mirrorTeam,
-      bracketSize: normalizedDoubleTeamCount,
+      bracketSize: structSize,
       qualifierZone: `${doubleLabel} • ${tieLabel}${mirrorLabel}${fillerLabel}`,
-      qualifiedCount: normalizedDoubleTeamCount,
+      qualifiedCount: structSize,
       seedSnapshot: rankedTeams.slice(),
       rounds: doubleRounds
     };
