@@ -4259,9 +4259,10 @@ const drawKoWires = () => {
         const x1 = s.x + s.w, y1 = s.y + s.h / 2;
         const x2 = t.x, y2 = t.y + t.h * feed.frac;
         if (x2 <= x1 + 2) return; // sumber di belakang/tidak searah — lewati agar tidak coret kartu
-        const dx = Math.max(24, (x2 - x1) / 2);
+        // Tree branch rigid: horizontal keluar → vertikal → horizontal masuk (siku, bukan kurva).
+        const mx = x1 + Math.max(18, (x2 - x1) / 2);
         const cls = feed.out === "winner" ? "win" : feed.out === "loser" ? "lose" : "";
-        html += `<path class="ko-wire ${cls}" d="M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}"/>`;
+        html += `<path class="ko-wire ${cls}" d="M ${x1} ${y1} H ${mx} V ${y2} H ${x2}"/>`;
       });
     });
     svg.setAttribute("viewBox", `0 0 ${grid.scrollWidth} ${grid.scrollHeight}`);
