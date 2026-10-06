@@ -2426,6 +2426,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
                         const adminKoStatus = renderKnockoutAdminStatus(m);
                         const koGameBadge = (m.type || "") === "knockout" && (m.knockoutGameLabel || m.knockoutGame) ? `<span class="px-2 py-1 bg-secondary/10 text-secondary font-bold text-[10px] uppercase tracking-widest rounded-full border border-secondary/20 w-max">${m.knockoutGameLabel || `Game ${m.knockoutGame}`}${m.knockoutTieFormat && m.knockoutTieFormat !== "single" ? ` • ${m.knockoutTieFormat.toUpperCase()}` : ""}</span>` : "";
                         const mirrorBadge = m.mirrorTeam ? `<span class="px-2 py-1 bg-tertiary/10 text-tertiary font-bold text-[10px] uppercase tracking-widest rounded-full border border-tertiary/20 w-max">Mirror: pakai ${m.useTeam || m.team1}</span>` : "";
+                        const neutralBadge = m.neutralGame ? `<span class="px-2 py-1 bg-primary/10 text-primary font-bold text-[10px] uppercase tracking-widest rounded-full border border-primary/20 w-max">Game penentu • venue netral</span>` : "";
                         const groupMeta = (m.type || "") === "group" && matchGroup(m) ? `<span class="px-2 py-1 bg-tertiary/10 text-tertiary font-bold text-[10px] uppercase tracking-widest rounded-full border border-tertiary/20 w-max">Group ${matchGroup(m)}${m.leg === 2 || m.leg === "2" ? " • Leg 2" : ""}</span>` : ((m.leg === 2 || m.leg === "2") && (m.type || "league") === "league" ? `<span class="px-2 py-1 bg-white/5 text-on-surface-variant font-bold text-[10px] uppercase tracking-widest rounded-full border border-white/10 w-max">Leg 2</span>` : "");
                         const badge = m.live ? `<span class="px-3 py-1 bg-error/10 text-error font-bold text-[10px] uppercase tracking-widest rounded-full border border-error/20 flex items-center gap-1 w-max"><span class="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span> LIVE</span>`
                             : isFinished ? `<span class="px-3 py-1 bg-outline-variant/20 text-on-surface-variant font-bold text-[10px] uppercase tracking-widest rounded-full w-max">Full Time</span>`
@@ -2435,7 +2436,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
                         return `
                         <div class="group relative bg-surface-container-high rounded-[2rem] p-6 transition-all hover:bg-surface-container-highest ${m.live ? 'ring-1 ring-error/50 shadow-[0_0_20px_rgba(255,115,81,0.1)]' : 'border border-outline-variant/10 shadow-xl'}">
                             <div class="flex justify-between items-start mb-6">
-                                <div class="flex flex-wrap gap-2">${badge}${groupMeta}${koGameBadge}${mirrorBadge}</div>
+                                <div class="flex flex-wrap gap-2">${badge}${groupMeta}${koGameBadge}${mirrorBadge}${neutralBadge}</div>
                                 <div class="text-right">
                                   ${liveClock ? `<span class="block text-error font-headline text-sm font-black italic">${liveClock}</span>` : ""}
                                   <span class="text-on-surface-variant font-label text-xs uppercase">${safe(m.date, 'TBD')}</span>
@@ -2461,6 +2462,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
                                             <input type="number" class="w-10 bg-black/40 text-center text-sm font-black text-secondary p-1 rounded-lg border border-secondary/20" value="${m.p2 ?? ""}" data-action="updateScore" data-side="p2" data-id="${m.id}">
                                         </div>` : ""}
                                         ${m.mirrorTeam ? `<p class="mt-2 text-[9px] uppercase tracking-widest text-tertiary font-black">Kedua player pakai ${m.useTeam || m.team1}</p>` : ""}
+                                        ${m.neutralGame ? `<p class="mt-2 text-[9px] uppercase tracking-widest text-primary font-black">Venue netral — kedua player pakai tim sendiri</p>` : ""}
                                         ${penaltyScore ? `<p class="mt-2 text-[10px] uppercase tracking-widest text-secondary font-black">${penaltyScore}</p>` : ""}` : `
                                         ${(m.live || isFinished) ? `
                                             <div class="flex items-center gap-4 md:gap-6">
@@ -3718,126 +3720,154 @@ const buildDoubleEliminationTop6_DEPRECATED = null;
 
 
 
-// Double elimination generik berbasis tier — menggantikan builder Top4/6/8 yang kaku.
-// Penempatan (disepakati): Cup = upper dalam (dapat BYE), Playoff = upper awal
-// (bertarung dulu), Best = langsung nunggu di lower sebagai seed.
-// - Upper = single-elim cup+playoff (cup = top seed). Lower = aliran pecundang upper
-//   per ronde + best langsung (interleave agar best lawan pecundang; ronde campur di-cross
-//   agar beda sisi). Ganjil di pasangan mana pun = BYE eksplisit.
-// - Jumlah berapa pun valid (2..): tiap peserta terjadwal ≥1 match, semua source valid,
-//   champion selalu resolve (terbukti via simulasi). BYE = jatah seed teratas /
-//   penyeimbang ganjil; resolve otomatis meloloskan tim yang ada.
+// Double elimination generik berbasis tier — Cup = upper dalam (dapat BYE struktural,
+// langsung masuk braket utama tanpa match BYE), Playoff = play-in bila melebihi slot
+// (S = B − C, B = nextPow2(C+1)), Best = menunggu di lower hingga ronde drop terakhir.
+// Prinsip anti-kotak-kosong: match HANYA dibuat bila kedua sisi terisi (seed/source).
+// Ganjil di pasangan mana pun = tim langsung dibawa (carry) ke ronde berikut, bukan
+// jadi match BYE. Pecundang yang turun ke lower HANYA dari match yang benar-benar
+// dimainkan. Jumlah berapa pun valid (2+): tiap peserta main ≥1 match, semua source
+// valid, champion selalu resolve. Return { rounds, byeCount }.
 const buildTieredDoubleElimination = (cup, playoff, best) => {
-  let upperTeams = [...cup, ...playoff];
-  let bestTeams = [...best];
-  // Degenerasi: upper < 2 tim → tarik best teratas ke upper sampai 2 (tanpa lower bila tak terbentuk).
+  const cupTeams = [...cup];
+  const playoffTeams = [...playoff];
+  const bestTeams = [...best];
+  let upperTeams = [...cupTeams, ...playoffTeams];
+  // Degenerasi: upper < 2 tim → tarik best teratas ke upper sampai 2.
   while (upperTeams.length < 2 && bestTeams.length) upperTeams.push(bestTeams.shift());
   const rounds = [];
-  let wbCounter = 0, lbCounter = 0, dlCounter = 0;
-
-  // ---- UPPER: single-elim standar ----
-  const U = upperTeams.length;
-  const B = nextPowerOfTwo(Math.max(2, U));
-  const R = Math.log2(B);
-  const pattern = createSeedOrder(B);
-  const slots = pattern.map((seedNo) => upperTeams[seedNo - 1] || "");
-  const upperRounds = [];
-  let prevIds = [];
-  for (let k = 0; k < R; k++) {
-    const mc = B / Math.pow(2, k + 1);
-    const round = { id: `du${k + 1}`, name: `Upper Bracket - ${getRoundName(mc * 2)}`, matches: [] };
-    for (let j = 0; j < mc; j++) {
-      const id = `wb${++wbCounter}`;
-      round.matches.push(k === 0
-        ? { id, seed1: slots[j * 2] || "", seed2: slots[j * 2 + 1] || "", source1: null, source2: null, s1: null, s2: null }
-        : { id, seed1: "", seed2: "", source1: { matchId: prevIds[j * 2], outcome: "winner" }, source2: { matchId: prevIds[j * 2 + 1], outcome: "winner" }, s1: null, s2: null });
-    }
-    prevIds = round.matches.map((m) => m.id);
-    upperRounds.push(round);
-    rounds.push(round);
-  }
-  const upperFinalId = prevIds[0];
-
-  // ---- LOWER ----
-  const feedLosers = (ids) => ids.map((matchId) => ({ kind: "loser", matchId }));
-  const feedSeeds = (teams) => teams.map((team) => ({ kind: "seed", team }));
-  const feedWinners = (ids) => ids.map((matchId) => ({ kind: "winner", matchId }));
-  const interleaveMixed = (A, Bc) => {
-    const out = [];
-    const n = Math.max(A.length, Bc.length);
-    for (let i = 0; i < n; i++) {
-      if (i < A.length) out.push(A[i]);
-      if (i < Bc.length) out.push(Bc[i]);
-    }
-    return out;
-  };
-  const crossMerge = (W, L) => {
-    // Silang winner-vs-loser (urutan loser dibalik) agar beda sisi;
-    // sisa sejenis + ganjil = BYE eksplisit.
-    const out = [];
-    const n = Math.min(W.length, L.length);
-    for (let i = 0; i < n; i++) { out.push(W[i]); out.push(L[L.length - 1 - i]); }
-    for (let i = n; i < W.length; i++) out.push(W[i]);
-    for (let i = n; i < L.length; i++) out.push(L[i]);
-    return out;
-  };
-  const toMatch = (a, b) => {
-    const id = `lb${++lbCounter}`;
-    const side = (f) => (!f
-      ? { seed: "", source: null }
-      : f.kind === "loser"
-        ? { seed: "", source: { matchId: f.matchId, outcome: "loser" } }
-        : f.kind === "winner"
-          ? { seed: "", source: { matchId: f.matchId, outcome: "winner" } }
-          : { seed: f.team || "", source: null });
+  let wbCounter = 0, lbCounter = 0, dlCounter = 0, duCounter = 0, byeCount = 0;
+  // Entri: { team } tim diketahui | { win: matchId } pemenang TBD | { lose: matchId } pecundang TBD.
+  const toMatch = (a, b, id) => {
+    const side = (f) => (f.team
+      ? { seed: f.team, source: null }
+      : f.win
+        ? { seed: "", source: { matchId: f.win, outcome: "winner" } }
+        : { seed: "", source: { matchId: f.lose, outcome: "loser" } });
     const A = side(a), Bc = side(b);
     return { id, seed1: A.seed, seed2: Bc.seed, source1: A.source, source2: Bc.source, s1: null, s2: null };
   };
-  const pairSequential = (feeds) => {
-    const ms = [];
-    for (let i = 0; i < feeds.length; i += 2) ms.push(toMatch(feeds[i], feeds[i + 1]));
-    return ms;
+  // Upper: atas-vs-bawah (cup = top seed). Ganjil → tengah carry (BYE, langsung maju).
+  const pairTopBottom = (entries) => {
+    const list = [...entries];
+    let carry = null;
+    if (list.length % 2 === 1) carry = list.splice(Math.floor(list.length / 2), 1)[0];
+    const pairs = [];
+    while (list.length) pairs.push([list.shift(), list.pop()]);
+    return { pairs, carry };
   };
-  const pushLower = (matchesArr, name) => {
-    if (!matchesArr.length) return null;
-    const round = { id: `dl${++dlCounter}`, name: name || `Lower Bracket - Round ${dlCounter}`, matches: matchesArr };
+  // Lower: sekuensial (pemenang lower → pecundang baru → best). Ganjil → terakhir carry.
+  const pairSequential = (entries) => {
+    const list = [...entries];
+    let carry = null;
+    if (list.length % 2 === 1) carry = list.pop();
+    const pairs = [];
+    while (list.length) pairs.push([list.shift(), list.shift()]);
+    return { pairs, carry };
+  };
+  const upperLoserRounds = []; // per ronde upper: matchIds (semua match nyata → semua ada pecundang)
+  const pushUpperRound = (entries, name) => {
+    const { pairs, carry } = pairTopBottom(entries);
+    const round = { id: `du${++duCounter}`, name, matches: [] };
+    const ids = [];
+    pairs.forEach(([a, b]) => {
+      const id = `wb${++wbCounter}`;
+      round.matches.push(toMatch(a, b, id));
+      ids.push(id);
+    });
     rounds.push(round);
-    return round;
+    upperLoserRounds.push(ids);
+    if (carry) byeCount++;
+    return { ids, carry };
   };
 
-  // Lower ronde 1: pecundang upper-R1 + best langsung (kecuali upper cuma final).
-  let lastLower = null;
-  if (R > 1) {
-    lastLower = pushLower(pairSequential(interleaveMixed(
-      feedLosers(upperRounds[0].matches.map((m) => m.id)),
-      feedSeeds(bestTeams)
-    )));
+  // ---- UPPER ----
+  let mainEntries = [];
+  const C = cupTeams.length;
+  if (C > 0 && playoffTeams.length > 0) {
+    const S = nextPowerOfTwo(C + 1) - C; // slot playoff di braket utama
+    if (playoffTeams.length > S) {
+      // Play-in: reduksi playoff → S survivor. Pecundang tiap ronde ikut turun ke lower.
+      let entries = playoffTeams.map((t) => ({ team: t }));
+      let pin = 0;
+      while (entries.length > S) {
+        pin++;
+        const { ids, carry } = pushUpperRound(entries, `Upper Bracket - Play-In ${pin}`);
+        entries = [...(carry ? [carry] : []), ...ids.map((id) => ({ win: id }))];
+      }
+      mainEntries = [...cupTeams.map((t) => ({ team: t })), ...entries];
+    } else {
+      mainEntries = [...cupTeams.map((t) => ({ team: t })), ...playoffTeams.map((t) => ({ team: t }))];
+    }
   } else {
-    lastLower = pushLower(pairSequential(feedSeeds(bestTeams)));
+    mainEntries = upperTeams.map((t) => ({ team: t }));
   }
-  // Ronde upper tengah (bukan pertama & bukan final): pecundangnya gabung pemenang lower (cross).
-  for (let k = 1; k <= R - 2; k++) {
-    const upIds = upperRounds[k].matches.map((m) => m.id);
-    const prevW = lastLower ? lastLower.matches.map((m) => m.id) : [];
-    const feeds = crossMerge(feedWinners(prevW), feedLosers(upIds));
-    lastLower = pushLower(pairSequential(feeds));
+  // Braket utama hingga 1 entri (final selalu 2 entri → 1 match).
+  while (mainEntries.length > 1) {
+    const E = mainEntries.length;
+    const { ids, carry } = pushUpperRound(mainEntries, `Upper Bracket - ${getRoundName(nextPowerOfTwo(Math.max(2, E)))}`);
+    mainEntries = [...(carry ? [carry] : []), ...ids.map((id) => ({ win: id }))];
   }
-  // Reduksi survivor lower hingga 1.
-  let survivors = lastLower ? lastLower.matches.map((m) => m.id) : [];
-  while (survivors.length > 1) {
-    const feeds = survivors.map((matchId) => ({ kind: "winner", matchId }));
-    lastLower = pushLower(pairSequential(feeds));
-    survivors = lastLower ? lastLower.matches.map((m) => m.id) : [];
+  const R = upperLoserRounds.length;
+  const upperFinalId = R ? upperLoserRounds[R - 1][0] : null;
+
+  // ---- LOWER ----
+  const pushLowerRound = (pairs, name) => {
+    const round = { id: `dl${++dlCounter}`, name: name || `Lower Bracket - Round ${dlCounter}`, matches: [] };
+    const wids = [];
+    pairs.forEach(([a, b]) => {
+      const id = `lb${++lbCounter}`;
+      round.matches.push(toMatch(a, b, id));
+      wids.push(id);
+    });
+    rounds.push(round);
+    return wids;
+  };
+  let lowerFeeds = []; // entri survivor lower antar stage ({ win } / { team } carry)
+  if (R > 1) {
+    for (let k = 1; k <= R - 1; k++) {
+      const feeds = [...lowerFeeds, ...upperLoserRounds[k - 1].map((id) => ({ lose: id }))];
+      if (k === R - 1) feeds.push(...bestTeams.map((t) => ({ team: t }))); // best menunggu hingga drop terakhir
+      if (!feeds.length) continue;
+      const { pairs, carry } = pairSequential(feeds);
+      lowerFeeds = [];
+      if (pairs.length) {
+        const wids = pushLowerRound(pairs);
+        wids.forEach((id) => lowerFeeds.push({ win: id }));
+      }
+      if (carry) { lowerFeeds.push(carry); byeCount++; }
+    }
+    // Reduksi survivor lower hingga 1.
+    while (lowerFeeds.length > 1) {
+      const { pairs, carry } = pairSequential(lowerFeeds);
+      lowerFeeds = [];
+      if (!pairs.length) { if (carry) lowerFeeds.push(carry); break; }
+      pushLowerRound(pairs).forEach((id) => lowerFeeds.push({ win: id }));
+      if (carry) { lowerFeeds.push(carry); byeCount++; }
+    }
+  } else if (R === 1) {
+    // Degenerasi satu ronde upper: lower = best saling adu (+ pecundang final upper di LB final).
+    const { pairs, carry } = pairSequential(bestTeams.map((t) => ({ team: t })));
+    lowerFeeds = [];
+    if (pairs.length) pushLowerRound(pairs).forEach((id) => lowerFeeds.push({ win: id }));
+    if (carry) { lowerFeeds.push(carry); byeCount++; }
+    while (lowerFeeds.length > 1) {
+      const nxt = pairSequential(lowerFeeds);
+      lowerFeeds = [];
+      if (!nxt.pairs.length) { if (nxt.carry) lowerFeeds.push(nxt.carry); break; }
+      pushLowerRound(nxt.pairs).forEach((id) => lowerFeeds.push({ win: id }));
+      if (nxt.carry) { lowerFeeds.push(nxt.carry); byeCount++; }
+    }
   }
   // LB Final: juara lower vs pecundang final upper. Grand Final (+reset) bila lower terbentuk.
-  if (survivors.length === 1) {
-    const lbFinal = pushLower([toMatch({ kind: "winner", matchId: survivors[0] }, { kind: "loser", matchId: upperFinalId })], "Lower Bracket - Final");
-    if (lbFinal) {
-      rounds.push({ id: "df1", name: "Grand Final", matches: [{ id: "gf1", seed1: "", seed2: "", source1: { matchId: upperFinalId, outcome: "winner" }, source2: { matchId: lbFinal.matches[0].id, outcome: "winner" }, s1: null, s2: null }] });
+  if (lowerFeeds.length === 1 && upperFinalId) {
+    const lbFinalId = pushLowerRound([[lowerFeeds[0], { lose: upperFinalId }]], "Lower Bracket - Final")[0];
+    if (lbFinalId) {
+      rounds.push({ id: "df1", name: "Grand Final", matches: [{ id: "gf1", seed1: "", seed2: "", source1: { matchId: upperFinalId, outcome: "winner" }, source2: { matchId: lbFinalId, outcome: "winner" }, s1: null, s2: null }] });
       rounds.push({ id: "df2", name: "Grand Final Reset", matches: [{ id: "gf2", seed1: "", seed2: "", source1: { matchId: "gf1", outcome: "winnerSeed1" }, source2: { matchId: "gf1", outcome: "winnerSeed2" }, s1: null, s2: null, isReset: true, visible: false }] });
     }
   }
-  return rounds;
+  return { rounds, byeCount };
 };
 
 const buildDoubleEliminationRounds = () => {
@@ -4263,9 +4293,10 @@ const knockoutScheduleDocId = (matchId, game = 1, total = 1) => {
   const base = `knockout-${normalizeKey(matchId).replace(/[^a-z0-9_-]+/g, "-")}`;
   return total <= 1 ? base : `${base}-g${game}`;
 };
+const isDeciderGame = (tieFormat, game, total) => (tieFormat === "bo3" || tieFormat === "bo5") && total > 1 && game === total;
 const knockoutGameLabel = (tieFormat, game, total) => {
   if (tieFormat === "h2") return game === 2 ? "Leg 2" : "Leg 1";
-  if (tieFormat === "bo3" || tieFormat === "bo5") return `Game ${game}`;
+  if (tieFormat === "bo3" || tieFormat === "bo5") return isDeciderGame(tieFormat, game, total) ? `Game ${game} (Netral)` : `Game ${game}`;
   return total <= 1 ? "" : `Game ${game}`;
 };
 
@@ -4297,10 +4328,13 @@ async function ensureKnockoutScheduleMatches(options = {}) {
       const total = gamesForTie(tie);
       const mirror = match.mirrorTeam === true || resolved.mirrorTeam === true;
       for (let game = 1; game <= total; game++) {
-        const isReturnLeg = tie === "h2" && game === 2;
-        // Leg 2 kandang ditukar: tuan rumah jadi tim tandang leg 1.
-        const gTeam1 = isReturnLeg ? match.team2 : match.team1;
-        const gTeam2 = isReturnLeg ? match.team1 : match.team2;
+        // Adil: tuan rumah gantian tiap game (ganjil = bracket-team1, genap = ditukar).
+        // H2 tetap Leg 1 / Leg 2 seperti dulu; BO3/BO5 game penentu = venue netral (tanpa mirror).
+        const swapHome = game % 2 === 0;
+        const gTeam1 = swapHome ? match.team2 : match.team1;
+        const gTeam2 = swapHome ? match.team1 : match.team2;
+        const decider = isDeciderGame(tie, game, total);
+        const gameMirror = mirror && !decider;
         const gameLabel = knockoutGameLabel(tie, game, total);
         const matchDocId = knockoutScheduleDocId(match.id, game, total);
         activeIds.add(matchDocId);
@@ -4318,8 +4352,9 @@ async function ensureKnockoutScheduleMatches(options = {}) {
           knockoutGame: game,
           knockoutGames: total,
           knockoutGameLabel: gameLabel,
-          mirrorTeam: mirror,
-          useTeam: mirror ? gTeam1 : "",
+          mirrorTeam: gameMirror,
+          useTeam: gameMirror ? gTeam1 : "",
+          neutralGame: decider,
           knockoutQualifierZone: resolved.qualifierZone || "",
           Matchweek: 900,
           date: `Knockout - ${round.name}${gameLabel ? ` • ${gameLabel}` : ""}`,
@@ -4570,20 +4605,18 @@ async function runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, b
       `Manual Top ${quota}`;
     const tierNote = `Cup [${cup.join(", ") || "-"}] langsung upper dalam • Playoff [${playoff.join(", ") || "-"}] bertarung dulu • Best [${best.join(", ") || "-"}] nunggu di lower`;
 
-    const doubleRounds = buildTieredDoubleElimination(cup, playoff, best);
+    const { rounds: doubleRounds, byeCount } = buildTieredDoubleElimination(cup, playoff, best);
     repairOpeningTies((doubleRounds.find((r) => r.id === "du1") || { matches: [] }).matches);
-    // Hitung BYE (slot satu sisi tanpa source) + tim yang benar-benar main.
-    let openingByes = 0;
+    // Tanpa kotak kosong: tiap match dua sisi terisi; ganjil = tim langsung maju (byeCount).
+    const openingByes = byeCount;
     const playedNames = new Set();
     doubleRounds.forEach((r) => (r.matches || []).forEach((m) => {
-      const e1 = !m.seed1 && !m.source1, e2 = !m.seed2 && !m.source2;
-      if (e1 !== e2) openingByes++;
       [m.seed1, m.seed2].forEach((s) => { if (s) playedNames.add(s); });
     }));
     const droppedDouble = rankedTeams.filter((t) => !playedNames.has(t));
     const trimNote = droppedDouble.length ? ` (${droppedDouble.join(", ")} tidak ikut).` : "";
     const extraNote = extras.filter((t) => playedNames.has(t)).length ? ` + Best next (${extras.filter((t) => playedNames.has(t)).join(", ")}) ikut lower` : "";
-    const byeNoteD = openingByes > 0 ? ` ${openingByes} BYE (jatah seed teratas / penyeimbang ganjil).` : " Tanpa BYE.";
+    const byeNoteD = openingByes > 0 ? ` ${openingByes} BYE — tim langsung maju ke ronde berikut (tanpa kotak kosong).` : " Tanpa BYE.";
     if (!skipConfirm && !confirm(`Generate Double Elimination untuk ${doubleLabel}? ${tierNote}.${extraNote}${trimNote}${byeNoteD} Tie ${tieLabel}${mirrorLabel}.`)) return false;
     doubleRounds.forEach((r) => r.matches.forEach((mm) => { mm.tieFormat = tieFormat; mm.mirrorTeam = mirrorTeam; }));
     knockout = {
