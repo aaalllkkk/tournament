@@ -1945,6 +1945,13 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       document.getElementById("newsImage").value = "";
     };
 
+    const deleteNews = async (id) => {
+      if (!isAdmin || !id) return;
+      const item = news.find((n) => n.id === id);
+      if (!confirm(`Hapus berita "${item?.title || ""}"?`)) return;
+      await deleteDoc(doc(db, "news", id));
+    };
+
     const saveCutoffs = async () => {
       const readZoneNumber = (id, fallback) => {
         const value = parseInt(document.getElementById(id)?.value, 10);
@@ -3361,6 +3368,7 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
             // Desain Kartu Utama (Besar)
             return `
                 <div class="news-card md:col-span-2 relative h-[350px] rounded-[2.5rem] overflow-hidden group cursor-pointer border border-white/5 shadow-2xl" data-index="${i}">
+                    ${isAdmin ? `<button class="deleteBtn absolute top-4 right-4 z-10" data-action="deleteNews" data-id="${n.id}">Hapus</button>` : ""}
                     ${n.image ? `<img loading="lazy" decoding="async" src="${n.image}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">` : `<div class="absolute inset-0 bg-slate-800"></div>`}
                     
                     <div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
@@ -3380,6 +3388,7 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
             return `
                 <div class="news-card bg-[#111111]/60 backdrop-blur-md rounded-[2.2rem] overflow-hidden hover:bg-[#161616] transition-all duration-500 group border border-white/5 shadow-xl cursor-pointer" data-index="${i}">
                     <div class="h-44 relative overflow-hidden">
+                        ${isAdmin ? `<button class="deleteBtn absolute top-3 right-3 z-10 !px-2" data-action="deleteNews" data-id="${n.id}">X</button>` : ""}
                         ${n.image ? `<img loading="lazy" decoding="async" src="${n.image}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">` : `<div class="w-full h-full bg-slate-800"></div>`}
                         <div class="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"></div>
                     </div>
@@ -3398,7 +3407,8 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
 
     // Pasang ulang Event Listener
     document.querySelectorAll('.news-card').forEach(card => {
-        card.onclick = () => {
+        card.onclick = (e) => {
+            if (e.target.closest('[data-action="deleteNews"]')) return;
             const index = card.getAttribute('data-index');
             showModal(displayNews[index]);
         };
@@ -3699,210 +3709,139 @@ const buildSingleEliminationRounds = (rankedTeams, bracketSize) => {
   return rounds;
 };
 
-const buildDoubleEliminationTop4 = (rankedTeams) => {
-  const seeds = rankedTeams.slice(0, 4);
-  return [
-    {
-      id: "d1",
-      name: "Upper Bracket - Semifinal",
-      matches: [
-        { id: "wb1", seed1: seeds[0] || "", seed2: seeds[3] || "", source1: null, source2: null, s1: null, s2: null },
-        { id: "wb2", seed1: seeds[1] || "", seed2: seeds[2] || "", source1: null, source2: null, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d2",
-      name: "Lower Bracket - Elimination",
-      matches: [
-        { id: "lb1", seed1: "", seed2: "", source1: { matchId: "wb1", outcome: "loser" }, source2: { matchId: "wb2", outcome: "loser" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d3",
-      name: "Upper Bracket - Final",
-      matches: [
-        { id: "wb3", seed1: "", seed2: "", source1: { matchId: "wb1", outcome: "winner" }, source2: { matchId: "wb2", outcome: "winner" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d4",
-      name: "Lower Bracket - Final",
-      matches: [
-        { id: "lb2", seed1: "", seed2: "", source1: { matchId: "lb1", outcome: "winner" }, source2: { matchId: "wb3", outcome: "loser" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d5",
-      name: "Grand Final",
-      matches: [
-        { id: "gf1", seed1: "", seed2: "", source1: { matchId: "wb3", outcome: "winner" }, source2: { matchId: "lb2", outcome: "winner" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d6",
-      name: "Grand Final Reset",
-      matches: [
-        { id: "gf2", seed1: "", seed2: "", source1: { matchId: "gf1", outcome: "winnerSeed1" }, source2: { matchId: "gf1", outcome: "winnerSeed2" }, s1: null, s2: null, isReset: true, visible: false }
-      ]
+
+// (builder Top4/6/8 kaku dihapus — digantikan buildTieredDoubleElimination generik di bawah)
+const buildDoubleEliminationTop4_DEPRECATED = null;
+const buildDoubleEliminationTop6_DEPRECATED = null;
+
+
+
+
+
+// Double elimination generik berbasis tier — menggantikan builder Top4/6/8 yang kaku.
+// Penempatan (disepakati): Cup = upper dalam (dapat BYE), Playoff = upper awal
+// (bertarung dulu), Best = langsung nunggu di lower sebagai seed.
+// - Upper = single-elim cup+playoff (cup = top seed). Lower = aliran pecundang upper
+//   per ronde + best langsung (interleave agar best lawan pecundang; ronde campur di-cross
+//   agar beda sisi). Ganjil di pasangan mana pun = BYE eksplisit.
+// - Jumlah berapa pun valid (2..): tiap peserta terjadwal ≥1 match, semua source valid,
+//   champion selalu resolve (terbukti via simulasi). BYE = jatah seed teratas /
+//   penyeimbang ganjil; resolve otomatis meloloskan tim yang ada.
+const buildTieredDoubleElimination = (cup, playoff, best) => {
+  let upperTeams = [...cup, ...playoff];
+  let bestTeams = [...best];
+  // Degenerasi: upper < 2 tim → tarik best teratas ke upper sampai 2 (tanpa lower bila tak terbentuk).
+  while (upperTeams.length < 2 && bestTeams.length) upperTeams.push(bestTeams.shift());
+  const rounds = [];
+  let wbCounter = 0, lbCounter = 0, dlCounter = 0;
+
+  // ---- UPPER: single-elim standar ----
+  const U = upperTeams.length;
+  const B = nextPowerOfTwo(Math.max(2, U));
+  const R = Math.log2(B);
+  const pattern = createSeedOrder(B);
+  const slots = pattern.map((seedNo) => upperTeams[seedNo - 1] || "");
+  const upperRounds = [];
+  let prevIds = [];
+  for (let k = 0; k < R; k++) {
+    const mc = B / Math.pow(2, k + 1);
+    const round = { id: `du${k + 1}`, name: `Upper Bracket - ${getRoundName(mc * 2)}`, matches: [] };
+    for (let j = 0; j < mc; j++) {
+      const id = `wb${++wbCounter}`;
+      round.matches.push(k === 0
+        ? { id, seed1: slots[j * 2] || "", seed2: slots[j * 2 + 1] || "", source1: null, source2: null, s1: null, s2: null }
+        : { id, seed1: "", seed2: "", source1: { matchId: prevIds[j * 2], outcome: "winner" }, source2: { matchId: prevIds[j * 2 + 1], outcome: "winner" }, s1: null, s2: null });
     }
-  ];
+    prevIds = round.matches.map((m) => m.id);
+    upperRounds.push(round);
+    rounds.push(round);
+  }
+  const upperFinalId = prevIds[0];
+
+  // ---- LOWER ----
+  const feedLosers = (ids) => ids.map((matchId) => ({ kind: "loser", matchId }));
+  const feedSeeds = (teams) => teams.map((team) => ({ kind: "seed", team }));
+  const feedWinners = (ids) => ids.map((matchId) => ({ kind: "winner", matchId }));
+  const interleaveMixed = (A, Bc) => {
+    const out = [];
+    const n = Math.max(A.length, Bc.length);
+    for (let i = 0; i < n; i++) {
+      if (i < A.length) out.push(A[i]);
+      if (i < Bc.length) out.push(Bc[i]);
+    }
+    return out;
+  };
+  const crossMerge = (W, L) => {
+    // Silang winner-vs-loser (urutan loser dibalik) agar beda sisi;
+    // sisa sejenis + ganjil = BYE eksplisit.
+    const out = [];
+    const n = Math.min(W.length, L.length);
+    for (let i = 0; i < n; i++) { out.push(W[i]); out.push(L[L.length - 1 - i]); }
+    for (let i = n; i < W.length; i++) out.push(W[i]);
+    for (let i = n; i < L.length; i++) out.push(L[i]);
+    return out;
+  };
+  const toMatch = (a, b) => {
+    const id = `lb${++lbCounter}`;
+    const side = (f) => (!f
+      ? { seed: "", source: null }
+      : f.kind === "loser"
+        ? { seed: "", source: { matchId: f.matchId, outcome: "loser" } }
+        : f.kind === "winner"
+          ? { seed: "", source: { matchId: f.matchId, outcome: "winner" } }
+          : { seed: f.team || "", source: null });
+    const A = side(a), Bc = side(b);
+    return { id, seed1: A.seed, seed2: Bc.seed, source1: A.source, source2: Bc.source, s1: null, s2: null };
+  };
+  const pairSequential = (feeds) => {
+    const ms = [];
+    for (let i = 0; i < feeds.length; i += 2) ms.push(toMatch(feeds[i], feeds[i + 1]));
+    return ms;
+  };
+  const pushLower = (matchesArr, name) => {
+    if (!matchesArr.length) return null;
+    const round = { id: `dl${++dlCounter}`, name: name || `Lower Bracket - Round ${dlCounter}`, matches: matchesArr };
+    rounds.push(round);
+    return round;
+  };
+
+  // Lower ronde 1: pecundang upper-R1 + best langsung (kecuali upper cuma final).
+  let lastLower = null;
+  if (R > 1) {
+    lastLower = pushLower(pairSequential(interleaveMixed(
+      feedLosers(upperRounds[0].matches.map((m) => m.id)),
+      feedSeeds(bestTeams)
+    )));
+  } else {
+    lastLower = pushLower(pairSequential(feedSeeds(bestTeams)));
+  }
+  // Ronde upper tengah (bukan pertama & bukan final): pecundangnya gabung pemenang lower (cross).
+  for (let k = 1; k <= R - 2; k++) {
+    const upIds = upperRounds[k].matches.map((m) => m.id);
+    const prevW = lastLower ? lastLower.matches.map((m) => m.id) : [];
+    const feeds = crossMerge(feedWinners(prevW), feedLosers(upIds));
+    lastLower = pushLower(pairSequential(feeds));
+  }
+  // Reduksi survivor lower hingga 1.
+  let survivors = lastLower ? lastLower.matches.map((m) => m.id) : [];
+  while (survivors.length > 1) {
+    const feeds = survivors.map((matchId) => ({ kind: "winner", matchId }));
+    lastLower = pushLower(pairSequential(feeds));
+    survivors = lastLower ? lastLower.matches.map((m) => m.id) : [];
+  }
+  // LB Final: juara lower vs pecundang final upper. Grand Final (+reset) bila lower terbentuk.
+  if (survivors.length === 1) {
+    const lbFinal = pushLower([toMatch({ kind: "winner", matchId: survivors[0] }, { kind: "loser", matchId: upperFinalId })], "Lower Bracket - Final");
+    if (lbFinal) {
+      rounds.push({ id: "df1", name: "Grand Final", matches: [{ id: "gf1", seed1: "", seed2: "", source1: { matchId: upperFinalId, outcome: "winner" }, source2: { matchId: lbFinal.matches[0].id, outcome: "winner" }, s1: null, s2: null }] });
+      rounds.push({ id: "df2", name: "Grand Final Reset", matches: [{ id: "gf2", seed1: "", seed2: "", source1: { matchId: "gf1", outcome: "winnerSeed1" }, source2: { matchId: "gf1", outcome: "winnerSeed2" }, s1: null, s2: null, isReset: true, visible: false }] });
+    }
+  }
+  return rounds;
 };
 
-const buildDoubleEliminationTop6 = (rankedTeams, fillers = []) => {
-  const seeds = rankedTeams.slice(0, 6);
-  // Slot lb3 (pecundang WB4) tidak punya lawan bila 6 tim pas — diisi peringkat terbaik
-  // agar tidak walkover. Slot kosong RONDE PEMBUKA sengaja tidak diisi: itu BYE sah milik seed teratas.
-  const fill = (fillers || []).slice();
-  const takeFill = () => fill.shift() || "";
-  return [
-    {
-      id: "d1",
-      name: "Upper Bracket - Play-in",
-      matches: [
-        { id: "wb1", seed1: seeds[2] || "", seed2: seeds[5] || "", source1: null, source2: null, s1: null, s2: null },
-        { id: "wb2", seed1: seeds[3] || "", seed2: seeds[4] || "", source1: null, source2: null, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d2",
-      name: "Upper Bracket - Semifinal",
-      matches: [
-        { id: "wb3", seed1: seeds[0] || "", seed2: "", source1: null, source2: { matchId: "wb2", outcome: "winner" }, s1: null, s2: null },
-        { id: "wb4", seed1: seeds[1] || "", seed2: "", source1: null, source2: { matchId: "wb1", outcome: "winner" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d3",
-      name: "Lower Bracket - Round 1",
-      matches: [
-        { id: "lb1", seed1: "", seed2: "", source1: { matchId: "wb1", outcome: "loser" }, source2: { matchId: "wb2", outcome: "loser" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d4",
-      name: "Lower Bracket - Round 2",
-      matches: [
-        { id: "lb2", seed1: "", seed2: "", source1: { matchId: "wb3", outcome: "loser" }, source2: { matchId: "lb1", outcome: "winner" }, s1: null, s2: null },
-        { id: "lb3", seed1: "", seed2: takeFill(), source1: { matchId: "wb4", outcome: "loser" }, source2: null, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d5",
-      name: "Upper Bracket - Final",
-      matches: [
-        { id: "wb5", seed1: "", seed2: "", source1: { matchId: "wb3", outcome: "winner" }, source2: { matchId: "wb4", outcome: "winner" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d6",
-      name: "Lower Bracket - Semifinal",
-      matches: [
-        { id: "lb4", seed1: "", seed2: "", source1: { matchId: "lb2", outcome: "winner" }, source2: { matchId: "lb3", outcome: "winner" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d7",
-      name: "Lower Bracket - Final",
-      matches: [
-        { id: "lb5", seed1: "", seed2: "", source1: { matchId: "lb4", outcome: "winner" }, source2: { matchId: "wb5", outcome: "loser" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d8",
-      name: "Grand Final",
-      matches: [
-        { id: "gf1", seed1: "", seed2: "", source1: { matchId: "wb5", outcome: "winner" }, source2: { matchId: "lb5", outcome: "winner" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d9",
-      name: "Grand Final Reset",
-      matches: [
-        { id: "gf2", seed1: "", seed2: "", source1: { matchId: "gf1", outcome: "winnerSeed1" }, source2: { matchId: "gf1", outcome: "winnerSeed2" }, s1: null, s2: null, isReset: true, visible: false }
-      ]
-    }
-  ];
-};
-
-const buildDoubleEliminationTop8 = (rankedTeams) => {
-  const seeds = rankedTeams.slice(0, 8);
-  return [
-    {
-      id: "d1",
-      name: "Upper Bracket - Quarterfinal",
-      matches: [
-        { id: "wb1", seed1: seeds[0] || "", seed2: seeds[7] || "", source1: null, source2: null, s1: null, s2: null },
-        { id: "wb2", seed1: seeds[3] || "", seed2: seeds[4] || "", source1: null, source2: null, s1: null, s2: null },
-        { id: "wb3", seed1: seeds[1] || "", seed2: seeds[6] || "", source1: null, source2: null, s1: null, s2: null },
-        { id: "wb4", seed1: seeds[2] || "", seed2: seeds[5] || "", source1: null, source2: null, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d2",
-      name: "Lower Bracket - Round 1",
-      matches: [
-        { id: "lb1", seed1: "", seed2: "", source1: { matchId: "wb1", outcome: "loser" }, source2: { matchId: "wb2", outcome: "loser" }, s1: null, s2: null },
-        { id: "lb2", seed1: "", seed2: "", source1: { matchId: "wb3", outcome: "loser" }, source2: { matchId: "wb4", outcome: "loser" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d3",
-      name: "Upper Bracket - Semifinal",
-      matches: [
-        { id: "wb5", seed1: "", seed2: "", source1: { matchId: "wb1", outcome: "winner" }, source2: { matchId: "wb2", outcome: "winner" }, s1: null, s2: null },
-        { id: "wb6", seed1: "", seed2: "", source1: { matchId: "wb3", outcome: "winner" }, source2: { matchId: "wb4", outcome: "winner" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d4",
-      name: "Lower Bracket - Round 2",
-      matches: [
-        { id: "lb3", seed1: "", seed2: "", source1: { matchId: "lb1", outcome: "winner" }, source2: { matchId: "wb6", outcome: "loser" }, s1: null, s2: null },
-        { id: "lb4", seed1: "", seed2: "", source1: { matchId: "lb2", outcome: "winner" }, source2: { matchId: "wb5", outcome: "loser" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d5",
-      name: "Upper Bracket - Final",
-      matches: [
-        { id: "wb7", seed1: "", seed2: "", source1: { matchId: "wb5", outcome: "winner" }, source2: { matchId: "wb6", outcome: "winner" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d6",
-      name: "Lower Bracket - Semifinal",
-      matches: [
-        { id: "lb5", seed1: "", seed2: "", source1: { matchId: "lb3", outcome: "winner" }, source2: { matchId: "lb4", outcome: "winner" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d7",
-      name: "Lower Bracket - Final",
-      matches: [
-        { id: "lb6", seed1: "", seed2: "", source1: { matchId: "lb5", outcome: "winner" }, source2: { matchId: "wb7", outcome: "loser" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d8",
-      name: "Grand Final",
-      matches: [
-        { id: "gf1", seed1: "", seed2: "", source1: { matchId: "wb7", outcome: "winner" }, source2: { matchId: "lb6", outcome: "winner" }, s1: null, s2: null }
-      ]
-    },
-    {
-      id: "d9",
-      name: "Grand Final Reset",
-      matches: [
-        { id: "gf2", seed1: "", seed2: "", source1: { matchId: "gf1", outcome: "winnerSeed1" }, source2: { matchId: "gf1", outcome: "winnerSeed2" }, s1: null, s2: null, isReset: true, visible: false }
-      ]
-    }
-  ];
-};
-
-const buildDoubleEliminationRounds = (rankedTeams, teamCount, fillers = []) => {
-  if (teamCount <= 4) return buildDoubleEliminationTop4(rankedTeams, fillers);
-  if (teamCount <= 6) return buildDoubleEliminationTop6(rankedTeams, fillers);
-  return buildDoubleEliminationTop8(rankedTeams, fillers);
+const buildDoubleEliminationRounds = () => {
+  throw new Error("buildDoubleEliminationRounds sudah diganti buildTieredDoubleElimination.");
 };
 
 // Standar turnamen (FIFA-style): ronde pembuka hindari rematch segrup bila bisa.
@@ -3965,6 +3904,26 @@ const resolveKnockout = (state) => {
     return "";
   };
 
+  // Potensi sisi: slot masih bisa terisi (tim ada / source masih hidup).
+  // Menangani rantai BYE: feed dari match-bye yang sudah decided-kosong = mati,
+  // sehingga tim yang ada langsung lolos (tidak macet menunggu selamanya).
+  const sidePotential = (match, side, depth = 0) => {
+    const team = side === 1 ? match.team1 : match.team2;
+    if (team) return true;
+    const src = side === 1 ? match.source1 : match.source2;
+    if (!src || !src.matchId || depth > 40) return false;
+    const sm = matchMap[src.matchId];
+    if (!sm) return false;
+    if (src.outcome === "winner" || src.outcome === "loser") {
+      if (sm.winner || sm.loser) return false; // decided → nilai final
+      return sidePotential(sm, 1, depth + 1) || sidePotential(sm, 2, depth + 1);
+    }
+    const seedSide = src.outcome === "winnerSeed1" ? 1 : 2;
+    const t = seedSide === 1 ? sm.team1 : sm.team2;
+    if (t) return true;
+    return sidePotential(sm, seedSide, depth + 1);
+  };
+
   // Multi-pass agar aliran winner/loser selalu tuntas walau urutan round tidak topologis
   // (mis. lower bracket yang feed dari upper final yang posisinya belakangan).
   const totalMatches = Object.keys(matchMap).length;
@@ -4009,10 +3968,10 @@ const resolveKnockout = (state) => {
         } else {
           match.isDraw = true;
         }
-      } else if (match.team1 && !match.team2 && !match.source2) {
-        // Hanya auto-lolos bila slot lawan memang BYE (tanpa source), bukan menunggu pemenang.
+      } else if (match.team1 && !match.team2 && !sidePotential(match, 2, 0)) {
+        // Slot lawan tidak akan pernah terisi (BYE murni / rantai BYE mati) → lolos.
         match.winner = match.team1;
-      } else if (!match.team1 && match.team2 && !match.source1) {
+      } else if (!match.team1 && match.team2 && !sidePotential(match, 1, 0)) {
         match.winner = match.team2;
       }
         const next = `${match.team1}|${match.team2}|${match.winner}|${match.loser}|${match.isDraw ? 1 : 0}`;
@@ -4052,7 +4011,10 @@ const getKnockoutChampion = (resolved) => {
     const reset = allMatches.find((match) => match.id === "gf2");
     const grand = allMatches.find((match) => match.id === "gf1");
     if (reset && reset.visible && reset.winner) return reset.winner;
-    return grand?.winner || "";
+    if (grand) return grand?.winner || "";
+    // Degenerasi tanpa grand final (lower tak terbentuk): juara = pemenang final upper.
+    const upFinal = [...resolved.rounds].reverse().find((round) => /upper/i.test(round.name || ""))?.matches?.[0];
+    return upFinal?.winner || "";
   }
 
   const finalRound = resolved.rounds[resolved.rounds.length - 1];
@@ -4248,8 +4210,8 @@ const renderKnockout = () => {
   requestAnimationFrame(drawKoWires);
 };
 
-// Gambar garis tree antar match: dari sisi kanan kartu sumber ke sisi kiri kartu tujuan.
-// Hijau = jalur pemenang, merah = jalur pecundang (drop ke lower bracket).
+// Gambar garis tree antar match: hanya jalur pemenang (hijau). Jalur drop ke lower
+// sengaja tidak digambar agar bagan bersih.
 const drawKoWires = () => {
   document.querySelectorAll("#knockoutBracket .ko-grid").forEach((grid) => {
     const svg = grid.querySelector(":scope > svg.ko-wires");
@@ -4276,6 +4238,7 @@ const drawKoWires = () => {
         { id: target.dataset.src2, out: target.dataset.out2, frac: 0.64 }
       ].forEach((feed) => {
         if (!feed.id) return;
+        if (feed.out === "loser") return; // jalur drop ke lower tidak digambar
         const src = cards.get(feed.id);
         if (!src) return;
         const s = posIn(src);
@@ -4521,8 +4484,8 @@ async function generateBracket() {
   const tieSel = String(document.getElementById("koTieFormat")?.value || knockout?.tieFormat || "single").toLowerCase();
   const tieFormat = ["single", "h2", "bo3", "bo5"].includes(tieSel) ? tieSel : "single";
   const mirrorTeam = document.getElementById("koMirrorTeam")?.checked === true;
-  const { rankedTeams, qualifierLabel } = computeKnockoutSeeds();
-  await runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, byeFill: readByeFill(), rankedTeams, qualifierLabel, skipConfirm: false });
+  const { rankedTeams, qualifierLabel, cupNames, playoffNames, bestRanked } = computeKnockoutSeeds();
+  await runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, byeFill: readByeFill(), rankedTeams, qualifierLabel, cupNames, playoffNames, bestRanked, skipConfirm: false });
 }
 
 // Urutan seeding knockout dari klasemen KINI (dipakai generate, cek kedaluwarsa, reseed).
@@ -4533,7 +4496,7 @@ const computeKnockoutSeeds = () => {
   // Seeding menaruh Cup duluan → bila ada BYE, jatahnya ke seed teratas (= tier Cup).
   let rankedTeams = calculateStandings().map((row) => row.team);
   let qualifierLabel = "";
-  let cupNames = [], playoffNames = [];
+  let cupNames = [], playoffNames = [], bestRankedList = [];
   if (hasGroupStage()) {
     const adv = Math.max(1, parseInt(competitionConfig.advancePerGroup) || 2);
     const cupTop = cupDirectCount(adv);
@@ -4552,16 +4515,18 @@ const computeKnockoutSeeds = () => {
       }
     }
     bestRanked.forEach((t) => { if (!interleaved.includes(t)) interleaved.push(t); });
+    bestRankedList = bestRanked.slice();
     if (interleaved.length >= 2) rankedTeams = interleaved;
     else if (qualified.length >= 2) rankedTeams = qualified;
     qualifierLabel = `Grup (${letters.map((l) => `Grup ${l}`).join("+") || "Group Stage"} • Top ${adv}/grup [Cup: ${cupNames.join(", ") || "-"}${playoffNames.length ? ` • Playoff: ${playoffNames.join(", ")}` : " (semua Cup)"}]${bestN > 0 ? ` + Best ${Math.min(bestN, bestRanked.length)}x#${bestPos}` : ""} • ${rankedTeams.length} tim)`;
   }
-  return { rankedTeams, qualifierLabel, cupNames, playoffNames };
+  return { rankedTeams, qualifierLabel, cupNames, playoffNames, bestRanked: bestRankedList };
 };
 
 // Inti build bracket — dipakai generate (dengan confirm) maupun reseed (tanpa confirm).
 // seedSnapshot = urutan saat build, untuk deteksi klasemen berubah.
-async function runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, byeFill, rankedTeams, qualifierLabel, skipConfirm }) {
+async function runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, byeFill, rankedTeams, qualifierLabel, cupNames, playoffNames, bestRanked, skipConfirm }) {
+  cupNames = cupNames || []; playoffNames = playoffNames || []; bestRanked = bestRanked || [];
   const tieLabel = TIE_META[tieFormat]?.label || "1 Game";
   const mirrorLabel = mirrorTeam ? " • Mirror ON (away pakai tim home)" : "";
   const championsSize = Math.max(parseInt(championsCutoff) || 4, 2);
@@ -4579,56 +4544,56 @@ async function runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, b
   }
 
   if (format === "double") {
-    // Adaptif semua sistem: struktur mengikuti tim yang ADA (tanpa alert blokir).
-    // Kuota = min(requested, available, 8); struktur = snap ke 4/6/8 (slot kurang = BYE/filler).
-    const availCount = rankedTeams.length;
-    const cappedWant = Math.max(2, Math.min(requestedSize, availCount, 8));
-    const structSize = cappedWant <= 4 ? 4 : cappedWant <= 6 ? 6 : 8;
-    const doubleLabel =
-      sizeSelection === "champions" ? `Zona Champions Top ${structSize}` :
-      sizeSelection === "auto" ? `Zona Play-off Top ${structSize}` :
-      `Manual Top ${structSize}`;
-    const byeFillParam = byeFill;
-    // Pool pengisi umum: peringkat terbaik di luar kuota (cappedWant) — untuk SEMUA
-    // slot kosong ronde pembuka + lb3. Dinamis ikut Top N (Top 2/4/6/8, grup + best, manual).
+    // Tier: cup = upper dalam, playoff = upper awal (bertarung dulu),
+    // best = langsung nunggu di lower. Tanpa tier grup (liga/manual): semua = cup,
+    // ekstra di luar kuota (toggle) ikut best. Kuota = min(requested, available).
+    const quota = Math.max(2, Math.min(requestedSize, rankedTeams.length));
+    const inQuota = new Set(rankedTeams.slice(0, quota));
+    const hasTiers = cupNames.length > 0 || playoffNames.length > 0;
+    const cup = hasTiers ? rankedTeams.filter((t) => cupNames.includes(t) && inQuota.has(t)) : rankedTeams.slice(0, quota);
+    const playoff = hasTiers ? rankedTeams.filter((t) => playoffNames.includes(t) && inQuota.has(t)) : [];
+    const bestInQuota = hasTiers ? rankedTeams.filter((t) => !cup.includes(t) && !playoff.includes(t) && inQuota.has(t)) : [];
     const fullRanking = calculateStandings().map((row) => row.team);
-    const seedNames = rankedTeams.slice(0, cappedWant);
-    const seedSet = new Set(seedNames);
-    const fillerPool = byeFillParam === "1"
-      ? [...rankedTeams.slice(cappedWant), ...fullRanking.filter((t) => !seedSet.has(t))].filter((t, i, a) => a.indexOf(t) === i).slice(0, 4)
+    const usedQuota = new Set([...cup, ...playoff, ...bestInQuota]);
+    const extras = byeFill === "1"
+      ? [...rankedTeams.slice(quota), ...fullRanking.filter((t) => !usedQuota.has(t))].filter((t, i, a) => a.indexOf(t) === i).slice(0, 2)
       : [];
+    const best = [...bestInQuota, ...extras.filter((t) => !bestInQuota.includes(t))];
+    const participants = [...cup, ...playoff, ...best];
+    if (participants.length < 2) {
+      alert("Double elimination butuh minimal 2 tim peserta.");
+      return false;
+    }
+    const doubleLabel =
+      sizeSelection === "champions" ? "Zona Champions" :
+      sizeSelection === "auto" ? "Zona Play-off" :
+      `Manual Top ${quota}`;
+    const tierNote = `Cup [${cup.join(", ") || "-"}] langsung upper dalam • Playoff [${playoff.join(", ") || "-"}] bertarung dulu • Best [${best.join(", ") || "-"}] nunggu di lower`;
 
-    const doubleRounds = buildDoubleEliminationRounds(seedNames, structSize, fillerPool);
-    repairOpeningTies((doubleRounds.find((r) => r.id === "d1") || { matches: [] }).matches);
-    // Hitung BYE (ronde pembuka = jatah seed teratas; lb3 = walkover bila tanpa pengisi)
-    // + filler yang benar-benar terpakai (bukan janji pool).
-    let openingByes = 0, lowerWalkover = false;
-    const usedFillers = [];
+    const doubleRounds = buildTieredDoubleElimination(cup, playoff, best);
+    repairOpeningTies((doubleRounds.find((r) => r.id === "du1") || { matches: [] }).matches);
+    // Hitung BYE (slot satu sisi tanpa source) + tim yang benar-benar main.
+    let openingByes = 0;
+    const playedNames = new Set();
     doubleRounds.forEach((r) => (r.matches || []).forEach((m) => {
       const e1 = !m.seed1 && !m.source1, e2 = !m.seed2 && !m.source2;
-      if (e1 !== e2) {
-        if (m.id === "lb3") lowerWalkover = true;
-        else openingByes++;
-      }
-      [m.seed1, m.seed2].forEach((s) => { if (s && !seedSet.has(s) && !usedFillers.includes(s)) usedFillers.push(s); });
+      if (e1 !== e2) openingByes++;
+      [m.seed1, m.seed2].forEach((s) => { if (s) playedNames.add(s); });
     }));
-    // Kelebihan di atas kuota yang benar-benar tidak kepakai dipangkas eksplisit.
-    const droppedDouble = rankedTeams.slice(cappedWant).filter((t) => !usedFillers.includes(t));
-    const trimNote = droppedDouble.length ? ` Diambil kuota Top ${cappedWant} (${droppedDouble.join(", ")} tidak ikut).` : "";
-    const usedNote = usedFillers.length ? ` + Best next (${usedFillers.join(", ")}) isi slot lower` : "";
-    const walkNote = (!usedFillers.length && lowerWalkover) ? (byeFillParam !== "0" ? " Walkover di LB3 (tim kurang — tidak ada pengisi)." : " Walkover di LB3.") : "";
-    const fillerLabel = `${usedNote}${walkNote}`;
-    const byeNoteD = openingByes > 0 ? ` ${openingByes} BYE ronde pembuka (jatah seed teratas).` : " Tanpa BYE.";
-    if (!skipConfirm && !confirm(`Generate Double Elimination (Top ${structSize}) untuk ${doubleLabel}? Tie ${tieLabel}${mirrorLabel}${fillerLabel}.${trimNote}${byeNoteD}`)) return false;
+    const droppedDouble = rankedTeams.filter((t) => !playedNames.has(t));
+    const trimNote = droppedDouble.length ? ` (${droppedDouble.join(", ")} tidak ikut).` : "";
+    const extraNote = extras.filter((t) => playedNames.has(t)).length ? ` + Best next (${extras.filter((t) => playedNames.has(t)).join(", ")}) ikut lower` : "";
+    const byeNoteD = openingByes > 0 ? ` ${openingByes} BYE (jatah seed teratas / penyeimbang ganjil).` : " Tanpa BYE.";
+    if (!skipConfirm && !confirm(`Generate Double Elimination untuk ${doubleLabel}? ${tierNote}.${extraNote}${trimNote}${byeNoteD} Tie ${tieLabel}${mirrorLabel}.`)) return false;
     doubleRounds.forEach((r) => r.matches.forEach((mm) => { mm.tieFormat = tieFormat; mm.mirrorTeam = mirrorTeam; }));
     knockout = {
       format: "double",
       tieFormat,
-      byeFill: byeFillParam,
+      byeFill,
       mirrorTeam,
-      bracketSize: structSize,
-      qualifierZone: `${doubleLabel} • ${tieLabel}${mirrorLabel}${fillerLabel}`,
-      qualifiedCount: structSize,
+      bracketSize: nextPowerOfTwo(Math.max(2, cup.length + playoff.length)),
+      qualifierZone: `${doubleLabel} • ${tierNote} • ${tieLabel}${mirrorLabel}`,
+      qualifiedCount: participants.length,
       seedSnapshot: rankedTeams.slice(),
       rounds: doubleRounds
     };
@@ -4681,8 +4646,8 @@ async function reseedKnockout() {
   const tieSel = String(document.getElementById("koTieFormat")?.value || knockout?.tieFormat || "single").toLowerCase();
   const tieFormat = ["single", "h2", "bo3", "bo5"].includes(tieSel) ? tieSel : "single";
   const mirrorTeam = document.getElementById("koMirrorTeam")?.checked === true;
-  const { rankedTeams, qualifierLabel } = computeKnockoutSeeds();
-  const ok = await runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, byeFill: readByeFill(), rankedTeams, qualifierLabel, skipConfirm: true });
+  const { rankedTeams, qualifierLabel, cupNames, playoffNames, bestRanked } = computeKnockoutSeeds();
+  const ok = await runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, byeFill: readByeFill(), rankedTeams, qualifierLabel, cupNames, playoffNames, bestRanked, skipConfirm: true });
   if (ok) alert("Seeding bracket diperbarui mengikuti klasemen kini.");
 }
 
@@ -5561,6 +5526,7 @@ document.addEventListener('click', async (e) => {
     
     // 6. Scorers & News
     else if (action === 'addNews') await addNews();
+    else if (action === 'deleteNews') await deleteNews(id);
     else if (action === 'addScorer') await addScorer();
     else if (action === 'deleteScorer') await deleteScorer(id);
     else if (action === 'addHofManager') await addHofManager();
