@@ -2376,10 +2376,19 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       const autoLineup = autoLineupForFormation(team, players);
       const tacticLayout = autoTacticLayout(team, players);
       const starters = autoLineup.lineup;
+      const usedDots = new Set();
       const tacticPlayer = (player, index) => {
         const auto = tacticLayout.get(player.id) || { x: 50, y: 50 };
-        const x = Number.isFinite(parseFloat(player.tacticX)) ? parseFloat(player.tacticX) : auto.x;
-        const y = Number.isFinite(parseFloat(player.tacticY)) ? parseFloat(player.tacticY) : auto.y;
+        let x = Number.isFinite(parseFloat(player.tacticX)) ? parseFloat(player.tacticX) : auto.x;
+        let y = Number.isFinite(parseFloat(player.tacticY)) ? parseFloat(player.tacticY) : auto.y;
+        // Anti-tumpuk: dua titik tak boleh menempati koordinat sama persis
+        // (korban tumpukan terlihat "hilang" dari papan).
+        const key = () => `${Math.round(x * 2)}:${Math.round(y * 2)}`;
+        if (usedDots.has(key())) {
+          x = Math.min(96, x + 7);
+          if (usedDots.has(key())) x = Math.max(4, x - 14);
+        }
+        usedDots.add(key());
         const performance = playerPerformanceSummary(player);
         return `
           <div data-tactic-player="${player.id}" data-x="${x}" data-y="${y}" class="absolute -translate-x-1/2 -translate-y-1/2 text-center group transition-[left,top,transform,filter] duration-200 ease-out will-change-transform ${isAdmin ? "cursor-move" : ""}" style="left:${x}%; top:${y}%;">
@@ -5819,11 +5828,26 @@ document.addEventListener("pointerdown", (e) => {
       playerNode.dataset.y = y.toFixed(1);
     };
 
-    const up = async () => {
+    const up = async (event) => {
       document.removeEventListener("pointermove", move);
       document.removeEventListener("pointerup", up);
       document.removeEventListener("pointercancel", cancel);
       playerNode.style.transition = "";
+      const me = playerNode.dataset.tacticPlayer || "";
+      // Jatuh di atas titik lain = TUKAR tempat (jangan tumpuk).
+      const near = getNearestTacticPlayerNode(board, {
+        clientX: event?.clientX ?? 0,
+        clientY: event?.clientY ?? 0
+      }, me);
+      const nearId = near?.dataset?.tacticPlayer || "";
+      if (me && nearId && nearId !== me) {
+        try {
+          await swapRosterStarterSpots(me, nearId);
+        } catch (error) {
+          console.error("Failed to swap tactic spots:", error);
+        }
+        return;
+      }
       const tacticX = parseFloat(playerNode.dataset.x);
       const tacticY = parseFloat(playerNode.dataset.y);
       if (!Number.isFinite(tacticX) || !Number.isFinite(tacticY)) return;
