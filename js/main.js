@@ -466,7 +466,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
         keeper = { ...keeper, position: "", positionInferred: false };
       }
       const effPreferred = withEffectivePositions(preferredRoster, lineGroups, keeper?.id);
-      const effFallback = withEffectivePositions(fallbackRoster, lineGroups, keeper?.id);
+      const effFallback = withEffectivePositions(fallbackRoster, lineGroups, keeper?.id, false);
       if (keeper) {
         lineup.push(keeper);
         selectedIds.add(keeper.id);
@@ -501,7 +501,10 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
 
         if (picked.length < targetCount) {
           const leftovers = [...effPreferred, ...effFallback].filter((player) => positionGroup(player.position) !== "GK");
-          picked = [...picked, ...choosePlayersByTargets(leftovers, Array.from({ length: targetCount - picked.length }, () => ""), lineSelectedIds)];
+          const prefLeft = leftovers.filter((player) => player.isSubstitute !== true);
+          const subLeft = leftovers.filter((player) => player.isSubstitute === true);
+          picked = [...picked, ...choosePlayersByTargets(prefLeft, Array.from({ length: targetCount - picked.length }, () => ""), lineSelectedIds)];
+          picked = [...picked, ...choosePlayersByTargets(subLeft, Array.from({ length: targetCount - picked.length }, () => ""), lineSelectedIds)];
         }
 
         picked = orderLinePlayers(group, picked);
@@ -2518,6 +2521,32 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
 
       await commitBatchChunks(ops);
       if (activeTeamDetailId) renderTeamDetailModal(activeTeamDetailId);
+    };
+
+    const swapRosterStarterSpots = async (aId, bId) => {
+      if (!isAdmin || !aId || !bId || aId === bId) return false;
+      const now = Date.now();
+      const nodeFor = (pid) => Array.from(document.querySelectorAll("[data-tactic-player]"))
+        .find((node) => node.dataset.tacticPlayer === pid);
+      const readPoint = (pid) => {
+        const node = nodeFor(pid);
+        const x = parseFloat(node?.dataset.x || node?.style.left || "");
+        const y = parseFloat(node?.dataset.y || node?.style.top || "");
+        return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+      };
+      const aPoint = readPoint(aId);
+      const bPoint = readPoint(bId);
+      if (!aPoint || !bPoint) return false;
+      await commitBatchChunks([
+        (batch) => batch.update(doc(db, "players", aId), {
+          isSubstitute: false, tacticX: bPoint.x, tacticY: bPoint.y, updatedAtMs: now
+        }),
+        (batch) => batch.update(doc(db, "players", bId), {
+          isSubstitute: false, tacticX: aPoint.x, tacticY: aPoint.y, updatedAtMs: now
+        })
+      ]);
+      if (activeTeamDetailId) renderTeamDetailModal(activeTeamDetailId);
+      return true;
     };
 
     const renderTeams = () => {
@@ -5792,7 +5821,17 @@ document.addEventListener("drop", async (e) => {
       }
 
       try {
-        await moveRosterPlayerBetweenLists(playerId, targetKind, replacedPlayerId, replacementPoint);
+        let handled = false;
+        if (targetKind === "starter" && replacedPlayerId && replacedPlayerId !== playerId) {
+          const draggedRow = document.querySelector(`[data-roster-list-player="${playerId}"]`);
+          const draggedKind = draggedRow?.closest("[data-roster-drop-zone]")?.dataset.rosterDropZone || "";
+          if (draggedKind === "starter") {
+            handled = await swapRosterStarterSpots(playerId, replacedPlayerId);
+          }
+        }
+        if (!handled) {
+          await moveRosterPlayerBetweenLists(playerId, targetKind, replacedPlayerId, replacementPoint);
+        }
       } catch (error) {
         console.error("Failed to move roster player:", error);
       }
@@ -5810,7 +5849,15 @@ document.addEventListener("drop", async (e) => {
     const tacticY = Number.isFinite(targetY) ? targetY : fallbackY;
     try {
       if (replacedPlayerId && replacedPlayerId !== playerId) {
-        await moveRosterPlayerBetweenLists(playerId, "starter", replacedPlayerId, { x: tacticX, y: tacticY });
+        const draggedRow = document.querySelector(`[data-roster-list-player="${playerId}"]`);
+        const draggedKind = draggedRow?.closest("[data-roster-drop-zone]")?.dataset.rosterDropZone || "";
+        let swapped = false;
+        if (draggedKind === "starter") {
+          swapped = await swapRosterStarterSpots(playerId, replacedPlayerId);
+        }
+        if (!swapped) {
+          await moveRosterPlayerBetweenLists(playerId, "starter", replacedPlayerId, { x: tacticX, y: tacticY });
+        }
       } else {
         await updateDoc(doc(db, "players", playerId), {
           isSubstitute: false,
