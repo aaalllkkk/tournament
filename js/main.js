@@ -5298,17 +5298,32 @@ window.showHofDetail = (id) => {
         return;
       }
       const normFile = (name) => normalizeKey(String(name || "").replace(/\.[a-z0-9]+$/i, "").replace(/[._-]+/g, " "));
+      const baseOf = (relativePath, file) => {
+        if (relativePath) return relativePath.split("/").pop();
+        return file && file.name ? file.name : "";
+      };
       let uploaded = 0, skipped = 0;
       const failed = [], missing = [];
       for (const player of roster) {
-        let file = null;
+        let file = null, rel = "";
         if (player.faceFile) {
           file = findRosterFaceFile(player, faceFileMap);
+          if (file) {
+            for (const [relativePath, candidate] of faceFileMap.entries()) {
+              if (candidate === file) { rel = relativePath; break; }
+            }
+          }
         }
         if (!file) {
           const want = new Set([normFile(player.player), normFile(player.playerKey)]);
+          const pidStr = String(player.pesPlayerId || "");
           for (const [relativePath, candidate] of faceFileMap.entries()) {
-            if (want.has(normFile(relativePath.split("/").pop()))) { file = candidate; break; }
+            const base = relativePath.split("/").pop();
+            if ((pidStr && base.replace(/\.[a-z0-9]+$/i, "") === pidStr) || want.has(normFile(base))) {
+              file = candidate;
+              rel = relativePath;
+              break;
+            }
           }
         }
         if (!file) { missing.push(player.player || "?"); continue; }
