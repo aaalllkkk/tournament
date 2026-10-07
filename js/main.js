@@ -36,7 +36,6 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
     let knockoutScheduleSyncing = false;
     let knockoutScoreSyncing = false;
     let activeTeamDetailId = "";
-    let activeDraggedRosterPlayerId = "";
     let activeTacticDropTargetId = "";
     let competitionConfig = { mode: "league", groupFormat: "normal-single", numGroups: 2, advancePerGroup: 2, cupDirect: "1", bestPos: 3, bestPosCount: 0, tiebreak: "gd", mirrorTeam: false, updatedAtMs: 0 };
     
@@ -581,6 +580,25 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
         }
       });
       return layout;
+    };
+
+    // Titik di papan -> kode peran (sadar formasi, jalur L/C/R).
+    const positionForBoardPoint = (x, y, formation = "") => {
+      const lines = parseFormationLines(formation);
+      const ys = ySlots(lines.length);
+      const gkLine = (ys[0] + 100) / 2;
+      if (y >= gkLine) return "GK";
+      let lineIndex = ys.length - 1;
+      for (let i = 0; i + 1 < ys.length; i += 1) {
+        if (y >= (ys[i] + ys[i + 1]) / 2) { lineIndex = i; break; }
+      }
+      const role = lineRoleFor(lines, lineIndex);
+      const lane = x < 35 ? "L" : x > 65 ? "R" : "C";
+      if (role === "DEF") return lane === "L" ? "LB" : lane === "R" ? "RB" : "CB";
+      if (role === "MID") return lane === "L" ? "LMF" : lane === "R" ? "RMF" : "CMF";
+      if (role === "AM") return lane === "L" ? "LWF" : lane === "R" ? "RWF" : "AMF";
+      if (role === "FWD") return lane === "L" ? "LWF" : lane === "R" ? "RWF" : "CF";
+      return "CMF";
     };
 
     const percentFromBoardEvent = (board, event) => {
@@ -2389,8 +2407,8 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       const playerRow = (player) => {
         const performance = playerPerformanceSummary(player);
         return `
-        <div ${isAdmin ? `draggable="true" data-roster-list-player="${player.id}"` : ""} class="grid grid-cols-[38px_1fr_auto] items-center gap-3 rounded-xl bg-surface-container/70 p-2 ${isAdmin ? "cursor-grab" : ""}">
-          <img src="${player.faceUrl || player.image || player.facePath || placeholderImage}" class="h-9 w-9 rounded-lg object-cover">
+        <div ${isAdmin ? `data-roster-list-player="${player.id}"` : ""} class="grid grid-cols-[38px_1fr_auto] items-center gap-3 rounded-xl bg-surface-container/70 p-2 ${isAdmin ? "cursor-grab select-none" : ""}">
+          <img draggable="false" src="${player.faceUrl || player.image || player.facePath || placeholderImage}" class="h-9 w-9 rounded-lg object-cover">
           <div class="min-w-0">
             <p class="truncate text-sm font-bold text-white">${player.number ? `${player.number}. ` : ""}${player.player}</p>
             <p class="text-[9px] uppercase tracking-widest text-on-surface-variant">${player.position || "POS"} ${player.isSubstitute ? "- SUB" : ""}${performance ? ` - ${performance}` : ""}</p>
@@ -2533,7 +2551,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       renderTeamDetailModal(teamId);
     };
 
-    const moveRosterPlayerBetweenLists = async (playerId, targetKind, replacedPlayerId = "", replacementPoint = null) => {
+    const moveRosterPlayerBetweenLists = async (playerId, targetKind, replacedPlayerId = "", replacementPoint = null, inheritedPosition = "") => {
       if (!isAdmin || !playerId || !targetKind) return;
       const now = Date.now();
       const ops = [];
@@ -2552,6 +2570,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
           isSubstitute: false,
           tacticX: replacementX,
           tacticY: replacementY,
+          ...(inheritedPosition ? { position: inheritedPosition } : {}),
           updatedAtMs: now
         }));
 
@@ -2583,12 +2602,20 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       const aPoint = readPoint(aId);
       const bPoint = readPoint(bId);
       if (!aPoint || !bPoint) return false;
+      // Tukar peran juga (label ikut tempat), kecuali yang kosong.
+      const teamNow = teams.find((item) => item.id === activeTeamDetailId);
+      const squadNow = teamNow ? playersForTeam(teamNow) : [];
+      const posOf = (pid) => squadNow.find((player) => player.id === pid)?.position || "";
+      const aPos = posOf(aId);
+      const bPos = posOf(bId);
       await commitBatchChunks([
         (batch) => batch.update(doc(db, "players", aId), {
-          isSubstitute: false, tacticX: bPoint.x, tacticY: bPoint.y, updatedAtMs: now
+          isSubstitute: false, tacticX: bPoint.x, tacticY: bPoint.y,
+          position: bPos || aPos, updatedAtMs: now
         }),
         (batch) => batch.update(doc(db, "players", bId), {
-          isSubstitute: false, tacticX: aPoint.x, tacticY: aPoint.y, updatedAtMs: now
+          isSubstitute: false, tacticX: aPoint.x, tacticY: aPoint.y,
+          position: aPos || bPos, updatedAtMs: now
         })
       ]);
       if (activeTeamDetailId) renderTeamDetailModal(activeTeamDetailId);
@@ -5823,49 +5850,90 @@ document.addEventListener("pointerdown", (e) => {
     document.addEventListener("pointercancel", cancel);
 });
 
-document.addEventListener("dragstart", (e) => {
-    if (!isAdmin) return;
-    const row = e.target.closest("[data-roster-list-player]");
-    if (!row) return;
-    activeDraggedRosterPlayerId = row.dataset.rosterListPlayer || "";
-    e.dataTransfer.setData("text/plain", row.dataset.rosterListPlayer);
-    e.dataTransfer.effectAllowed = "move";
-    row.classList.add("opacity-60", "scale-[0.98]");
+// --- DRAG DAFTAR PEMAIN TERPADU (Pointer Events: mouse + sentuh).
+// Menggantikan HTML5 DnD yang tidak jalan di layar sentuh & rawan glitch.
+let rosterDrag = null;
+let suppressRosterClick = false;
+
+document.addEventListener("click", (e) => {
+  if (!suppressRosterClick) return;
+  suppressRosterClick = false;
+  e.preventDefault();
+  e.stopPropagation();
+}, true);
+
+document.addEventListener("pointerdown", (e) => {
+  if (!isAdmin || rosterDrag) return;
+  if (e.button !== undefined && e.button !== 0) return;
+  if (e.isPrimary === false) return;
+  const row = e.target.closest("[data-roster-list-player]");
+  if (!row) return;
+  if (e.target.closest("[data-action]")) return;
+  rosterDrag = {
+    playerId: row.dataset.rosterListPlayer || "",
+    sourceRow: row, pointerId: e.pointerId,
+    startX: e.clientX, startY: e.clientY, lastX: e.clientX, lastY: e.clientY,
+    active: false, avatar: null, raf: 0, holdTimer: 0
+  };
+  if (e.pointerType === "touch") {
+    rosterDrag.holdTimer = setTimeout(() => {
+      if (rosterDrag && !rosterDrag.active) startRosterDrag();
+    }, 250);
+  }
 });
 
-document.addEventListener("dragover", (e) => {
-    if (!isAdmin) return;
-    const board = e.target.closest(".tactic-board");
-    const listZone = e.target.closest("[data-roster-drop-zone]");
-    if (!board && !listZone) return;
-    e.preventDefault();
-    if (board) {
-      const targetNode = getNearestTacticPlayerNode(board, e, activeDraggedRosterPlayerId);
-      setTacticDropHighlight(board, targetNode);
-    }
-});
+const startRosterDrag = () => {
+  const drag = rosterDrag;
+  if (!drag || drag.active || !drag.playerId) { rosterDrag = null; return; }
+  drag.active = true;
+  suppressRosterClick = true;
+  const rect = drag.sourceRow.getBoundingClientRect();
+  const avatar = drag.sourceRow.cloneNode(true);
+  avatar.removeAttribute("data-roster-list-player");
+  avatar.style.cssText += ";position:fixed;left:0;top:0;width:" + Math.max(120, Math.round(rect.width)) + "px;margin:0;pointer-events:none;opacity:.92;z-index:9999;box-shadow:0 12px 32px rgba(0,0,0,.5);";
+  document.body.appendChild(avatar);
+  drag.avatar = avatar;
+  drag.sourceRow.style.touchAction = "none";
+  drag.sourceRow.classList.add("opacity-40");
+  moveRosterAvatar();
+  updateRosterDragHover();
+};
 
-document.addEventListener("dragleave", (e) => {
-    if (!isAdmin) return;
-    const board = e.target.closest(".tactic-board");
-    if (!board) return;
-    const next = e.relatedTarget;
-    if (next && board.contains(next)) return;
-    clearTacticDropHighlight();
-});
+const moveRosterAvatar = () => {
+  const drag = rosterDrag;
+  if (!drag?.avatar) return;
+  drag.avatar.style.transform = `translate3d(${drag.lastX + 12}px, ${drag.lastY - 24}px, 0)`;
+};
 
-document.addEventListener("drop", async (e) => {
-    if (!isAdmin) return;
-    const playerId = e.dataTransfer.getData("text/plain");
-    if (!playerId) return;
-    const board = e.target.closest(".tactic-board");
-    const listZone = e.target.closest("[data-roster-drop-zone]");
-    if (!board && !listZone) return;
-    e.preventDefault();
+const clearListZoneHighlight = () => {
+  document.querySelectorAll("[data-roster-drop-zone]").forEach((zone) => { zone.style.outline = ""; });
+};
+
+const updateRosterDragHover = () => {
+  const drag = rosterDrag;
+  if (!drag?.active) return;
+  const el = document.elementFromPoint(drag.lastX, drag.lastY);
+  const board = el?.closest(".tactic-board") || null;
+  const listZone = el?.closest("[data-roster-drop-zone]") || null;
+  clearTacticDropHighlight();
+  clearListZoneHighlight();
+  if (board) {
+    setTacticDropHighlight(board, getNearestTacticPlayerNode(board, { clientX: drag.lastX, clientY: drag.lastY }, drag.playerId));
+  } else if (listZone) {
+    listZone.style.outline = "2px solid #0AA35D";
+  }
+};
+
+const finishRosterDrag = async (playerId, clientX, clientY) => {
+  if (!isAdmin || !playerId) return;
+  const el = document.elementFromPoint(clientX, clientY);
+  const board = el?.closest(".tactic-board");
+  const listZone = el?.closest("[data-roster-drop-zone]");
+  if (!board && !listZone) return;
 
     if (listZone && !board) {
       const targetKind = listZone.dataset.rosterDropZone;
-      const targetRow = e.target.closest("[data-roster-list-player]");
+      const targetRow = el.closest("[data-roster-list-player]");
       const replacedPlayerId = targetKind === "starter" ? targetRow?.dataset.rosterListPlayer || "" : "";
       const draggedRowEarly = document.querySelector(`[data-roster-list-player="${playerId}"]`);
       const draggedKindEarly = draggedRowEarly?.closest("[data-roster-drop-zone]")?.dataset.rosterDropZone || "";
@@ -5901,12 +5969,12 @@ document.addEventListener("drop", async (e) => {
     }
 
     const rect = board.getBoundingClientRect();
-    const targetNode = getNearestTacticPlayerNode(board, e, playerId);
+    const targetNode = getNearestTacticPlayerNode(board, { clientX, clientY }, playerId);
     const replacedPlayerId = targetNode?.dataset?.tacticPlayer || "";
     const targetX = parseFloat(targetNode?.dataset.x || targetNode?.style.left || "");
     const targetY = parseFloat(targetNode?.dataset.y || targetNode?.style.top || "");
-    const fallbackX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-    const fallbackY = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    const fallbackX = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    const fallbackY = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
     const tacticX = Number.isFinite(targetX) ? targetX : fallbackX;
     const tacticY = Number.isFinite(targetY) ? targetY : fallbackY;
     try {
@@ -5918,29 +5986,85 @@ document.addEventListener("drop", async (e) => {
           swapped = await swapRosterStarterSpots(playerId, replacedPlayerId);
         }
         if (!swapped) {
-          await moveRosterPlayerBetweenLists(playerId, "starter", replacedPlayerId, { x: tacticX, y: tacticY });
+          const teamNow = teams.find((item) => item.id === activeTeamDetailId);
+          const squadNow = teamNow ? playersForTeam(teamNow) : [];
+          const inheritPos = squadNow.find((player) => player.id === replacedPlayerId)?.position || "";
+          await moveRosterPlayerBetweenLists(playerId, "starter", replacedPlayerId, { x: tacticX, y: tacticY }, inheritPos);
         }
       } else {
+        const teamNow = teams.find((item) => item.id === activeTeamDetailId);
         await updateDoc(doc(db, "players", playerId), {
           isSubstitute: false,
           tacticX,
           tacticY,
+          position: positionForBoardPoint(tacticX, tacticY, teamNow?.formation || ""),
           updatedAtMs: Date.now()
         });
       }
     } catch (error) {
-      console.error("Failed to drop player to tactic board:", error);
+      console.error("Failed to finish roster drag:", error);
     } finally {
       clearTacticDropHighlight();
+      clearListZoneHighlight();
     }
+};
+
+document.addEventListener("pointermove", (e) => {
+  const drag = rosterDrag;
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  drag.lastX = e.clientX;
+  drag.lastY = e.clientY;
+  if (!drag.active) {
+    const dist = Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY);
+    if (e.pointerType === "touch") {
+      if (dist > 12) { clearTimeout(drag.holdTimer); rosterDrag = null; }
+    } else if (dist > 6) {
+      startRosterDrag();
+    }
+    return;
+  }
+  e.preventDefault();
+  if (!drag.raf) {
+    drag.raf = requestAnimationFrame(() => {
+      drag.raf = 0;
+      moveRosterAvatar();
+      updateRosterDragHover();
+    });
+  }
 });
 
-document.addEventListener("dragend", () => {
-    activeDraggedRosterPlayerId = "";
-    document.querySelectorAll("[data-roster-list-player].opacity-60").forEach((node) => {
-      node.classList.remove("opacity-60", "scale-[0.98]");
-    });
-    clearTacticDropHighlight();
+const cleanupRosterDragState = (drag) => {
+  if (drag.raf) cancelAnimationFrame(drag.raf);
+  if (drag.avatar) drag.avatar.remove();
+  drag.sourceRow?.classList.remove("opacity-40");
+  if (drag.sourceRow) drag.sourceRow.style.touchAction = "";
+  clearListZoneHighlight();
+  clearTacticDropHighlight();
+};
+
+document.addEventListener("pointerup", async (e) => {
+  const drag = rosterDrag;
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  clearTimeout(drag.holdTimer);
+  if (!drag.active) { rosterDrag = null; return; }
+  rosterDrag = null;
+  cleanupRosterDragState(drag);
+  try {
+    await finishRosterDrag(drag.playerId, e.clientX, e.clientY);
+  } catch (error) {
+    console.error("Failed to finish roster drag:", error);
+  }
+});
+
+document.addEventListener("pointercancel", (e) => {
+  const drag = rosterDrag;
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  clearTimeout(drag.holdTimer);
+  const wasActive = drag.active;
+  rosterDrag = null;
+  if (!wasActive) return;
+  suppressRosterClick = false;
+  cleanupRosterDragState(drag);
 });
 
     // --- EVENT DELEGATION HUB (MENGGANTIKAN SEMUA ONCLICK/ONCHANGE) ---
