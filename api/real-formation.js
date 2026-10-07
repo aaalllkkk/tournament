@@ -2,7 +2,7 @@ const json = (res, status, payload) => {
   res.status(status).json(payload);
 };
 
-const API_BASE = "https://v3.football.api-sports.com";
+const API_BASE = String(process.env.API_FOOTBALL_BASE || "").trim() || "https://v3.football.api-sports.io";
 
 // Musim kompetisi Eropa berjalan Agu-Jul (2026-27 = season 2026).
 const defaultSeason = () => {
