@@ -1713,7 +1713,7 @@ const getStarIcons = (rating) => {
     };
 
     const hardReset = async () => {
-  if (!confirm("Hapus SEMUA jadwal pertandingan (liga/grup/knockout) + TOP SCORER?")) return;
+  if (!confirm("Hapus SEMUA jadwal pertandingan (liga/grup/knockout) + TOP SCORER + NEWS?")) return;
   const code = prompt("Ketik 'RESET' untuk konfirmasi:");
   if (code !== "RESET") return alert("Dibatalkan.");
 
@@ -1726,10 +1726,14 @@ const getStarIcons = (rating) => {
       await Promise.all(scorersSnap.docs.map(d => deleteDoc(d.ref)));
     } catch (scorerErr) { console.warn("Reset top scorer warning:", scorerErr); }
     try {
+      const newsSnap = await getDocs(collection(db, "news"));
+      await Promise.all(newsSnap.docs.map(d => deleteDoc(d.ref)));
+    } catch (newsErr) { console.warn("Reset news warning:", newsErr); }
+    try {
       await clearTeamGroups();
       await saveCompetitionConfig({ mode: "league", groupFormat: "normal-single", numGroups: 1, advancePerGroup: 0, cupDirect: "1", bestPos: 3, bestPosCount: 0, tiebreak: "gd", mirrorTeam: false });
     } catch (cfgErr) { console.warn("Reset competition config warning:", cfgErr); }
-    alert("Reset selesai: jadwal + top scorer dihapus! Mode kembali ke Liga.");
+    alert("Reset selesai: jadwal + top scorer + news dihapus! Mode kembali ke Liga.");
   } catch (e) {
     alert("Gagal reset: " + e.message);
   }
@@ -2851,20 +2855,18 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       const aPoint = readPoint(aId);
       const bPoint = readPoint(bId);
       if (!aPoint || !bPoint) return false;
-      // Tukar peran juga (label ikut tempat), kecuali yang kosong.
+      // Petak: peran mengikuti zona titik baru (bukan tukar label lama).
       const teamNow = teams.find((item) => item.id === activeTeamDetailId);
-      const squadNow = teamNow ? playersForTeam(teamNow) : [];
-      const posOf = (pid) => squadNow.find((player) => player.id === pid)?.position || "";
-      const aPos = posOf(aId);
-      const bPos = posOf(bId);
+      const zoneA = positionForBoardPoint(bPoint.x, bPoint.y, teamNow?.formation || "");
+      const zoneB = positionForBoardPoint(aPoint.x, aPoint.y, teamNow?.formation || "");
       await commitBatchChunks([
         (batch) => batch.update(doc(db, "players", aId), {
           isSubstitute: false, tacticX: bPoint.x, tacticY: bPoint.y,
-          position: bPos || aPos, updatedAtMs: now
+          position: zoneA, updatedAtMs: now
         }),
         (batch) => batch.update(doc(db, "players", bId), {
           isSubstitute: false, tacticX: aPoint.x, tacticY: aPoint.y,
-          position: aPos || bPos, updatedAtMs: now
+          position: zoneB, updatedAtMs: now
         })
       ]);
       if (activeTeamDetailId) renderTeamDetailModal(activeTeamDetailId);
@@ -6057,6 +6059,8 @@ document.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     playerNode.setPointerCapture?.(e.pointerId);
     playerNode.style.transition = "none";
+    const startDotX = playerNode.dataset.x;
+    const startDotY = playerNode.dataset.y;
 
     const move = (event) => {
       const rect = board.getBoundingClientRect();
@@ -6091,10 +6095,14 @@ document.addEventListener("pointerdown", (e) => {
       const tacticX = parseFloat(playerNode.dataset.x);
       const tacticY = parseFloat(playerNode.dataset.y);
       if (!Number.isFinite(tacticX) || !Number.isFinite(tacticY)) return;
+      // Klik tanpa geser = jangan tulis apa-apa (hemat write + render).
+      if (Math.hypot(tacticX - parseFloat(startDotX), tacticY - parseFloat(startDotY)) < 0.5) return;
       try {
+        const teamNow = teams.find((item) => item.id === activeTeamDetailId);
         await updateDoc(doc(db, "players", playerNode.dataset.tacticPlayer), {
           tacticX,
           tacticY,
+          position: positionForBoardPoint(tacticX, tacticY, teamNow?.formation || ""),
           updatedAtMs: Date.now()
         });
       } catch (error) {
@@ -6224,7 +6232,11 @@ const finishRosterDrag = async (playerId, clientX, clientY) => {
           }
         }
         if (!handled) {
-          await moveRosterPlayerBetweenLists(playerId, targetKind, replacedPlayerId, replacementPoint);
+          const teamNow = teams.find((item) => item.id === activeTeamDetailId);
+          const zonePos = (targetKind === "starter" && replacementPoint)
+            ? positionForBoardPoint(replacementPoint.x, replacementPoint.y, teamNow?.formation || "")
+            : "";
+          await moveRosterPlayerBetweenLists(playerId, targetKind, replacedPlayerId, replacementPoint, zonePos);
         }
       } catch (error) {
         console.error("Failed to move roster player:", error);
@@ -6251,8 +6263,7 @@ const finishRosterDrag = async (playerId, clientX, clientY) => {
         }
         if (!swapped) {
           const teamNow = teams.find((item) => item.id === activeTeamDetailId);
-          const squadNow = teamNow ? playersForTeam(teamNow) : [];
-          const inheritPos = squadNow.find((player) => player.id === replacedPlayerId)?.position || "";
+          const inheritPos = positionForBoardPoint(tacticX, tacticY, teamNow?.formation || "");
           await moveRosterPlayerBetweenLists(playerId, "starter", replacedPlayerId, { x: tacticX, y: tacticY }, inheritPos);
         }
       } else {
