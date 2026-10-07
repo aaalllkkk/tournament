@@ -21,18 +21,46 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "GET") return json(res, 405, { error: "Method not allowed" });
 
-  const apiKey = process.env.API_FOOTBALL_KEY;
+  const apiKey = String(process.env.API_FOOTBALL_KEY || "")
+    .trim().replace(/^["']+|["']+$/g, "");
   if (!apiKey) {
     return json(res, 500, {
       error: "API_FOOTBALL_KEY belum diset di Vercel. Daftar gratis di api-football (100 req/hari), lalu isi env tersebut."
     });
   }
 
+  if (cleanText(req.query.action, 20) === "ping") {
+    let egress = "ok";
+    try {
+      const probe = await fetch(`${API_BASE}/teams?search=zznope`, {
+        headers: { "x-apisports-key": apiKey }
+      });
+      await probe.text();
+      egress = `ok (upstream ${probe.status})`;
+    } catch (error) {
+      egress = `gagal: ${error?.cause?.message || error?.message || error}`;
+    }
+    return json(res, 200, {
+      hasKey: true,
+      keyLen: apiKey.length,
+      node: typeof process !== "undefined" ? process.version : "?",
+      egress
+    });
+  }
+
   const action = cleanText(req.query.action, 20);
   const callApi = async (path) => {
-    const upstream = await fetch(`${API_BASE}${path}`, {
-      headers: { "x-apisports-key": apiKey }
-    });
+    let upstream;
+    try {
+      upstream = await fetch(`${API_BASE}${path}`, {
+        headers: { "x-apisports-key": apiKey }
+      });
+    } catch (error) {
+      throw {
+        status: 502,
+        message: `Server Vercel tak bisa menghubungi API-Football (${error?.cause?.message || error?.message || error}). Cek key tanpa spasi berlebih; coba lagi beberapa saat.`
+      };
+    }
     const remaining = upstream.headers.get("x-ratelimit-requests-remaining");
     const text = await upstream.text();
     let data = null;
