@@ -1782,6 +1782,12 @@ select[data-action="filterMatches"]:focus {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <input id="modalTeamName" class="admin-input" placeholder="Nama team">
         <input id="modalTeamLogo" class="admin-input" placeholder="Logo URL">
+        <div class="md:col-span-2 flex items-center gap-3 rounded-2xl border border-outline-variant/10 bg-black/20 p-3">
+          <img id="modalTeamLogoPreview" class="h-12 w-12 rounded-xl object-contain bg-white/5" alt="">
+          <label class="text-[11px] text-on-surface-variant leading-relaxed">Upload logo file (opsional, tersimpan ke Supabase & mengisi URL di atas)
+            <input id="modalTeamLogoFile" type="file" accept=".png,.jpg,.jpeg,.webp,.svg" data-action="uploadTeamLogo" class="block mt-2 w-full text-xs text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-surface-container-highest file:text-white hover:file:bg-surface-container transition-all cursor-pointer">
+          </label>
+        </div>
         <input id="modalTeamStars" type="number" step="0.5" min="0.5" max="5" value="3.0" class="admin-input" placeholder="Bintang">
         <input id="modalTeamFormation" class="admin-input" placeholder="Formation, e.g. 4-3-3">
         <input id="modalTeamManager" class="admin-input" placeholder="Nama manager">
@@ -1803,7 +1809,9 @@ select[data-action="filterMatches"]:focus {
         <label class="block text-[10px] uppercase tracking-widest font-bold text-primary mb-3">Import PES Roster + Faces</label>
         <input id="rosterFaceFiles" type="file" multiple webkitdirectory directory accept=".png,.jpg,.jpeg,.webp" class="block w-full mb-3 text-xs text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-surface-container-highest file:text-white hover:file:bg-surface-container transition-all cursor-pointer">
         <input type="file" accept=".json" class="block w-full text-xs text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary file:text-on-primary hover:file:bg-secondary transition-all cursor-pointer" data-action="importRosterPlayers">
+        <button class="admin-btn w-full mt-3" data-action="uploadFacesOnly">Upload Faces Saja (pemain sudah ada)</button>
         <p class="mt-3 text-xs text-on-surface-variant leading-relaxed">Pilih folder faces dulu, lalu pilih firestore-import.json. Jika modal ini berisi nama team, roster akan masuk ke team ini.</p>
+        <p class="mt-1 text-[11px] text-on-surface-variant/80 leading-relaxed">Mode faces saja: cocokkan file ke pemain yang SUDAH ADA lewat nama file, tanpa menghapus/menulis ulang roster.</p>
       </div>
       <button class="admin-btn w-full mt-6" data-action="saveTeamFromModal">Save Team</button>
     </div>

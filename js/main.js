@@ -210,6 +210,112 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       return code.includes(target);
     };
 
+    // Nomor klasik -> kode posisi (hanya bila tanpa posisi asli).
+    // 7/11 dikecualikan: winger modern sering tertukar sisi.
+    const SHIRT_POSITION_CODES = {
+      1: "GK", 2: "RB", 3: "LB", 4: "CB", 5: "CB",
+      6: "DMF", 8: "CMF", 9: "CF", 10: "AMF"
+    };
+
+    const hasRealPosition = (player) => {
+      const code = positionCode(player.position);
+      return !!code && positionGroup(player.position) !== "SUB";
+    };
+
+    // Bungkus roster dengan posisi efektif TANPA menulis DB.
+    // Urutan kepercayaan: posisi asli > nomor klasik (segrup lini) >
+    // default lini. Hasil tebakan ditandai positionInferred ("*").
+    // lineGroups: [{ role: "DEF"|"MID"|"AM"|"FWD", count }] per lini.
+    const lineGroupAccepts = (lineRole, code) => {
+      if (lineRole === "DEF") return positionGroup(code) === "DEF";
+      if (lineRole === "MID") return positionGroup(code) === "MID";
+      if (lineRole === "FWD") return positionGroup(code) === "FWD";
+      return ["AMF", "LWF", "RWF", "SS", "LMF", "RMF"].some((item) => code.includes(item));
+    };
+
+    const defaultLineCodes = (lineRole, count) => {
+      if (lineRole === "DEF") {
+        if (count <= 1) return ["CB"];
+        if (count === 2) return ["CB", "CB"];
+        if (count === 3) return ["CB", "CB", "CB"];
+        const out = ["LB", "RB"];
+        while (out.length < count) out.splice(out.length - 1, 0, "CB");
+        return out;
+      }
+      if (lineRole === "MID") {
+        if (count <= 1) return ["DMF"];
+        if (count === 2) return ["DMF", "CMF"];
+        if (count === 3) return ["DMF", "CMF", "AMF"];
+        if (count === 4) return ["DMF", "CMF", "CMF", "AMF"];
+        const out = ["DMF", "CMF", "CMF", "AMF", "RMF"];
+        while (out.length < count) out.splice(out.length - 1, 0, "CMF");
+        return out;
+      }
+      if (lineRole === "AM") {
+        if (count <= 1) return ["AMF"];
+        if (count === 2) return ["LWF", "RWF"];
+        const out = ["LWF", "AMF", "RWF"];
+        while (out.length < count) out.push("AMF");
+        return out;
+      }
+      if (count <= 1) return ["CF"];
+      if (count === 2) return ["CF", "CF"];
+      const out = ["LWF", "CF", "RWF"];
+      while (out.length < count) out.push("CF");
+      return out;
+    };
+
+    const withEffectivePositions = (roster, lineGroups, keeperId, applyBands = true) => {
+      const ranked = roster
+        .filter((player) => player.id !== keeperId && !hasRealPosition(player) && positionGroup(player.position) !== "GK")
+        .sort((a, b) => (a.rosterSlot ?? 999) - (b.rosterSlot ?? 999) || (a.number ?? 999) - (b.number ?? 999));
+      const code = new Map();
+      // Tahap 1: nomor klasik (termasuk #1 -> GK).
+      ranked.forEach((player) => {
+        const shirt = SHIRT_POSITION_CODES[Number(player.number)];
+        if (!shirt) return;
+        if (!applyBands && shirt !== "GK") return;
+        code.set(player.id, shirt);
+      });
+      if (!applyBands) return finishWrap(roster, code);
+      // Tahap 2: per lini — ambil N pertama yang belum terambil lini lain
+      // (termasuk yang sudah berkode kaus); kode yang ada menutupi slot
+      // default sejalur; sisanya dapat default lini.
+      const taken = new Set();
+      lineGroups.forEach((group) => {
+        const slice = [];
+        for (const player of ranked) {
+          if (slice.length >= group.count) break;
+          if (taken.has(player.id)) continue;
+          slice.push(player);
+          taken.add(player.id);
+        }
+        const covered = {};
+        slice.forEach((player) => {
+          const existing = code.get(player.id);
+          if (existing) covered[existing] = (covered[existing] || 0) + 1;
+        });
+        const defaults = defaultLineCodes(group.role, group.count).filter((d) => {
+          if (covered[d] > 0) { covered[d]--; return false; }
+          return true;
+        });
+        let di = 0;
+        slice.forEach((player) => {
+          if (code.has(player.id)) return;
+          code.set(player.id, defaults[di] || defaults[defaults.length - 1] || "CMF");
+          di++;
+        });
+      });
+      return finishWrap(roster, code);
+    };
+
+    const finishWrap = (roster, code) => roster.map((player) => {
+      if (hasRealPosition(player) || positionGroup(player.position) === "GK") return player;
+      const finalCode = code.get(player.id);
+      if (!finalCode) return player;
+      return { ...player, position: finalCode, positionInferred: true };
+    });
+
     const playerPickScore = (player, target = "") => {
       const code = positionCode(player.position);
       const number = Number(player.number) || 99;
@@ -260,17 +366,31 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       if (role === "DEF") {
         if (count === 5) return ["LB", "CB", "CB", "CB", "RB"];
         if (count === 3) return ["CB", "CB", "CB"];
-        return ["LB", "CB", "CB", "RB"].slice(0, count);
+        if (count === 2) return ["CB", "CB"];
+        if (count === 1) return ["CB"];
+        const base = ["LB", "CB", "CB", "RB"];
+        while (base.length < count) base.push("CB");
+        return base.slice(0, count);
       }
       if (role === "MID") {
         if (count === 2) return ["DMF", "CMF"];
         if (count === 4) return ["LMF", "DMF", "CMF", "RMF"];
-        return ["DMF", "CMF", "AMF"].slice(0, count);
+        if (count === 5) return ["LMF", "DMF", "CMF", "CMF", "RMF"];
+        const base = ["DMF", "CMF", "AMF"];
+        while (base.length < count) base.push("CMF");
+        return base.slice(0, count);
       }
-      if (role === "AM") return ["LWF", "AMF", "RWF"].slice(0, count);
+      if (role === "AM") {
+        const base = ["LWF", "AMF", "RWF"];
+        while (base.length < count) base.push("AMF");
+        return base.slice(0, count);
+      }
       if (count === 3) return ["LWF", "CF", "RWF"];
       if (count === 2) return ["CF", "CF"];
-      return Array.from({ length: count }, () => "CF");
+      if (count === 1) return ["CF"];
+      const base = ["LWF", "CF", "RWF"];
+      while (base.length < count) base.push("CF");
+      return base.slice(0, count);
     };
 
     const poolForLineRole = (role, preferredRoster, fallbackRoster) => {
@@ -324,19 +444,29 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       const preferredRoster = byRoster.filter((player) => player.isSubstitute !== true);
       const fallbackRoster = byRoster.filter((player) => player.isSubstitute === true);
       const lines = parseFormationLines(team.formation);
+      const lineGroups = lines.map((count, index) => ({ role: lineRoleFor(lines, index), count }));
       const selectedIds = new Set();
       const lineup = [];
-      const manualPinned = preferredRoster.filter((player) => (
+      const prelimRoster = withEffectivePositions(byRoster, lineGroups, null, false);
+      const prelimPreferred = prelimRoster.filter((player) => player.isSubstitute !== true);
+      const manualPinned = prelimPreferred.filter((player) => (
         player.isSubstitute !== true &&
         Number.isFinite(parseFloat(player.tacticX)) &&
         Number.isFinite(parseFloat(player.tacticY))
       ));
 
-      const gks = byRoster.filter((player) => positionGroup(player.position) === "GK");
+      const gks = prelimRoster.filter((player) => positionGroup(player.position) === "GK");
       const keeperPool = gks
         .filter((player) => player.isSubstitute !== true)
         .sort((a, b) => playerPickScore(a, "GK") - playerPickScore(b, "GK"));
-      const keeper = keeperPool[0] || gks.sort((a, b) => playerPickScore(a, "GK") - playerPickScore(b, "GK"))[0] || byRoster[0];
+      let keeper = keeperPool[0] || gks.sort((a, b) => playerPickScore(a, "GK") - playerPickScore(b, "GK"))[0] || prelimRoster[0];
+      // Kiper tanpa bukti GK (bukan dari posisi asli/#1) = jangan tampil
+      // dengan kode tebakan; kosongkan (jujur) tapi tetap main.
+      if (keeper && !hasRealPosition(keeper) && positionGroup(keeper.position) !== "GK") {
+        keeper = { ...keeper, position: "", positionInferred: false };
+      }
+      const effPreferred = withEffectivePositions(preferredRoster, lineGroups, keeper?.id);
+      const effFallback = withEffectivePositions(fallbackRoster, lineGroups, keeper?.id);
       if (keeper) {
         lineup.push(keeper);
         selectedIds.add(keeper.id);
@@ -360,17 +490,17 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
         const targetCount = Math.max(0, count - manualInGroup);
         const lineSelectedIds = new Set(selectedIds);
         const targets = targetsForLine(group, targetCount);
-        let picked = choosePlayersByTargets(poolForLineRole(group, preferredRoster, []), targets, lineSelectedIds);
+        let picked = choosePlayersByTargets(poolForLineRole(group, effPreferred, []), targets, lineSelectedIds);
         picked.forEach((player) => lineSelectedIds.add(player.id));
 
         if (picked.length < targetCount) {
-          const more = choosePlayersByTargets(poolForLineRole(group, [], fallbackRoster), targets.slice(picked.length), lineSelectedIds);
+          const more = choosePlayersByTargets(poolForLineRole(group, [], effFallback), targets.slice(picked.length), lineSelectedIds);
           picked = [...picked, ...more];
           more.forEach((player) => lineSelectedIds.add(player.id));
         }
 
         if (picked.length < targetCount) {
-          const leftovers = [...preferredRoster, ...fallbackRoster].filter((player) => positionGroup(player.position) !== "GK");
+          const leftovers = [...effPreferred, ...effFallback].filter((player) => positionGroup(player.position) !== "GK");
           picked = [...picked, ...choosePlayersByTargets(leftovers, Array.from({ length: targetCount - picked.length }, () => ""), lineSelectedIds)];
         }
 
@@ -642,7 +772,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
             <div class="absolute -translate-x-1/2 -translate-y-1/2 text-center" style="left:${point.x}%; top:${point.y}%;">
               <img src="${player.faceUrl || player.image || player.facePath || placeholderImage}" class="mx-auto h-7 w-7 rounded-full border border-primary object-cover shadow-lg">
               <div class="mt-0.5 max-w-[58px] rounded bg-black/75 px-1.5 py-0.5 text-[7px] font-black leading-tight text-white">
-                <span class="text-primary">${player.position || ""}</span>${rating ? ` <span class="text-secondary">${rating}</span>` : ""}
+                <span class="text-primary">${player.position || ""}${player.positionInferred ? "*" : ""}</span>${rating ? ` <span class="text-secondary">${rating}</span>` : ""}
                 <br><span class="block truncate">${String(player.player || "").split(" ").slice(-1)[0]}</span>
                 ${matchRating ? `<span class="block text-[6px] text-secondary">MR ${formatMatchRating(matchRating)}</span>` : ""}
               </div>
@@ -750,6 +880,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
             <div class="min-w-0">
               <p class="truncate font-headline text-sm font-black uppercase text-white">${match.team1} ${score} ${match.team2}</p>
               <p class="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">${match.knockoutRoundName || match.date || "Match"}</p>
+              <p class="mt-1 font-mono text-[10px] text-on-surface-variant/70">doc: ${match.id}${match.externalMatchId ? ` • ext: ${match.externalMatchId}` : ""}</p>
             </div>
             <span class="rounded-full border border-secondary/20 bg-secondary/10 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-secondary">${status}</span>
             <button class="admin-btn !py-2 !px-3" data-action="openTab" data-tab="schedule">Open</button>
@@ -1945,11 +2076,22 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       document.getElementById("newsImage").value = "";
     };
 
+    let deleteNewsInFlight = false;
     const deleteNews = async (id) => {
-      if (!isAdmin || !id) return;
+      if (!isAdmin || !id || deleteNewsInFlight) return;
       const item = news.find((n) => n.id === id);
-      if (!confirm(`Hapus berita "${item?.title || ""}"?`)) return;
-      await deleteDoc(doc(db, "news", id));
+      if (!item) { alert("Berita tidak ditemukan (mungkin sudah terhapus)."); return; }
+      if (!confirm(`Hapus berita "${item.title || ""}"?`)) return;
+      deleteNewsInFlight = true;
+      try {
+        await deleteDoc(doc(db, "news", id));
+        try { closeModal(); } catch (e) {}
+      } catch (error) {
+        console.error("Gagal menghapus berita:", error);
+        alert(`Gagal menghapus berita: ${error?.message || error} (cek koneksi / Firestore rules untuk koleksi "news").`);
+      } finally {
+        deleteNewsInFlight = false;
+      }
     };
 
     const saveCutoffs = async () => {
@@ -1998,6 +2140,10 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       document.getElementById("modalTeamId").value = team.id;
       document.getElementById("modalTeamName").value = team.name || "";
       document.getElementById("modalTeamLogo").value = team.logo || "";
+      const preview = document.getElementById("modalTeamLogoPreview");
+      if (preview) preview.src = team.logo || "";
+      const fileInput = document.getElementById("modalTeamLogoFile");
+      if (fileInput) fileInput.value = "";
       document.getElementById("modalTeamStars").value = team.stars || 3;
       document.getElementById("modalTeamFormation").value = team.formation || "";
       document.getElementById("modalTeamManager").value = team.managerName || "";
@@ -2272,6 +2418,54 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
         isSubstitute,
         updatedAtMs: Date.now()
       });
+      if (confirm(`Upload foto wajah untuk ${player.player || "pemain ini"} sekarang?`)) {
+        await uploadSinglePlayerFace(player.id);
+      }
+    };
+
+    // Upload 1 foto wajah untuk 1 pemain yang SUDAH ADA (formasi/nama tak
+    // berubah). Dipakai bila import roster masuk tanpa gambar.
+    const uploadSinglePlayerFace = async (playerId) => {
+      if (!isAdmin) return;
+      const player = rosterPlayers.find((item) => item.id === playerId);
+      if (!player) return;
+      const picker = document.createElement("input");
+      picker.type = "file";
+      picker.accept = ".png,.jpg,.jpeg,.webp";
+      const picked = await new Promise((resolve) => {
+        picker.onchange = () => resolve(picker.files && picker.files[0]);
+        picker.oncancel = () => resolve(null);
+        picker.click();
+      });
+      if (!picked) return;
+      const teamKey = player.teamKey || slugKey(player.team) || "tmp";
+      const faceFile = player.faceFile || `${player.playerKey || slugKey(player.player) || player.id}.png`;
+      const storagePath = `${teamKey}/${faceFile}`.replace(/\\/g, "/");
+      try {
+        const base64 = await fileToBase64(picked);
+        const response = await fetch("/api/supabase-upload-face", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: storagePath, contentType: picked.type || "image/png", base64 })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Upload gagal: ${storagePath}`);
+        const oldPath = player.faceStoragePath && player.faceStoragePath !== result.path ? player.faceStoragePath : "";
+        await updateDoc(doc(db, "players", player.id), {
+          faceUrl: result.publicUrl,
+          image: result.publicUrl,
+          faceStoragePath: result.path,
+          faceStorageBucket: "player-faces",
+          updatedAtMs: Date.now()
+        });
+        if (oldPath) {
+          try { await deleteSupabaseFaces([oldPath]); } catch (error) { console.error("Bersih foto lama gagal:", error); }
+        }
+        alert("Foto terpasang untuk " + (player.player || "pemain") + ".");
+      } catch (error) {
+        console.error("Upload foto pemain gagal:", error);
+        alert("Gagal upload foto: " + (error.message || error));
+      }
     };
 
     const resetTeamTactic = async (teamId) => {
@@ -3360,8 +3554,8 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
     const newsList = document.getElementById("newsList");
     if (!newsList) return;
 
-    // Ambil 3 berita terbaru
-    const displayNews = news.sort((a, b) => b.time - a.time).slice(0, 3);
+    // Ambil 3 berita terbaru (salin dulu agar urutan global tidak termutasi)
+    const displayNews = [...news].sort((a, b) => (b.time || 0) - (a.time || 0)).slice(0, 3);
 
     newsList.innerHTML = displayNews.map((n, i) => {
         const isLarge = i === 0;
@@ -3410,7 +3604,10 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
     // Pasang ulang Event Listener
     document.querySelectorAll('.news-card').forEach(card => {
         card.onclick = (e) => {
-            if (e.target.closest('[data-action="deleteNews"]')) return;
+            // Klik tombol hapus = teruskan ke hub delegasi (jangan buka modal).
+            // e.target bisa text node → guard closest.
+            const t = e.target && e.target.closest ? e.target.closest('[data-action="deleteNews"]') : null;
+            if (t) return;
             const index = card.getAttribute('data-index');
             showModal(displayNews[index]);
         };
@@ -3442,6 +3639,7 @@ const showModal = (data) => {
             <span>Elite League Management</span>
             <span>${new Date(data.time).toLocaleDateString()}</span>
         </div>
+        ${isAdmin && data.id ? `<button class="deleteBtn mt-6 w-full" data-action="deleteNews" data-id="${data.id}">Hapus Berita Ini</button>` : ""}
     `;
 
     modal.classList.remove("hidden");
@@ -5044,6 +5242,110 @@ window.showHofDetail = (id) => {
       }
     };
 
+    const uploadTeamLogo = async (e) => {
+      if (!isAdmin) { e.target.value = ""; return; }
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const name = document.getElementById("modalTeamName")?.value.trim() || "tmp";
+      const key = slugKey(name) || "tmp";
+      const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+      const storagePath = `team-logos/${key}/logo.${ext}`;
+      try {
+        const base64 = await fileToBase64(file);
+        const response = await fetch("/api/supabase-upload-face", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: storagePath, contentType: file.type || "image/png", base64 })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Upload gagal: ${storagePath}`);
+        document.getElementById("modalTeamLogo").value = result.publicUrl || "";
+        const preview = document.getElementById("modalTeamLogoPreview");
+        if (preview) preview.src = result.publicUrl || "";
+      } catch (error) {
+        console.error("Upload logo team gagal:", error);
+        alert("Gagal upload logo: " + (error.message || error));
+      } finally {
+        e.target.value = "";
+      }
+    };
+
+    // Upload faces massal untuk pemain yang SUDAH ADA (tanpa hapus/tulis
+    // ulang roster). File dicocokkan ke pemain via faceFile/facePath, lalu
+    // nama file vs nama pemain. Aman diulang (skip bila URL sudah sama).
+    const uploadFacesOnly = async () => {
+      if (!isAdmin) return;
+      const faceFileMap = buildFaceFileMap();
+      if (!faceFileMap.size) {
+        alert("Pilih folder faces dulu (input di atas).");
+        return;
+      }
+      const modalTeamId = document.getElementById("modalTeamId")?.value || "";
+      const modalTeamName = document.getElementById("modalTeamName")?.value.trim() || "";
+      let team = teams.find((item) => item.id === modalTeamId) || null;
+      if (!team && modalTeamName) {
+        const key = normalizeKey(modalTeamName);
+        team = teams.find((item) => normalizeKey(item.teamKey) === key || normalizeKey(item.name) === key) || null;
+      }
+      if (!team) {
+        alert("Isi dulu nama team di modal (atau buka via Edit Team) agar faces tahu milik siapa.");
+        return;
+      }
+      const teamKey = team.teamKey || slugKey(team.name);
+      const roster = playersForTeam(team);
+      if (!roster.length) {
+        alert(`Tidak ada pemain untuk ${team.name} di web. Import roster dulu atau cek nama team.`);
+        return;
+      }
+      const normFile = (name) => normalizeKey(String(name || "").replace(/\.[a-z0-9]+$/i, "").replace(/[._-]+/g, " "));
+      let uploaded = 0, skipped = 0;
+      const failed = [], missing = [];
+      for (const player of roster) {
+        let file = null;
+        if (player.faceFile) {
+          file = findRosterFaceFile(player, faceFileMap);
+        }
+        if (!file) {
+          const want = new Set([normFile(player.player), normFile(player.playerKey)]);
+          for (const [relativePath, candidate] of faceFileMap.entries()) {
+            if (want.has(normFile(relativePath.split("/").pop()))) { file = candidate; break; }
+          }
+        }
+        if (!file) { missing.push(player.player || "?"); continue; }
+        const faceFile = player.faceFile || `${player.playerKey || slugKey(player.player) || player.id}.png`;
+        const storagePath = `${teamKey}/${faceFile}`.replace(/\\/g, "/");
+        const currentUrl = player.faceUrl || player.image || "";
+        try {
+          const base64 = await fileToBase64(file);
+          const response = await fetch("/api/supabase-upload-face", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: storagePath, contentType: file.type || "image/png", base64 })
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result.error || `Upload gagal: ${storagePath}`);
+          if (currentUrl === result.publicUrl && player.faceStoragePath === result.path) { skipped++; continue; }
+          const oldPath = player.faceStoragePath && player.faceStoragePath !== result.path ? player.faceStoragePath : "";
+          await updateDoc(doc(db, "players", player.id), {
+            faceUrl: result.publicUrl,
+            image: result.publicUrl,
+            faceFile,
+            faceStoragePath: result.path,
+            faceStorageBucket: "player-faces",
+            updatedAtMs: Date.now()
+          });
+          if (oldPath) {
+            try { await deleteSupabaseFaces([oldPath]); } catch (error) { console.error("Bersih foto lama gagal:", error); }
+          }
+          uploaded++;
+        } catch (error) {
+          console.error("Upload wajah gagal:", player.player, error);
+          failed.push(`${player.player || "?"}: ${error.message || error}`);
+        }
+      }
+      alert(`Faces selesai untuk ${team.name}: upload ${uploaded}, sudah ada ${skipped}, tak ketemu file ${missing.length}${missing.length ? ` (${missing.slice(0, 5).join(", ")})` : ""}${failed.length ? `, gagal ${failed.length}: ${failed.slice(0, 3).join("; ")}` : ""}. Roster tidak diubah.`);
+    };
+
     const importBackup = async (e) => {
       if (!isAdmin) {
         alert("Hanya admin yang bisa import backup.");
@@ -5183,6 +5485,7 @@ window.showHofDetail = (id) => {
     const uploadRosterFaces = async (players, faceFileMap) => {
       let uploaded = 0;
       let missing = 0;
+      const failed = [];
       const cache = new Map();
       const enhanced = [];
 
@@ -5197,9 +5500,17 @@ window.showHofDetail = (id) => {
         const storagePath = `${player.teamKey}/${player.faceFile}`.replace(/\\/g, "/");
         let uploadedFace = cache.get(storagePath);
         if (!uploadedFace) {
-          uploadedFace = await uploadRosterFace(player, file);
-          cache.set(storagePath, uploadedFace);
-          uploaded += 1;
+          try {
+            uploadedFace = await uploadRosterFace(player, file);
+            cache.set(storagePath, uploadedFace);
+            uploaded += 1;
+          } catch (error) {
+            // Satu gambar gagal JANGAN gugurkan seluruh import.
+            console.error("Upload wajah gagal:", storagePath, error);
+            failed.push(`${player.player || "?"}: ${error.message || error}`);
+            enhanced.push(player);
+            continue;
+          }
         }
 
         enhanced.push({
@@ -5211,7 +5522,7 @@ window.showHofDetail = (id) => {
         });
       }
 
-      return { players: enhanced, uploaded, missing };
+      return { players: enhanced, uploaded, missing, failed };
     };
 
     const deleteSupabaseFaces = async (paths) => {
@@ -5331,11 +5642,19 @@ window.showHofDetail = (id) => {
             deleteOps.push((batch) => batch.delete(item.ref));
           });
         }
-        if (oldStoragePaths.length) await deleteSupabaseFaces(oldStoragePaths);
+        let faceCleanupNote = "";
+        if (oldStoragePaths.length) {
+          try {
+            await deleteSupabaseFaces(oldStoragePaths);
+          } catch (error) {
+            console.error("Bersih faces lama gagal (lanjut import):", error);
+            faceCleanupNote = " Bersih faces lama gagal, file lama mungkin menumpuk.";
+          }
+        }
 
         const uploadResult = faceFileMap.size
           ? await uploadRosterFaces(incomingPlayers, faceFileMap)
-          : { players: incomingPlayers, uploaded: 0, missing: 0 };
+          : { players: incomingPlayers, uploaded: 0, missing: 0, failed: [] };
         const teamImportResult = await ensureTeamsForRoster(uploadResult.players);
 
         await commitBatchChunks(deleteOps);
@@ -5353,7 +5672,7 @@ window.showHofDetail = (id) => {
         });
         await commitBatchChunks(writeOps);
 
-        alert(`Roster import selesai. Team dibuat: ${teamImportResult.created}, team update: ${teamImportResult.updated}. ${deleteOps.length} dokumen lama diganti, ${writeOps.length} pemain masuk. Gambar upload: ${uploadResult.uploaded}. Gambar tidak ketemu: ${uploadResult.missing}.`);
+        alert(`Roster import selesai. Team dibuat: ${teamImportResult.created}, team update: ${teamImportResult.updated}. ${deleteOps.length} dokumen lama diganti, ${writeOps.length} pemain masuk. Gambar upload: ${uploadResult.uploaded}. Gambar tidak ketemu: ${uploadResult.missing}.${faceCleanupNote}${(uploadResult.failed || []).length ? ` Gagal upload ${uploadResult.failed.length} (roster tetap masuk tanpa foto): ${uploadResult.failed.slice(0, 3).join("; ")}` : ""}`);
       } catch (error) {
         console.error("Import roster failed:", error);
         alert("Gagal import roster: " + error.message);
@@ -5537,6 +5856,7 @@ document.addEventListener('click', async (e) => {
     else if (action === 'openTeamCreateModal') openTeamCreateModal();
     else if (action === 'closeTeamEditorModal') closeTeamEditorModal();
     else if (action === 'saveTeamFromModal') await saveTeamFromModal();
+    else if (action === 'uploadFacesOnly') await uploadFacesOnly();
     else if (action === 'editTeam') openTeamEditModal(id);
     else if (action === 'openTeamDetail') renderTeamDetailModal(id);
     else if (action === 'closeTeamDetailModal') closeTeamDetailModal();
@@ -5592,6 +5912,7 @@ document.addEventListener('click', async (e) => {
     else if (action === 'updateScorerAssists') await updateScorerAssists(target.dataset.id, target.value);
     else if (action === 'updateScoreKO') await updateScoreKO(target.dataset.id, target.dataset.side, target.value);
     else if (action === 'importBackup') await importBackup(e);
+    else if (action === 'uploadTeamLogo') await uploadTeamLogo(e);
     else if (action === 'importRosterPlayers') await importRosterPlayers(e);
     else if (action === 'selectScorerTeam') renderRosterPlayerOptions();
 });
