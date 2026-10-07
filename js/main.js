@@ -222,6 +222,46 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       return !!code && positionGroup(player.position) !== "SUB";
     };
 
+    // Nomor punggung yang wajar per target (longgar, lintas era).
+    const SHIRT_FIT = {
+      GK: [1, 12, 13, 22],
+      LB: [3, 12, 15, 20, 23], RB: [2, 12, 13, 21, 22, 23],
+      CB: [2, 3, 4, 5, 6, 13, 14, 24],
+      DMF: [4, 5, 6, 14, 15, 16], CMF: [5, 6, 8, 10, 14, 15, 16],
+      LMF: [3, 7, 11, 16, 17], RMF: [2, 7, 11, 17],
+      AMF: [7, 8, 10, 11], LWF: [7, 10, 11, 17, 19],
+      RWF: [7, 10, 11, 17, 19], SS: [7, 9, 10, 11],
+      CF: [7, 9, 10, 11, 19], WF: [7, 10, 11, 17, 19]
+    };
+
+    const GROUP_SHIRTS = {
+      DEF: [2, 3, 4, 5, 12, 13, 20, 22, 23],
+      MID: [4, 5, 6, 8, 14, 15, 16],
+      AM: [7, 8, 10, 11, 17],
+      FWD: [7, 9, 10, 11, 19]
+    };
+
+    const shirtFitFor = (number, target) => {
+      const n = Number(number);
+      if (!Number.isFinite(n) || !target) return 0;
+      return (SHIRT_FIT[target] || []).includes(n) ? -50 : 0;
+    };
+
+    // Kepercayaan kode untuk target: kode persis yang DITENTANG nomor
+    // klasiknya (mis. "LB" bernomor 4) nilainya jatuh, sehingga rekan
+    // setim yang didukung nomor bisa memenangkannya secara jujur.
+    const codeTrustFor = (player, target) => {
+      const code = positionCode(player.position);
+      if (!codeMatchesTarget(code, target)) return 0;
+      if (!target) return -100;
+      if (player.positionInferred) return -100;
+      const shirtClassic = SHIRT_POSITION_CODES[Number(player.number)];
+      if (!shirtClassic) return -100;
+      if (shirtClassic === code) return -130;
+      if (positionGroup(shirtClassic) === positionGroup(code)) return -40;
+      return -60;
+    };
+
     // Bungkus roster dengan posisi efektif TANPA menulis DB.
     // Urutan kepercayaan: posisi asli > nomor klasik (segrup lini) >
     // default lini. Hasil tebakan ditandai positionInferred ("*").
@@ -278,18 +318,21 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
         code.set(player.id, shirt);
       });
       if (!applyBands) return finishWrap(roster, code);
-      // Tahap 2: per lini — ambil N pertama yang belum terambil lini lain
-      // (termasuk yang sudah berkode kaus); kode yang ada menutupi slot
-      // default sejalur; sisanya dapat default lini.
+      // Tahap 2: per lini — yang nomornya cocok lini didahulukan masuk
+      // slice; kode yang ada menutupi slot default sejalur; sisanya dapat
+      // default lini yang paling cocok nomornya.
       const taken = new Set();
+      const slotKey = (player) => (player.rosterSlot ?? 999) * 1000 + (Number(player.number) || 99) / 100;
       lineGroups.forEach((group) => {
-        const slice = [];
-        for (const player of ranked) {
-          if (slice.length >= group.count) break;
-          if (taken.has(player.id)) continue;
-          slice.push(player);
-          taken.add(player.id);
-        }
+        const fitSet = GROUP_SHIRTS[group.role] || [];
+        const eligible = ranked
+          .filter((player) => !taken.has(player.id))
+          .sort((a, b) => (
+            (fitSet.includes(Number(a.number)) ? 0 : 1) - (fitSet.includes(Number(b.number)) ? 0 : 1) ||
+            slotKey(a) - slotKey(b)
+          ));
+        const slice = eligible.slice(0, group.count);
+        slice.forEach((player) => taken.add(player.id));
         const covered = {};
         slice.forEach((player) => {
           const existing = code.get(player.id);
@@ -299,11 +342,11 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
           if (covered[d] > 0) { covered[d]--; return false; }
           return true;
         });
-        let di = 0;
-        slice.forEach((player) => {
-          if (code.has(player.id)) return;
-          code.set(player.id, defaults[di] || defaults[defaults.length - 1] || "CMF");
-          di++;
+        const free = slice.filter((player) => !code.has(player.id));
+        defaults.forEach((d) => {
+          free.sort((a, b) => shirtFitFor(a.number, d) - shirtFitFor(b.number, d) || slotKey(a) - slotKey(b));
+          const pick = free.shift();
+          if (pick) code.set(pick.id, d);
         });
       });
       return finishWrap(roster, code);
@@ -320,7 +363,8 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       const code = positionCode(player.position);
       const number = Number(player.number) || 99;
       let score = 0;
-      if (target && codeMatchesTarget(code, target)) score -= 1000;
+      score += codeTrustFor(player, target);
+      score += shirtFitFor(player.number, target);
       if (player.positionSource === "player-map") score -= 80;
       if (player.positionSource === "player-database") score -= 70;
       if (player.positionSource === "squad-order-heuristic") score -= 40;
@@ -345,8 +389,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
         const candidates = orderedPool
           .filter((player) => !localSelected.has(player.id))
           .sort((a, b) => playerPickScore(a, target) - playerPickScore(b, target));
-        const exact = candidates.find((player) => codeMatchesTarget(positionCode(player.position), target));
-        const picked = exact || candidates[0];
+        const picked = candidates[0];
         if (!picked) continue;
         chosen.push(picked);
         localSelected.add(picked.id);
@@ -594,7 +637,10 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
         const score = ((point.x - x) ** 2) + ((point.y - y) ** 2);
         if (!best || score < best.score) best = { node, score };
       }
-      return best?.node || null;
+      // Hanya anggap "ganti" bila kursor benar-benar dekat ke titik pemain;
+      // drop di rumput kosong = penempatan bebas, bukan tukar.
+      if (!best || Math.sqrt(best.score) > 10) return null;
+      return best.node;
     };
 
     const sameExternalMatch = (a, b) => normalizeKey(a || "") && normalizeKey(a) === normalizeKey(b);
@@ -5734,6 +5780,7 @@ document.addEventListener("pointerdown", (e) => {
 
     e.preventDefault();
     playerNode.setPointerCapture?.(e.pointerId);
+    playerNode.style.transition = "none";
 
     const move = (event) => {
       const rect = board.getBoundingClientRect();
@@ -5748,6 +5795,8 @@ document.addEventListener("pointerdown", (e) => {
     const up = async () => {
       document.removeEventListener("pointermove", move);
       document.removeEventListener("pointerup", up);
+      document.removeEventListener("pointercancel", cancel);
+      playerNode.style.transition = "";
       const tacticX = parseFloat(playerNode.dataset.x);
       const tacticY = parseFloat(playerNode.dataset.y);
       if (!Number.isFinite(tacticX) || !Number.isFinite(tacticY)) return;
@@ -5762,8 +5811,16 @@ document.addEventListener("pointerdown", (e) => {
       }
     };
 
+    const cancel = () => {
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+      document.removeEventListener("pointercancel", cancel);
+      playerNode.style.transition = "";
+    };
+
     document.addEventListener("pointermove", move);
     document.addEventListener("pointerup", up);
+    document.addEventListener("pointercancel", cancel);
 });
 
 document.addEventListener("dragstart", (e) => {
@@ -5810,6 +5867,11 @@ document.addEventListener("drop", async (e) => {
       const targetKind = listZone.dataset.rosterDropZone;
       const targetRow = e.target.closest("[data-roster-list-player]");
       const replacedPlayerId = targetKind === "starter" ? targetRow?.dataset.rosterListPlayer || "" : "";
+      const draggedRowEarly = document.querySelector(`[data-roster-list-player="${playerId}"]`);
+      const draggedKindEarly = draggedRowEarly?.closest("[data-roster-drop-zone]")?.dataset.rosterDropZone || "";
+      // Drop kembali ke daftar yang sama tanpa target = tidak ada yang berubah.
+      // (Dulu: tacticX/Y ikut ter-nulled sehingga titik taktik mental ke auto.)
+      if ((!replacedPlayerId || replacedPlayerId === playerId) && draggedKindEarly === targetKind) return;
       let replacementPoint = null;
 
       if (replacedPlayerId && replacedPlayerId !== playerId) {
