@@ -524,29 +524,37 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
       const linePlayers = [];
       lines.forEach((count, index) => {
         const group = lineRoleFor(lines, index);
-        const manualInGroup = manualPinned.filter((player) => (
-          group === "AM"
-            ? ["AMF", "LWF", "RWF", "SS", "LMF", "RMF"].some((item) => positionCode(player.position).includes(item))
-            : positionGroup(player.position) === group
-        )).length;
-        const targetCount = Math.max(0, count - manualInGroup);
-        const lineSelectedIds = new Set(selectedIds);
-        const targets = targetsForLine(group, targetCount);
-        let picked = choosePlayersByTargets(poolForLineRole(group, effPreferred, []), targets, lineSelectedIds);
+      const lineSelectedIds = new Set(selectedIds);
+        const targets = targetsForLine(group, count);
+        // Pin menempati tepat SATU slot: slot target yang paling cocok
+        // kodenya (label yang digeser manual ikut tempatnya). Slot yang
+        // tertutup pin tidak diisi auto -> XI tetap 11, tak ada yang hilang.
+        const zonePins = manualPinned.filter((player) => (
+          lineIndexForBoardPoint(parseFloat(player.tacticX), parseFloat(player.tacticY), team.formation) === index
+        ));
+        const covered = new Set();
+        zonePins.forEach((pin) => {
+          const code = positionCode(pin.position);
+          const rest = targets.map((_, i) => i).filter((i) => !covered.has(i));
+          const hit = rest.find((i) => codeMatchesTarget(code, targets[i]));
+          covered.add(hit !== undefined ? hit : rest[0]);
+        });
+        const openTargets = targets.filter((_, i) => !covered.has(i));
+        let picked = choosePlayersByTargets(poolForLineRole(group, effPreferred, []), openTargets, lineSelectedIds);
         picked.forEach((player) => lineSelectedIds.add(player.id));
 
-        if (picked.length < targetCount) {
-          const more = choosePlayersByTargets(poolForLineRole(group, [], effFallback), targets.slice(picked.length), lineSelectedIds);
+        if (picked.length < openTargets.length) {
+          const more = choosePlayersByTargets(poolForLineRole(group, [], effFallback), openTargets.slice(picked.length), lineSelectedIds);
           picked = [...picked, ...more];
           more.forEach((player) => lineSelectedIds.add(player.id));
         }
 
-        if (picked.length < targetCount) {
+        if (picked.length < openTargets.length) {
           const leftovers = [...effPreferred, ...effFallback].filter((player) => positionGroup(player.position) !== "GK");
           const prefLeft = leftovers.filter((player) => player.isSubstitute !== true);
           const subLeft = leftovers.filter((player) => player.isSubstitute === true);
-          picked = [...picked, ...choosePlayersByTargets(prefLeft, Array.from({ length: targetCount - picked.length }, () => ""), lineSelectedIds)];
-          picked = [...picked, ...choosePlayersByTargets(subLeft, Array.from({ length: targetCount - picked.length }, () => ""), lineSelectedIds)];
+          picked = [...picked, ...choosePlayersByTargets(prefLeft, Array.from({ length: openTargets.length - picked.length }, () => ""), lineSelectedIds)];
+          picked = [...picked, ...choosePlayersByTargets(subLeft, Array.from({ length: openTargets.length - picked.length }, () => ""), lineSelectedIds)];
         }
 
         picked = orderLinePlayers(group, picked);
@@ -574,24 +582,41 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https:/
 
       lines.forEach((count, lineIndex) => {
         const xs = xSlots(count);
-        for (let i = 0; i < (linePlayers[lineIndex] || []).length; i += 1) {
-          const player = linePlayers[lineIndex][i];
-          if (player) layout.set(player.id, { x: xs[i], y: ys[lineIndex] || 50 });
+        const y = ys[lineIndex] || 50;
+        // Slot auto yang sudah ditempati pin (radius 7) dilewati agar titik
+        // auto tidak menumpuk tepat di atas titik manual.
+        const pinsHere = (manualPinned || []).filter((player) => (
+          lineIndexForBoardPoint(parseFloat(player.tacticX), parseFloat(player.tacticY), team.formation) === lineIndex
+        ));
+        const freeSlots = xs.filter((sx) => !pinsHere.some((player) => (
+          Math.hypot(parseFloat(player.tacticX) - sx, parseFloat(player.tacticY) - y) < 7
+        )));
+        const ordered = (linePlayers[lineIndex] || []).slice();
+        for (let i = 0; i < ordered.length; i += 1) {
+          const player = ordered[i];
+          const sx = freeSlots[i] !== undefined ? freeSlots[i] : xs[Math.min(i, xs.length - 1)];
+          if (player) layout.set(player.id, { x: sx, y });
         }
       });
       return layout;
     };
 
+    // Titik di papan -> indeks lini (sadar formasi); -1 = zona kiper.
+    const lineIndexForBoardPoint = (x, y, formation = "") => {
+      const lines = parseFormationLines(formation);
+      const ys = ySlots(lines.length);
+      if (y >= (ys[0] + 100) / 2) return -1;
+      for (let i = 0; i + 1 < ys.length; i += 1) {
+        if (y >= (ys[i] + ys[i + 1]) / 2) return i;
+      }
+      return ys.length - 1;
+    };
+
     // Titik di papan -> kode peran (sadar formasi, jalur L/C/R).
     const positionForBoardPoint = (x, y, formation = "") => {
       const lines = parseFormationLines(formation);
-      const ys = ySlots(lines.length);
-      const gkLine = (ys[0] + 100) / 2;
-      if (y >= gkLine) return "GK";
-      let lineIndex = ys.length - 1;
-      for (let i = 0; i + 1 < ys.length; i += 1) {
-        if (y >= (ys[i] + ys[i + 1]) / 2) { lineIndex = i; break; }
-      }
+      const lineIndex = lineIndexForBoardPoint(x, y, formation);
+      if (lineIndex < 0) return "GK";
       const role = lineRoleFor(lines, lineIndex);
       const lane = x < 35 ? "L" : x > 65 ? "R" : "C";
       if (role === "DEF") return lane === "L" ? "LB" : lane === "R" ? "RB" : "CB";
@@ -2447,6 +2472,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
             <p class="text-sm text-on-surface-variant">${players.length} pemain roster${team.formation ? ` - ${team.formation}` : ""}</p>
           </div>
           ${isAdmin ? `<button class="admin-btn" data-action="resetTeamTactic" data-id="${team.id}">Reset Auto</button>` : ""}
+          ${isAdmin ? `<button class="admin-btn" data-action="syncRealFormation" data-id="${team.id}">Real-Life XI</button>` : ""}
           <div class="rounded-2xl border border-secondary/20 bg-secondary/10 p-3 flex items-center gap-3 min-w-[220px]">
             <img src="${managerPhoto}" class="h-12 w-12 rounded-xl object-cover">
             <div>
@@ -2558,6 +2584,132 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       }));
       await commitBatchChunks(ops);
       renderTeamDetailModal(teamId);
+    };
+
+    // --- FORMASI REAL-LIFE (API-Football via /api/real-formation) ---
+    const plainFootballName = (value) => String(value || "")
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
+
+    const matchRealName = (apiName, rosterPlayers) => {
+      const tParts = plainFootballName(apiName).split(" ").filter(Boolean);
+      if (!tParts.length) return null;
+      const scored = [];
+      for (const player of rosterPlayers) {
+        const cParts = plainFootballName(player.player).split(" ").filter(Boolean);
+        if (!cParts.length) continue;
+        if (cParts[cParts.length - 1] !== tParts[tParts.length - 1]) continue;
+        let score = 50;
+        if (cParts[0] === tParts[0]) score += 40;
+        else if (cParts[0][0] === tParts[0][0]) score += 20;
+        scored.push({ player, score });
+      }
+      scored.sort((a, b) => b.score - a.score);
+      if (!scored.length || scored[0].score < 50) return null;
+      if (scored.length > 1 && scored[1].score === scored[0].score) return null;
+      return scored[0].player;
+    };
+
+    const gridPointForRealLineup = (grid, allGrids) => {
+      const parse = (g) => String(g || "").split(":").map(Number);
+      const rows = [...new Set(allGrids.map((g) => parse(g)[0]).filter((n) => Number.isFinite(n)))].sort((a, b) => a - b);
+      const [r, c] = parse(grid);
+      const ri = Math.max(0, rows.indexOf(r));
+      const y = rows.length > 1 ? 90 - (ri / (rows.length - 1)) * 75 : 50;
+      const cols = allGrids.map((g) => parse(g))
+        .filter(([rr, cc]) => rr === r && Number.isFinite(cc))
+        .map(([, cc]) => cc).sort((a, b) => a - b);
+      const ci = Math.max(0, cols.indexOf(c));
+      const x = cols.length > 1 ? 20 + (ci / (cols.length - 1)) * 60 : 50;
+      return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+    };
+
+    const realFormationGet = async (params) => {
+      const query = new URLSearchParams(params).toString();
+      const response = await fetch(`/api/real-formation?${query}`);
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Real-formation gagal (${response.status}).`);
+      return result;
+    };
+
+    const syncRealFormation = async (teamId) => {
+      if (!isAdmin) return;
+      const team = teams.find((item) => item.id === teamId);
+      if (!team) return;
+      try {
+        let apiTeamId = parseInt(team.apiTeamId, 10) || 0;
+        if (!Number.isFinite(apiTeamId) || !apiTeamId) {
+          const keyword = prompt("Cari klub real-life (untuk formasi asli):", team.name || "");
+          if (!keyword) return;
+          const found = await realFormationGet({ action: "search", team: keyword });
+          if (!found.teams?.length) { alert("Klub tidak ketemu di database."); return; }
+          let pick = found.teams[0];
+          if (found.teams.length > 1) {
+            const list = found.teams.slice(0, 8).map((item, i) => `${i + 1}. ${item.name} (${item.country || "?"})`).join("\n");
+            const choice = prompt(`Pilih klub (ketik nomor):\n${list}`, "1");
+            pick = found.teams[Math.max(0, (parseInt(choice, 10) || 1) - 1)] || found.teams[0];
+          }
+          apiTeamId = pick.id;
+          await updateDoc(doc(db, "teams", team.id), { apiTeamId, updatedAtMs: Date.now() });
+          team.apiTeamId = apiTeamId;
+        }
+
+        const recent = await realFormationGet({ action: "last", team: String(apiTeamId) });
+        if (!recent.fixtures?.length) { alert("Belum ada laga selesai musim ini untuk klub tersebut."); return; }
+        let fixture = recent.fixtures[0];
+        if (recent.fixtures.length > 1) {
+          const list = recent.fixtures.slice(0, 5).map((item, i) => `${i + 1}. ${item.home} ${item.score} ${item.away} (${String(item.date || "").slice(0, 10)})`).join("\n");
+          const choice = prompt(`Pakai laga yang mana?\n${list}`, "1");
+          fixture = recent.fixtures[Math.max(0, (parseInt(choice, 10) || 1) - 1)] || recent.fixtures[0];
+        }
+
+        const lineup = await realFormationGet({ action: "lineup", fixture: String(fixture.id), team: String(apiTeamId) });
+        if (!lineup.formation || !lineup.xi?.length) { alert("Lineup tak tersedia untuk laga itu; coba laga lain."); return; }
+        const roster = playersForTeam(team);
+        const allGrids = lineup.xi.map((slot) => slot.grid).filter(Boolean);
+        const mapped = lineup.xi.map((slot) => {
+          const hit = matchRealName(slot.name, roster);
+          const point = gridPointForRealLineup(slot.grid, allGrids);
+          return { slot, hit, point };
+        });
+        const ok = mapped.filter((item) => item.hit);
+        const miss = mapped.filter((item) => !item.hit);
+        const preview = `Real-life: ${fixture.home} ${fixture.score} ${fixture.away}\nFormasi ${lineup.formation}${lineup.coach ? ` (pelatih ${lineup.coach})` : ""}\nXI cocok ${ok.length}/${mapped.length}${miss.length ? `\nTak cocok: ${miss.map((item) => item.slot.name).join(", ")}` : ""}${lineup.remaining !== undefined && lineup.remaining !== null ? `\nKuota API sisa: ${lineup.remaining}` : ""}\n\nTerapkan ke ${team.name}?`;
+        if (!confirm(preview)) return;
+
+        const now = Date.now();
+        const ops = [];
+        ops.push((batch) => batch.update(doc(db, "teams", team.id), {
+          formation: lineup.formation,
+          formationSource: `real-life ${fixture.home} ${fixture.score} ${fixture.away}`,
+          updatedAtMs: now
+        }));
+        ok.forEach((item) => {
+          const zonePos = positionForBoardPoint(item.point.x, item.point.y, lineup.formation);
+          ops.push((batch) => batch.update(doc(db, "players", item.hit.id), {
+            isSubstitute: false,
+            tacticX: item.point.x,
+            tacticY: item.point.y,
+            position: zonePos,
+            updatedAtMs: now
+          }));
+        });
+        (lineup.subs || []).forEach((slot) => {
+          const hit = matchRealName(slot.name, roster);
+          if (!hit || ok.some((item) => item.hit.id === hit.id)) return;
+          ops.push((batch) => batch.update(doc(db, "players", hit.id), {
+            isSubstitute: true,
+            tacticX: null,
+            tacticY: null,
+            updatedAtMs: now
+          }));
+        });
+        await commitBatchChunks(ops);
+        renderTeamDetailModal(teamId);
+        alert(`Formasi real-life ${lineup.formation} diterapkan: XI ${ok.length}, cadangan tercatat, tak cocok ${miss.length}.`);
+      } catch (error) {
+        console.error("Sync real formation failed:", error);
+        alert("Gagal ambil formasi real-life: " + error.message);
+      }
     };
 
     const moveRosterPlayerBetweenLists = async (playerId, targetKind, replacedPlayerId = "", replacementPoint = null, inheritedPosition = "") => {
@@ -6134,6 +6286,7 @@ document.addEventListener('click', async (e) => {
     else if (action === 'closeTeamDetailModal') closeTeamDetailModal();
     else if (action === 'editRosterPlayer') await editRosterPlayer(id);
     else if (action === 'resetTeamTactic') await resetTeamTactic(id);
+    else if (action === 'syncRealFormation') await syncRealFormation(id);
     else if (action === 'addTeam') openTeamCreateModal();
     else if (action === 'deleteTeam') await deleteTeam(id);
     
