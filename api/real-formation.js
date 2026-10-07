@@ -48,7 +48,108 @@ export default async function handler(req, res) {
     });
   }
 
+  const FM_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+    "Accept": "application/json",
+    "Referer": "https://www.fotmob.com/"
+  };
+
+  const fmGet = async (url) => {
+    let upstream;
+    try {
+      upstream = await fetch(url, { headers: FM_HEADERS });
+    } catch (error) {
+      throw { status: 502, message: `FotMob tak terjangkau (${error?.cause?.message || error?.message || error}).` };
+    }
+    const text = await upstream.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+    if (!upstream.ok || !data) {
+      throw { status: 502, message: `FotMob menolak (${upstream.status}). Coba lagi nanti.` };
+    }
+    return data;
+  };
+
+  // --- Provider FotMob (gratis, tanpa key, musim berjalan) ---
   const action = cleanText(req.query.action, 20);
+  if (action === "fm-search") {
+    const q = cleanText(req.query.team);
+    if (!q) return json(res, 400, { error: "Parameter team wajib diisi." });
+    const data = await fmGet(`https://apigw.fotmob.com/searchapi/suggest?term=${encodeURIComponent(q)}&hits=8`);
+    const seen = new Set();
+    const teams = [];
+    for (const group of data?.teamSuggest || []) {
+      for (const opt of group?.options || []) {
+        const id = parseInt(opt?.payload?.id, 10);
+        const name = String(opt?.text || "").split("|")[0].trim();
+        if (!Number.isFinite(id) || !name || seen.has(id)) continue;
+        seen.add(id);
+        teams.push({ id, name, league: opt?.payload?.leagueName || "" });
+        if (teams.length >= 8) break;
+      }
+    }
+    return json(res, 200, { teams, provider: "fotmob" });
+  }
+
+  if (action === "fm-last") {
+    const teamId = parseInt(req.query.team, 10);
+    if (!Number.isFinite(teamId)) return json(res, 400, { error: "Parameter team (id FotMob) wajib diisi." });
+    const data = await fmGet(`https://www.fotmob.com/api/data/teams?id=${teamId}`);
+    const last = data?.overview?.lastMatch;
+    if (!last?.id || last?.notStarted || last?.status?.finished === false) {
+      return json(res, 404, { error: "Belum ada laga selesai untuk tim ini.", provider: "fotmob" });
+    }
+    return json(res, 200, {
+      provider: "fotmob",
+      fixture: {
+        id: last.id,
+        date: last?.status?.utcTime || "",
+        league: last?.tournament?.name || "",
+        home: last?.home?.name || "",
+        away: last?.away?.name || "",
+        score: `${last?.home?.score ?? "-"}-${last?.away?.score ?? "-"}`
+      }
+    });
+  }
+
+  if (action === "fm-lineup") {
+    const fixtureId = String(req.query.fixture || "").trim();
+    const teamId = parseInt(req.query.team, 10);
+    if (!fixtureId) return json(res, 400, { error: "Parameter fixture wajib diisi." });
+    const data = await fmGet(`https://www.fotmob.com/api/data/matchDetails?matchId=${encodeURIComponent(fixtureId)}`);
+    const lineup = data?.content?.lineup || {};
+    const sides = [lineup.homeTeam, lineup.awayTeam].filter(Boolean);
+    const entry = (Number.isFinite(teamId) && sides.find((s) => Number(s?.id) === teamId)) || sides[0];
+    if (!entry || !entry.formation || !entry.starters?.length) {
+      return json(res, 404, { error: "Lineup tak tersedia untuk laga ini.", provider: "fotmob" });
+    }
+    const toPoint = (v) => {
+      const vx = Number(v?.x), vy = Number(v?.y);
+      if (!Number.isFinite(vx) || !Number.isFinite(vy)) return null;
+      // FotMob vertikal: x cermin, y dari atas (kiper) -> papan kita: x kiri-kanan, y bawah (kiper).
+      return {
+        x: Math.round((1 - vx) * 1000) / 10,
+        y: Math.round((1 - vy) * 1000) / 10
+      };
+    };
+    const xi = entry.starters.map((p) => ({
+      name: p?.name || `${p?.firstName || ""} ${p?.lastName || ""}`.trim(),
+      number: p?.shirtNumber != null ? parseInt(p.shirtNumber, 10) || null : null,
+      point: toPoint(p?.verticalLayout)
+    })).filter((slot) => slot.name && slot.point);
+    const subs = (entry.subs || []).map((p) => ({
+      name: p?.name || `${p?.firstName || ""} ${p?.lastName || ""}`.trim()
+    })).filter((slot) => slot.name);
+    return json(res, 200, {
+      provider: "fotmob",
+      team: entry?.name || "",
+      formation: entry?.formation || "",
+      coach: entry?.coach?.name || "",
+      xi,
+      subs
+    });
+  }
+
   const callApi = async (path) => {
     let upstream;
     try {

@@ -2632,7 +2632,93 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
       return result;
     };
 
+    const applyRealLineup = async (team, formation, sourceLabel, mapped, subsApi, quotaNote = "") => {
+      const roster = playersForTeam(team);
+      const ok = mapped.filter((item) => item.hit);
+      const miss = mapped.filter((item) => !item.hit);
+      if (!confirm(`Real-life: ${sourceLabel}\nFormasi ${formation}\nXI cocok ${ok.length}/${mapped.length}${miss.length ? `\nTak cocok: ${miss.map((item) => item.slot.name).join(", ")}` : ""}${quotaNote}\n\nTerapkan ke ${team.name}?`)) return false;
+      const now = Date.now();
+      const ops = [];
+      ops.push((batch) => batch.update(doc(db, "teams", team.id), {
+        formation,
+        formationSource: `real-life ${sourceLabel}`,
+        updatedAtMs: now
+      }));
+      ok.forEach((item) => {
+        const zonePos = positionForBoardPoint(item.point.x, item.point.y, formation);
+        ops.push((batch) => batch.update(doc(db, "players", item.hit.id), {
+          isSubstitute: false,
+          tacticX: item.point.x,
+          tacticY: item.point.y,
+          position: zonePos,
+          updatedAtMs: now
+        }));
+      });
+      (subsApi || []).forEach((slot) => {
+        const hit = matchRealName(slot.name, roster);
+        if (!hit || ok.some((item) => item.hit.id === hit.id)) return;
+        ops.push((batch) => batch.update(doc(db, "players", hit.id), {
+          isSubstitute: true,
+          tacticX: null,
+          tacticY: null,
+          updatedAtMs: now
+        }));
+      });
+      await commitBatchChunks(ops);
+      renderTeamDetailModal(team.id);
+      alert(`Formasi real-life ${formation} diterapkan: XI ${ok.length}, tak cocok ${miss.length}.`);
+      return true;
+    };
+
+    const syncRealFormationFotMob = async (team) => {
+      let fmTeamId = parseInt(team.fmTeamId, 10) || 0;
+      if (!fmTeamId) {
+        const keyword = prompt("Cari klub real-life di FotMob (gratis, musim berjalan):", team.name || "");
+        if (!keyword) return false;
+        const found = await realFormationGet({ action: "fm-search", team: keyword });
+        if (!found.teams?.length) throw new Error("Klub tidak ketemu di FotMob.");
+        let pick = found.teams[0];
+        if (found.teams.length > 1) {
+          const list = found.teams.slice(0, 8).map((item, i) => `${i + 1}. ${item.name}${item.league ? ` (${item.league})` : ""}`).join("\n");
+          const choice = prompt(`Pilih klub (ketik nomor):\n${list}`, "1");
+          if (choice === null) return false;
+          pick = found.teams[Math.max(0, (parseInt(choice, 10) || 1) - 1)] || found.teams[0];
+        }
+        fmTeamId = pick.id;
+        await updateDoc(doc(db, "teams", team.id), { fmTeamId, updatedAtMs: Date.now() });
+        team.fmTeamId = fmTeamId;
+      }
+      const recent = await realFormationGet({ action: "fm-last", team: String(fmTeamId) });
+      const fixture = recent.fixture;
+      if (!fixture) throw new Error("Belum ada laga selesai untuk tim ini.");
+      const lineup = await realFormationGet({ action: "fm-lineup", fixture: String(fixture.id), team: String(fmTeamId) });
+      if (!lineup.formation || !lineup.xi?.length) throw new Error("Lineup tak tersedia untuk laga itu.");
+      const roster = playersForTeam(team);
+      const mapped = lineup.xi.map((slot) => ({
+        slot,
+        hit: matchRealName(slot.name, roster),
+        point: slot.point
+      }));
+      const sourceLabel = `${fixture.home} ${fixture.score} ${fixture.away} (FotMob, gratis)`;
+      return await applyRealLineup(team, lineup.formation, sourceLabel, mapped, lineup.subs || [], "");
+    };
+
     const syncRealFormation = async (teamId) => {
+      if (!isAdmin) return;
+      const team = teams.find((item) => item.id === teamId);
+      if (!team) return;
+      try {
+        const done = await syncRealFormationFotMob(team);
+        if (done) return;
+        if (!confirm("Batal pakai FotMob. Coba API-Football (data 2024-25, butuh key)?")) return;
+      } catch (fmError) {
+        console.warn("FotMob gagal, tawarkan API-Football:", fmError);
+        if (!confirm(`FotMob gagal (${fmError.message}). Coba API-Football (data 2024-25, butuh key)?`)) return;
+      }
+      await syncRealFormationApiFootball(teamId);
+    };
+
+    const syncRealFormationApiFootball = async (teamId) => {
       if (!isAdmin) return;
       const team = teams.find((item) => item.id === teamId);
       if (!team) return;
@@ -2672,41 +2758,9 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
           const point = gridPointForRealLineup(slot.grid, allGrids);
           return { slot, hit, point };
         });
-        const ok = mapped.filter((item) => item.hit);
-        const miss = mapped.filter((item) => !item.hit);
-        const preview = `Real-life: ${fixture.home} ${fixture.score} ${fixture.away}\nFormasi ${lineup.formation}${lineup.coach ? ` (pelatih ${lineup.coach})` : ""}${recent.fallback ? "\nCatatan: paket gratis hanya sampai musim 2024-25." : ""}\nXI cocok ${ok.length}/${mapped.length}${miss.length ? `\nTak cocok: ${miss.map((item) => item.slot.name).join(", ")}` : ""}${lineup.remaining !== undefined && lineup.remaining !== null ? `\nKuota API sisa: ${lineup.remaining}` : ""}\n\nTerapkan ke ${team.name}?`;
-        if (!confirm(preview)) return;
-
-        const now = Date.now();
-        const ops = [];
-        ops.push((batch) => batch.update(doc(db, "teams", team.id), {
-          formation: lineup.formation,
-          formationSource: `real-life ${fixture.home} ${fixture.score} ${fixture.away}`,
-          updatedAtMs: now
-        }));
-        ok.forEach((item) => {
-          const zonePos = positionForBoardPoint(item.point.x, item.point.y, lineup.formation);
-          ops.push((batch) => batch.update(doc(db, "players", item.hit.id), {
-            isSubstitute: false,
-            tacticX: item.point.x,
-            tacticY: item.point.y,
-            position: zonePos,
-            updatedAtMs: now
-          }));
-        });
-        (lineup.subs || []).forEach((slot) => {
-          const hit = matchRealName(slot.name, roster);
-          if (!hit || ok.some((item) => item.hit.id === hit.id)) return;
-          ops.push((batch) => batch.update(doc(db, "players", hit.id), {
-            isSubstitute: true,
-            tacticX: null,
-            tacticY: null,
-            updatedAtMs: now
-          }));
-        });
-        await commitBatchChunks(ops);
-        renderTeamDetailModal(teamId);
-        alert(`Formasi real-life ${lineup.formation} diterapkan: XI ${ok.length}, cadangan tercatat, tak cocok ${miss.length}.`);
+        const quotaNote = `${recent.fallback ? "\nCatatan: paket gratis hanya sampai musim 2024-25." : ""}${lineup.remaining !== undefined && lineup.remaining !== null ? `\nKuota API sisa: ${lineup.remaining}` : ""}`;
+        const sourceLabel = `${fixture.home} ${fixture.score} ${fixture.away}${lineup.coach ? ` (pelatih ${lineup.coach})` : ""}`;
+        return await applyRealLineup(team, lineup.formation, sourceLabel, mapped, lineup.subs || [], quotaNote);
       } catch (error) {
         console.error("Sync real formation failed:", error);
         alert("Gagal ambil formasi real-life: " + error.message);
