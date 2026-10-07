@@ -92,8 +92,21 @@ export default async function handler(req, res) {
     if (action === "last") {
       const teamId = parseInt(req.query.team, 10);
       if (!Number.isFinite(teamId)) return json(res, 400, { error: "Parameter team (id API) wajib diisi." });
-      const season = parseInt(req.query.season, 10) || defaultSeason();
-      const { data, remaining } = await callApi(`/fixtures?team=${teamId}&season=${season}&last=5`);
+      let season = parseInt(req.query.season, 10) || defaultSeason();
+      let fallback = false;
+      let data, remaining;
+      try {
+        ({ data, remaining } = await callApi(`/fixtures?team=${teamId}&season=${season}&last=5`));
+      } catch (error) {
+        // Paket gratis dikunci maks musim 2024 -> mundur otomatis sekali.
+        if (/do not have access to this season/i.test(error?.message || "") && season !== 2024) {
+          season = 2024;
+          fallback = true;
+          ({ data, remaining } = await callApi(`/fixtures?team=${teamId}&season=${season}&last=5`));
+        } else {
+          throw error;
+        }
+      }
       const fixtures = (data?.response || [])
         .filter((item) => item?.fixture?.status?.short === "FT")
         .map((item) => ({
@@ -105,7 +118,7 @@ export default async function handler(req, res) {
           score: `${item?.goals?.home ?? "-"}-${item?.goals?.away ?? "-"}`
         }))
         .filter((item) => item.id);
-      return json(res, 200, { fixtures, season, remaining });
+      return json(res, 200, { fixtures, season, fallback, remaining });
     }
 
     if (action === "lineup") {

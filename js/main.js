@@ -2473,6 +2473,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
           </div>
           ${isAdmin ? `<button class="admin-btn" data-action="resetTeamTactic" data-id="${team.id}">Reset Auto</button>` : ""}
           ${isAdmin ? `<button class="admin-btn" data-action="syncRealFormation" data-id="${team.id}">Real-Life XI</button>` : ""}
+          ${isAdmin ? `<button class="admin-btn" data-action="pasteEleven" data-id="${team.id}">Tempel XI</button>` : ""}
           <div class="rounded-2xl border border-secondary/20 bg-secondary/10 p-3 flex items-center gap-3 min-w-[220px]">
             <img src="${managerPhoto}" class="h-12 w-12 rounded-xl object-cover">
             <div>
@@ -2673,7 +2674,7 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
         });
         const ok = mapped.filter((item) => item.hit);
         const miss = mapped.filter((item) => !item.hit);
-        const preview = `Real-life: ${fixture.home} ${fixture.score} ${fixture.away}\nFormasi ${lineup.formation}${lineup.coach ? ` (pelatih ${lineup.coach})` : ""}\nXI cocok ${ok.length}/${mapped.length}${miss.length ? `\nTak cocok: ${miss.map((item) => item.slot.name).join(", ")}` : ""}${lineup.remaining !== undefined && lineup.remaining !== null ? `\nKuota API sisa: ${lineup.remaining}` : ""}\n\nTerapkan ke ${team.name}?`;
+        const preview = `Real-life: ${fixture.home} ${fixture.score} ${fixture.away}\nFormasi ${lineup.formation}${lineup.coach ? ` (pelatih ${lineup.coach})` : ""}${recent.fallback ? "\nCatatan: paket gratis hanya sampai musim 2024-25." : ""}\nXI cocok ${ok.length}/${mapped.length}${miss.length ? `\nTak cocok: ${miss.map((item) => item.slot.name).join(", ")}` : ""}${lineup.remaining !== undefined && lineup.remaining !== null ? `\nKuota API sisa: ${lineup.remaining}` : ""}\n\nTerapkan ke ${team.name}?`;
         if (!confirm(preview)) return;
 
         const now = Date.now();
@@ -2710,6 +2711,39 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
         console.error("Sync real formation failed:", error);
         alert("Gagal ambil formasi real-life: " + error.message);
       }
+    };
+
+    // --- TEMPEL XI MANUAL (tanpa API: salin lineup dari mana saja) ---
+    const pasteEleven = async (teamId) => {
+      if (!isAdmin) return;
+      const team = teams.find((item) => item.id === teamId);
+      if (!team) return;
+      const raw = prompt(`Tempel daftar STARTER ${team.name} (satu nama per baris / pisahkan koma).\nContoh: Courtois, Asencio, ...\n\nYang ditempel = starter (auto-posisi), sisanya jadi cadangan.`, "");
+      if (!raw) return;
+      const names = String(raw).split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+      if (!names.length) return;
+      const roster = playersForTeam(team);
+      const ok = [];
+      const miss = [];
+      const used = new Set();
+      names.slice(0, 14).forEach((name) => {
+        const hit = matchRealName(name, roster.filter((p) => !used.has(p.id)));
+        if (hit) { used.add(hit.id); ok.push({ name, hit }); }
+        else miss.push(name);
+      });
+      if (!ok.length) { alert("Tidak ada nama yang cocok dengan roster."); return; }
+      const xiIds = new Set(ok.slice(0, 11).map((item) => item.hit.id));
+      if (!confirm(`Tempel XI: ${ok.length} cocok${miss.length ? `, tak cocok: ${miss.join(", ")}` : ""}.\n${xiIds.size} jadi starter, sisanya cadangan. Lanjut?`)) return;
+      const now = Date.now();
+      const ops = roster.map((player) => (batch) => batch.update(doc(db, "players", player.id), {
+        isSubstitute: !xiIds.has(player.id),
+        tacticX: null,
+        tacticY: null,
+        updatedAtMs: now
+      }));
+      await commitBatchChunks(ops);
+      renderTeamDetailModal(teamId);
+      alert(`XI ditempel: ${xiIds.size} starter (posisi auto${team.formation ? `, formasi ${team.formation}` : ""}).`);
     };
 
     const moveRosterPlayerBetweenLists = async (playerId, targetKind, replacedPlayerId = "", replacementPoint = null, inheritedPosition = "") => {
@@ -6287,6 +6321,7 @@ document.addEventListener('click', async (e) => {
     else if (action === 'editRosterPlayer') await editRosterPlayer(id);
     else if (action === 'resetTeamTactic') await resetTeamTactic(id);
     else if (action === 'syncRealFormation') await syncRealFormation(id);
+    else if (action === 'pasteEleven') await pasteEleven(id);
     else if (action === 'addTeam') openTeamCreateModal();
     else if (action === 'deleteTeam') await deleteTeam(id);
     
