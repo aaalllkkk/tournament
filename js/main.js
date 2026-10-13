@@ -1334,7 +1334,8 @@ const getStarIcons = (rating) => {
         const relegationInput = document.getElementById("relegationInput");
         if (relegationInput) relegationInput.value = relegationCutoff;
         syncKnockoutScoresFromSchedule(matches);
-        ensureKnockoutScheduleMatches();
+        // Jadwal hanya disinkron untuk bracket fix; provisional tak buat jadwal.
+        if (knockout?.locked !== false) ensureKnockoutScheduleMatches();
       }
       toggleAdminUI();
       renderMatches();
@@ -1371,12 +1372,46 @@ const getStarIcons = (rating) => {
     };
 
     // Normalisasi: berapa slot per grup yang badge Cup (sisanya yang lolos = Playoff).
-    const cupDirectCount = (adv) => {
-      const v = String(competitionConfig.cupDirect ?? "1");
+    const cupDirectCount = (adv, override) => {
+      const v = String(override ?? competitionConfig.cupDirect ?? "1");
       if (v === "all") return Math.max(1, adv);
       const n = parseInt(v);
       return Math.min(Math.max(1, Number.isFinite(n) ? n : 1), Math.max(1, adv));
     };
+
+    // Kualifikasi khusus bracket (panel Bracket System) — terpisah dari panel
+    // Competition agar ubah jatah knockout tak mengusik jadwal grup/liga.
+    const readBracketQual = () => {
+      const num = (id, fallback, min, max) => {
+        const el = document.getElementById(id);
+        const v = parseInt(el?.value);
+        return Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback;
+      };
+      const cd = document.getElementById("koCupDirect");
+      return sanitizeBracketQualDoc({
+        adv: num("koAdv", competitionConfig.advancePerGroup || 2, 1, 4),
+        cupDirect: cd?.value ?? competitionConfig.cupDirect ?? "1",
+        bestPos: num("koBestPos", competitionConfig.bestPos || 3, 2, 5),
+        bestCount: num("koBestCount", competitionConfig.bestPosCount || 0, 0, 4)
+      });
+    };
+
+    const syncBracketQualInputs = (qual) => {
+      const q = sanitizeBracketQualDoc(qual);
+      const set = (id, value) => { const el = document.getElementById(id); if (el) el.value = String(value); };
+      set("koAdv", q.adv);
+      set("koCupDirect", q.cupDirect);
+      set("koBestPos", q.bestPos);
+      set("koBestCount", q.bestCount);
+    };
+
+    // Aturan zona yang berlaku: bracket tersimpan dulu, kompetisi fallback.
+    const currentBracketQual = () => sanitizeBracketQualDoc(knockout?.qual || {
+      adv: competitionConfig.advancePerGroup,
+      cupDirect: competitionConfig.cupDirect,
+      bestPos: competitionConfig.bestPos,
+      bestCount: competitionConfig.bestPosCount
+    });
 
     // Satu nilai, dua checkbox (panel Competition + panel Bracket) — selalu sinkron via snapshot.
     const readByeFill = () => {
@@ -2043,6 +2078,15 @@ onSnapshot(collection(db, "hofManagers"), (snapshot) => {
           const bc = document.getElementById("bestPosCount"); if (bc) bc.value = String(competitionConfig.bestPosCount || 0);
           const tb = document.getElementById("tiebreak"); if (tb) tb.value = competitionConfig.tiebreak || "gd";
           const mt = document.getElementById("compMirrorTeam"); if (mt) mt.checked = competitionConfig.mirrorTeam === true;
+          // Selaraskan input bracket; kualifikasi bracket tersimpan (knockout.qual) tak dioverride.
+          if (!knockout?.qual) {
+            syncBracketQualInputs({
+              adv: competitionConfig.advancePerGroup,
+              cupDirect: competitionConfig.cupDirect,
+              bestPos: competitionConfig.bestPos,
+              bestCount: competitionConfig.bestPosCount
+            });
+          }
         }
       }
       syncCompetitionUI();
@@ -3569,11 +3613,13 @@ const renderAllTimeHofScorers = () => {
 
   if (hasGroupStage()) {
     const letters = listGroupLetters();
-    const adv = Math.max(1, parseInt(competitionConfig.advancePerGroup) || 2);
-    // Cup vs Playoff ikut settingan (bukan fix rank 1): cupTop teratas = Cup, sisanya = Playoff.
-    const cupTop = cupDirectCount(adv);
-    const bestPos = [2, 3, 4, 5].includes(parseInt(competitionConfig.bestPos)) ? parseInt(competitionConfig.bestPos) : 3;
-    const bestN = Math.max(0, parseInt(competitionConfig.bestPosCount) || 0);
+    // Zona klasemen mengikuti aturan bracket tersimpan (fallback kompetisi).
+    const bq = currentBracketQual();
+    const adv = bq.adv;
+    // Cup vs Playoff ikut settingan bracket (bukan fix rank 1): cupTop teratas = Cup, sisanya = Playoff.
+    const cupTop = cupDirectCount(adv, bq.cupDirect);
+    const bestPos = bq.bestPos;
+    const bestN = bq.bestCount;
     const bestRanked = getBestRankedAtPosition(bestPos);
     const bestSet = new Set(bestRanked.slice(0, bestN).map((r) => r.team));
     const compactHeadPad = "py-3 px-1";
@@ -3868,9 +3914,16 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
           const kb = document.getElementById("koByeFill"); if (kb) kb.checked = (knockout.byeFill || "1") !== "0";
           const cb = document.getElementById("compByeFill"); if (cb) cb.checked = (knockout.byeFill || "1") !== "0";
           const km = document.getElementById("koMirrorTeam"); if (km) km.checked = knockout.mirrorTeam === true;
+          syncBracketQualInputs(knockout.qual || {
+            adv: competitionConfig.advancePerGroup,
+            cupDirect: competitionConfig.cupDirect,
+            bestPos: competitionConfig.bestPos,
+            bestCount: competitionConfig.bestPosCount
+          });
         }
         requestRender('knockout');
-        ensureKnockoutScheduleMatches();
+        // Jadwal hanya disinkron untuk bracket fix; provisional tak buat jadwal.
+        if (knockout?.locked !== false) ensureKnockoutScheduleMatches();
     } else {
   knockout = { format: "single", tieFormat: "single", byeFill: "1", seedSnapshot: [], mirrorTeam: false, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
         requestRender('knockout');
@@ -4161,13 +4214,20 @@ const createSeedOrder = (size) => {
   return order;
 };
 
+const sanitizeBracketQualDoc = (raw) => ({
+  adv: Math.min(4, Math.max(1, parseInt(raw?.adv) || 2)),
+  cupDirect: ["1", "2", "3", "all"].includes(String(raw?.cupDirect ?? "1")) ? String(raw?.cupDirect ?? "1") : "1",
+  bestPos: [2, 3, 4, 5].includes(parseInt(raw?.bestPos)) ? parseInt(raw.bestPos) : 3,
+  bestCount: Math.min(4, Math.max(0, parseInt(raw?.bestCount) || 0))
+};
+
 const sanitizeKnockout = (raw) => {
   const tie = String(raw?.tieFormat || "single").toLowerCase();
   const tieFormat = ["single", "h2", "bo3", "bo5"].includes(tie) ? tie : "single";
   const byeFill = String(raw?.byeFill ?? "1") === "0" ? "0" : "1";
   const seedSnapshot = Array.isArray(raw?.seedSnapshot) ? raw.seedSnapshot.filter((t) => typeof t === "string") : [];
   if (!raw || !Array.isArray(raw.rounds)) {
-    return { format: "single", tieFormat, byeFill, seedSnapshot, mirrorTeam: raw?.mirrorTeam === true, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
+    return { format: "single", tieFormat, byeFill, seedSnapshot, locked: raw?.locked === false ? false : true, qual: sanitizeBracketQualDoc(raw?.qual), mirrorTeam: raw?.mirrorTeam === true, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
   }
 
   const rounds = raw.rounds.map((round, roundIndex) => ({
@@ -4195,6 +4255,8 @@ const sanitizeKnockout = (raw) => {
     tieFormat,
     byeFill,
     seedSnapshot,
+    locked: raw?.locked === false ? false : true,
+    qual: sanitizeBracketQualDoc(raw?.qual),
     mirrorTeam: raw?.mirrorTeam === true,
     bracketSize: parseInt(raw.bracketSize) || 0,
     qualifierZone: raw.qualifierZone || "",
@@ -4640,6 +4702,14 @@ const renderKnockout = () => {
 
   const resolved = resolveKnockout(knockout);
   knockout = resolved;
+  if (isAdmin) {
+    const hasRounds = (resolved.rounds || []).length > 0;
+    const isLocked = resolved.locked === true;
+    const lockBtn = document.querySelector('[data-action="lockKnockoutSchedule"]');
+    const unlockBtn = document.querySelector('[data-action="unlockKnockoutSchedule"]');
+    if (lockBtn) lockBtn.style.display = hasRounds && !isLocked ? "" : "none";
+    if (unlockBtn) unlockBtn.style.display = hasRounds && isLocked ? "" : "none";
+  }
   const visibleRounds = resolved.rounds.filter((round) => round.matches.some((match) => match.visible !== false));
 
   if (visibleRounds.length === 0) {
@@ -4765,6 +4835,9 @@ const renderKnockout = () => {
       ${resolved.mirrorTeam ? `<span class="px-3 py-1 rounded-full bg-tertiary/10 border border-tertiary/20 text-tertiary">Mirror ON</span>` : ""}
       <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70">Qualified: ${resolved.qualifierZone || `Top ${resolved.bracketSize || "-"}`}</span>
       <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70">Teams: ${resolved.qualifiedCount || resolved.bracketSize || "-"}</span>
+      ${resolved.locked === true
+        ? `<span class="px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary">Fix: jadwal dibuat</span>`
+        : ((resolved.rounds || []).length ? `<span class="px-3 py-1 rounded-full bg-secondary/10 border border-secondary/20 text-secondary">Provisional: mengikuti klasemen</span>` : "")}
       ${champion ? `<span class="px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary">Champion: ${champion}</span>` : ""}
     </div>
     ${(() => {
@@ -4775,6 +4848,10 @@ const renderKnockout = () => {
       try { cur = computeKnockoutSeeds().rankedTeams || []; } catch (e) { return ""; }
       const stale = cur.length !== snap.length || cur.some((t, i) => t !== snap[i]);
       if (!stale) return "";
+      // Provisional + belum ada skor = ikuti klasemen otomatis (tanpa klik).
+      if (isAdmin && knockout?.locked === false && !knockoutHasScores()) {
+        setTimeout(() => { autoFollowKnockoutSeeds(); }, 0);
+      }
       return `<div class="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-secondary/30 bg-secondary/10 px-4 py-3">
         <span class="text-[10px] font-black uppercase tracking-widest text-secondary">Seeding kedaluwarsa — klasemen berubah</span>
         ${isAdmin ? `<button class="admin-btn !py-2 !px-3" data-action="reseedKnockout">Reseed dari klasemen kini</button>` : ""}
@@ -5072,24 +5149,26 @@ async function generateBracket() {
   const tieSel = String(document.getElementById("koTieFormat")?.value || knockout?.tieFormat || "single").toLowerCase();
   const tieFormat = ["single", "h2", "bo3", "bo5"].includes(tieSel) ? tieSel : "single";
   const mirrorTeam = document.getElementById("koMirrorTeam")?.checked === true;
-  const { rankedTeams, qualifierLabel, cupNames, playoffNames, bestRanked } = computeKnockoutSeeds();
-  await runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, byeFill: readByeFill(), rankedTeams, qualifierLabel, cupNames, playoffNames, bestRanked, skipConfirm: false });
+  const qual = readBracketQual();
+  const { rankedTeams, qualifierLabel, cupNames, playoffNames, bestRanked } = computeKnockoutSeeds(qual);
+  await runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, byeFill: readByeFill(), rankedTeams, qualifierLabel, cupNames, playoffNames, bestRanked, qual, skipConfirm: false });
 }
 
 // Urutan seeding knockout dari klasemen KINI (dipakai generate, cek kedaluwarsa, reseed).
 // Grup: Top N/grup interleaved cross-grup + Best #P. Liga: urutan klasemen penuh.
-const computeKnockoutSeeds = () => {
+const computeKnockoutSeeds = (qual) => {
+  const q = sanitizeBracketQualDoc(qual || readBracketQual());
   // Grup-aware: Top N tiap grup (interleaved cross-grup) + Best K peringkat #P → knockout/lower bracket.
-  // Cup langsung = posisi teratas per grup (ikut settingan cupDirect); sisanya Play-off.
+  // Cup langsung = posisi teratas per grup (ikut panel Bracket); sisanya Play-off.
   // Seeding menaruh Cup duluan → bila ada BYE, jatahnya ke seed teratas (= tier Cup).
   let rankedTeams = calculateStandings().map((row) => row.team);
   let qualifierLabel = "";
   let cupNames = [], playoffNames = [], bestRankedList = [];
   if (hasGroupStage()) {
-    const adv = Math.max(1, parseInt(competitionConfig.advancePerGroup) || 2);
-    const cupTop = cupDirectCount(adv);
-    const bestPos = [2, 3, 4, 5].includes(parseInt(competitionConfig.bestPos)) ? parseInt(competitionConfig.bestPos) : 3;
-    const bestN = Math.max(0, parseInt(competitionConfig.bestPosCount) || 0);
+    const adv = q.adv;
+    const cupTop = cupDirectCount(adv, q.cupDirect);
+    const bestPos = q.bestPos;
+    const bestN = q.bestCount;
     const { letters, qualified, bestRanked } = getQualifiedFromGroups(adv, bestPos, bestN);
     const perGroup = letters.map((letter) => calculateStandings(letter).map((r) => r.team));
     perGroup.forEach((list) => {
@@ -5113,8 +5192,9 @@ const computeKnockoutSeeds = () => {
 
 // Inti build bracket — dipakai generate (dengan confirm) maupun reseed (tanpa confirm).
 // seedSnapshot = urutan saat build, untuk deteksi klasemen berubah.
-async function runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, byeFill, rankedTeams, qualifierLabel, cupNames, playoffNames, bestRanked, skipConfirm }) {
+async function runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, byeFill, rankedTeams, qualifierLabel, cupNames, playoffNames, bestRanked, qual, skipConfirm }) {
   cupNames = cupNames || []; playoffNames = playoffNames || []; bestRanked = bestRanked || [];
+  const bracketQual = sanitizeBracketQualDoc(qual || readBracketQual());
   const tieLabel = TIE_META[tieFormat]?.label || "1 Game";
   const mirrorLabel = mirrorTeam ? " • Mirror ON (away pakai tim home)" : "";
   const championsSize = Math.max(parseInt(championsCutoff) || 4, 2);
@@ -5177,6 +5257,8 @@ async function runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, b
       tieFormat,
       byeFill,
       mirrorTeam,
+      locked: false,
+      qual: bracketQual,
       bracketSize: nextPowerOfTwo(Math.max(2, cup.length + playoff.length)),
       qualifierZone: `${doubleLabel} • ${tierNote} • ${tieLabel}${mirrorLabel}`,
       qualifiedCount: participants.length,
@@ -5184,7 +5266,8 @@ async function runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, b
       rounds: doubleRounds
     };
     await saveKnockout();
-    await ensureKnockoutScheduleMatches({ resetScores: true, cleanupStale: true });
+    // Provisional: belum ada jadwal sampai tim di-fix (tombol Fix Tim & Generate Jadwal).
+    await cleanupGeneratedKnockoutSchedules(new Set());
     renderKnockout();
     return true;
   }
@@ -5206,6 +5289,8 @@ async function runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, b
     tieFormat,
     byeFill: byeFill,
     mirrorTeam,
+    locked: false,
+    qual: bracketQual,
     bracketSize: teamCount,
     qualifierZone: `${qualifierLabel} • ${tieLabel}${mirrorLabel}`,
     qualifiedCount: teamCount,
@@ -5214,32 +5299,95 @@ async function runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, b
   };
 
   await saveKnockout();
-  await ensureKnockoutScheduleMatches({ resetScores: true, cleanupStale: true });
+  // Provisional: belum ada jadwal sampai tim di-fix (tombol Fix Tim & Generate Jadwal).
+  await cleanupGeneratedKnockoutSchedules(new Set());
   renderKnockout();
   return true;
 }
 
+// Ada skor KO apa pun (dipakai guard reseed/lock/unlock/auto-follow).
+const knockoutHasScores = () => (knockout?.rounds || []).some((r) => (r.matches || []).some((m) =>
+  !isScoreEmpty(m.s1) && !isScoreEmpty(m.s2)));
+
+let knockoutAutoSyncing = false;
+
 // Reseed: ikutkan bracket ke klasemen KINI tanpa generate ulang manual.
 // Aman: hanya bila BELUM ada hasil KO (skor apa pun memblokir agar tidak rusak).
-async function reseedKnockout() {
-  if (!isAdmin) return;
-  if (!knockout?.rounds?.length) return alert("Belum ada bracket untuk di-reseed. Generate dulu.");
-  const scored = knockout.rounds.some((r) => (r.matches || []).some((m) =>
-    !isScoreEmpty(m.s1) && !isScoreEmpty(m.s2)));
-  if (scored) return alert("Bracket sudah ada hasilnya — reseed diblokir agar skor tidak rusak. Generate ulang bila perlu.");
+// Hasilnya provisional (locked=false): tim terus mengikuti klasemen sampai di-fix.
+async function doReseedKnockout(silent) {
+  if (!isAdmin) return false;
+  if (!knockout?.rounds?.length) {
+    if (!silent) alert("Belum ada bracket untuk di-reseed. Generate dulu.");
+    return false;
+  }
+  if (knockoutHasScores()) {
+    if (!silent) alert("Bracket sudah ada hasilnya — reseed diblokir agar skor tidak rusak. Generate ulang bila perlu.");
+    return false;
+  }
   const format = document.getElementById("koType")?.value || knockout.format || "single";
   const sizeSelection = document.getElementById("koSize")?.value || "auto";
   const tieSel = String(document.getElementById("koTieFormat")?.value || knockout?.tieFormat || "single").toLowerCase();
   const tieFormat = ["single", "h2", "bo3", "bo5"].includes(tieSel) ? tieSel : "single";
   const mirrorTeam = document.getElementById("koMirrorTeam")?.checked === true;
-  const { rankedTeams, qualifierLabel, cupNames, playoffNames, bestRanked } = computeKnockoutSeeds();
-  const ok = await runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, byeFill: readByeFill(), rankedTeams, qualifierLabel, cupNames, playoffNames, bestRanked, skipConfirm: true });
-  if (ok) alert("Seeding bracket diperbarui mengikuti klasemen kini.");
+  const qual = readBracketQual();
+  const { rankedTeams, qualifierLabel, cupNames, playoffNames, bestRanked } = computeKnockoutSeeds(qual);
+  const ok = await runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, byeFill: readByeFill(), rankedTeams, qualifierLabel, cupNames, playoffNames, bestRanked, qual, skipConfirm: true });
+  if (ok && !silent) alert("Seeding bracket diperbarui mengikuti klasemen kini (provisional — kunci via Fix Tim bila sudah fix).");
+  return ok;
+}
+
+async function reseedKnockout() {
+  await doReseedKnockout(false);
+}
+
+// Auto-follow: bracket provisional menyesuaikan klasemen sendiri (tanpa klik).
+async function autoFollowKnockoutSeeds() {
+  if (!isAdmin || knockoutAutoSyncing) return;
+  if (knockout?.locked !== false) return;
+  if (!knockout?.rounds?.length) return;
+  if (knockoutHasScores()) return;
+  knockoutAutoSyncing = true;
+  try {
+    await doReseedKnockout(true);
+  } catch (error) {
+    console.warn("Auto-follow knockout gagal:", error);
+  } finally {
+    knockoutAutoSyncing = false;
+  }
+}
+
+// Kunci tim kini + generate jadwal knockout (fase fix).
+async function lockKnockoutSchedule() {
+  if (!isAdmin) return;
+  if (!knockout?.rounds?.length) return alert("Belum ada bracket. Generate dulu.");
+  if (knockout.locked === true) return alert("Bracket sudah fix.");
+  const n = knockout.qualifiedCount || knockout.seedSnapshot.length || "";
+  if (!confirm(`Kunci ${n ? n + " " : ""}tim kini dan generate jadwal knockout? Sesudah fix, tim tidak lagi mengikuti klasemen.`)) return;
+  knockout.locked = true;
+  await saveKnockout();
+  const scored = knockoutHasScores();
+  await ensureKnockoutScheduleMatches({ resetScores: !scored, cleanupStale: true });
+  renderKnockout();
+  alert(scored ? "Bracket dikunci (skor lama dipertahankan)." : "Tim fix + jadwal knockout dibuat.");
+}
+
+// Buka kunci: kembali provisional (jadwal knockout ikut dibersihkan).
+async function unlockKnockoutSchedule() {
+  if (!isAdmin) return;
+  if (!knockout?.rounds?.length) return alert("Belum ada bracket.");
+  if (knockout.locked !== true) return alert("Bracket belum dikunci.");
+  if (knockoutHasScores()) return alert("Sudah ada skor — bracket beku, tidak bisa dibuka. Generate ulang bila perlu.");
+  if (!confirm("Buka kunci? Bracket kembali provisional (mengikuti klasemen) dan jadwal knockout dihapus.")) return;
+  knockout.locked = false;
+  await saveKnockout();
+  await cleanupGeneratedKnockoutSchedules(new Set());
+  renderKnockout();
+  alert("Kunci dibuka: bracket provisional mengikuti klasemen.");
 }
 
 const clearKnockoutData = async () => {
   if (!isAdmin) return;
-  knockout = { format: "single", tieFormat: "single", byeFill: "1", seedSnapshot: [], mirrorTeam: false, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
+  knockout = { format: "single", tieFormat: "single", byeFill: "1", locked: false, seedSnapshot: [], mirrorTeam: false, bracketSize: 0, qualifierZone: "", qualifiedCount: 0, rounds: [] };
   await saveKnockout();
   await cleanupGeneratedKnockoutSchedules(new Set());
   renderKnockout();
@@ -6431,6 +6579,8 @@ document.addEventListener('click', async (e) => {
     // 7. Knockout System (Dibersihkan dari duplikasi)
     else if (action === 'generateBracket') await generateBracket();
     else if (action === 'reseedKnockout') await reseedKnockout();
+    else if (action === 'lockKnockoutSchedule') await lockKnockoutSchedule();
+    else if (action === 'unlockKnockoutSchedule') await unlockKnockoutSchedule();
     else if (action === 'clearKnockout') {
         if(confirm("Hapus semua data knockout?")) {
             await clearKnockoutData();
