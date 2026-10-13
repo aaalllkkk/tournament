@@ -4219,7 +4219,7 @@ const sanitizeBracketQualDoc = (raw) => ({
   cupDirect: ["1", "2", "3", "all"].includes(String(raw?.cupDirect ?? "1")) ? String(raw?.cupDirect ?? "1") : "1",
   bestPos: [2, 3, 4, 5].includes(parseInt(raw?.bestPos)) ? parseInt(raw.bestPos) : 3,
   bestCount: Math.min(4, Math.max(0, parseInt(raw?.bestCount) || 0))
-};
+});
 
 const sanitizeKnockout = (raw) => {
   const tie = String(raw?.tieFormat || "single").toLowerCase();
