@@ -3921,7 +3921,7 @@ onSnapshot(doc(db, "tournament", "knockout"), (docSnap) => {
             bestCount: competitionConfig.bestPosCount
           });
         }
-        requestRender('knockout');
+        requestRender('knockout', 'standings');
         // Jadwal hanya disinkron untuk bracket fix; provisional tak buat jadwal.
         if (knockout?.locked !== false) ensureKnockoutScheduleMatches();
     } else {
@@ -5268,7 +5268,9 @@ async function runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, b
     await saveKnockout();
     // Provisional: belum ada jadwal sampai tim di-fix (tombol Fix Tim & Generate Jadwal).
     await cleanupGeneratedKnockoutSchedules(new Set());
+    syncBracketQualInputs(bracketQual);
     renderKnockout();
+    requestRender('standings');
     return true;
   }
 
@@ -5301,7 +5303,9 @@ async function runBracketBuild({ format, sizeSelection, tieFormat, mirrorTeam, b
   await saveKnockout();
   // Provisional: belum ada jadwal sampai tim di-fix (tombol Fix Tim & Generate Jadwal).
   await cleanupGeneratedKnockoutSchedules(new Set());
+  syncBracketQualInputs(bracketQual);
   renderKnockout();
+  requestRender('standings');
   return true;
 }
 
