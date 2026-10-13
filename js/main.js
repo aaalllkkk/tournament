@@ -3521,7 +3521,7 @@ const renderAllTimeHofScorers = () => {
   const standingsTable = document.getElementById("standingsTable");
   if (!standingsTable) return;
 
-  const rowHtml = (t, i, lockedZones) => {
+  const rowHtml = (t, i, lockedZones, compact = false) => {
     const rank = i + 1;
     const textClass = i === 0 ? "text-primary" : i === 1 ? "text-on-surface" : i === 2 ? "text-secondary" : "text-on-surface-variant";
     let bgGradient = "";
@@ -3555,16 +3555,16 @@ const renderAllTimeHofScorers = () => {
       zoneBadge = `<span class="hidden md:inline-flex rounded-full px-2 py-1 text-[8px] uppercase tracking-widest font-black" style="border:1px solid ${lc}55;color:${lc}">${lineLabels[zone] || ""}</span>`;
     }
     return `<tr class="group hover:bg-surface-container-highest transition-colors ${bgGradient} ${borderClass}">
-        <td class="py-5 px-6 font-headline font-black text-lg ${textClass}">${rank.toString().padStart(2, '0')}</td>
-        <td class="py-5 px-6"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-[0.8rem] bg-surface-container-highest flex items-center justify-center p-1 border border-outline-variant/10 relative">${isTeamLive(t.team) ? `<div class="absolute -top-1 -right-1"><span class="liveDot"></span></div>` : ""}<img src="${resolveTeam(t.team).logo}" class="w-full h-full object-contain"></div><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="font-headline font-bold text-on-surface whitespace-nowrap">${t.team}</span>${zoneBadge}</div>${renderFormGuide(t.team)}</div></div></td>
-        <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.p}</td>
-        <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.w}</td>
-        <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.d}</td>
-        <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.l}</td>
-        <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.gf}</td>
-        <td class="py-5 px-4 text-center text-on-surface-variant font-medium">${t.ga}</td>
-        <td class="py-5 px-4 text-center font-bold ${t.gf-t.ga > 0 ? 'text-primary' : t.gf-t.ga < 0 ? 'text-error' : 'text-on-surface-variant'}">${t.gf-t.ga > 0 ? '+'+(t.gf-t.ga) : t.gf-t.ga}</td>
-        <td class="py-5 px-6 text-center font-black text-xl ${textClass}">${t.pts}</td></tr>`;
+        <td class="${compact ? "py-3 px-3 text-base" : "py-5 px-6 text-lg"} font-headline font-black ${textClass}">${rank.toString().padStart(2, '0')}</td>
+        <td class="${compact ? "py-3 px-3" : "py-5 px-6"}"><div class="flex items-center ${compact ? "gap-2" : "gap-4"}"><div class="${compact ? "w-8 h-8" : "w-10 h-10"} rounded-[0.8rem] bg-surface-container-highest flex items-center justify-center p-1 border border-outline-variant/10 relative">${isTeamLive(t.team) ? `<div class="absolute -top-1 -right-1"><span class="liveDot"></span></div>` : ""}<img src="${resolveTeam(t.team).logo}" class="w-full h-full object-contain"></div><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="font-headline font-bold text-on-surface whitespace-nowrap ${compact ? "text-sm" : ""}">${t.team}</span>${zoneBadge}</div>${renderFormGuide(t.team)}</div></div></td>
+        <td class="${compact ? "py-3 px-1 text-sm" : "py-5 px-4"} text-center text-on-surface-variant font-medium">${t.p}</td>
+        <td class="${compact ? "py-3 px-1 text-sm" : "py-5 px-4"} text-center text-on-surface-variant font-medium">${t.w}</td>
+        <td class="${compact ? "py-3 px-1 text-sm" : "py-5 px-4"} text-center text-on-surface-variant font-medium">${t.d}</td>
+        <td class="${compact ? "py-3 px-1 text-sm" : "py-5 px-4"} text-center text-on-surface-variant font-medium">${t.l}</td>
+        <td class="${compact ? "py-3 px-1 text-sm" : "py-5 px-4"} text-center text-on-surface-variant font-medium">${t.gf}</td>
+        <td class="${compact ? "py-3 px-1 text-sm" : "py-5 px-4"} text-center text-on-surface-variant font-medium">${t.ga}</td>
+        <td class="${compact ? "py-3 px-1 text-sm" : "py-5 px-4"} text-center font-bold ${t.gf-t.ga > 0 ? 'text-primary' : t.gf-t.ga < 0 ? 'text-error' : 'text-on-surface-variant'}">${t.gf-t.ga > 0 ? '+'+(t.gf-t.ga) : t.gf-t.ga}</td>
+        <td class="${compact ? "py-3 px-3 text-lg" : "py-5 px-6 text-xl"} text-center font-black ${textClass}">${t.pts}</td></tr>`;
   };
 
   if (hasGroupStage()) {
@@ -3576,17 +3576,19 @@ const renderAllTimeHofScorers = () => {
     const bestN = Math.max(0, parseInt(competitionConfig.bestPosCount) || 0);
     const bestRanked = getBestRankedAtPosition(bestPos);
     const bestSet = new Set(bestRanked.slice(0, bestN).map((r) => r.team));
+    const compactHeadPad = "py-3 px-1";
+    const headCell = (label, title, extra = "") => `<th class="${compactHeadPad} ${extra} text-center text-[9px] font-label font-black uppercase tracking-[0.15em] text-on-surface-variant" title="${title}">${label}</th>`;
     const headHtml = `<thead><tr class="bg-surface-container-highest/50 border-b border-outline-variant/10">
-      <th class="py-4 px-4 text-left text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant">Rank</th>
-      <th class="py-4 px-4 text-left text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant">Club</th>
-      <th class="py-4 px-2 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant" title="Main (Matches Played)">MP</th>
-      <th class="py-4 px-2 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant" title="Menang (Wins)">W</th>
-      <th class="py-4 px-2 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant" title="Seri (Draws)">D</th>
-      <th class="py-4 px-2 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant" title="Kalah (Losses)">L</th>
-      <th class="py-4 px-2 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant" title="Gol Memasukkan (Goals For)">GF</th>
-      <th class="py-4 px-2 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant" title="Gol Kemasukan (Goals Against)">GA</th>
-      <th class="py-4 px-2 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant" title="Selisih Gol (Goal Difference)">GD</th>
-      <th class="py-4 px-4 text-center text-[10px] font-label font-black uppercase tracking-[0.2em] text-primary" title="Poin (Points)">Pts</th>
+      <th class="py-3 px-3 text-left text-[9px] font-label font-black uppercase tracking-[0.15em] text-on-surface-variant">Rank</th>
+      <th class="py-3 px-3 text-left text-[9px] font-label font-black uppercase tracking-[0.15em] text-on-surface-variant">Club</th>
+      ${headCell("MP", "Main (Matches Played)")}
+      ${headCell("W", "Menang (Wins)")}
+      ${headCell("D", "Seri (Draws)")}
+      ${headCell("L", "Kalah (Losses)")}
+      ${headCell("GF", "Gol Memasukkan (Goals For)")}
+      ${headCell("GA", "Gol Kemasukan (Goals Against)")}
+      ${headCell("GD", "Selisih Gol (Goal Difference)")}
+      <th class="py-3 px-3 text-center text-[9px] font-label font-black uppercase tracking-[0.15em] text-primary" title="Poin (Points)">Pts</th>
     </tr></thead>`;
     const allGroupsComplete = (() => {
       const gm = matches.filter(isGroupMatch);
@@ -3601,11 +3603,11 @@ const renderAllTimeHofScorers = () => {
         const pool = matches.filter((m) => (m.type || "") === "group" && matchGroup(m) === letter);
         const locked = getLockedStandingsZones(data, cupTop, adv, 0, pool);
         return `<section class="bg-surface-container-high rounded-[2rem] overflow-hidden shadow-2xl border border-outline-variant/10">
-          <div class="px-6 py-5 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-highest/50">
-            <div><h3 class="font-headline font-black uppercase italic text-xl">Group ${letter}</h3></div>
+          <div class="px-4 py-3 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-highest/50">
+            <div><h3 class="font-headline font-black uppercase italic text-lg">Group ${letter}</h3></div>
             <span class="rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-primary">Top ${adv} lolos</span>
           </div>
-          <div class="overflow-x-auto"><table class="w-full border-collapse min-w-[680px]">${headHtml}<tbody class="divide-y divide-outline-variant/5 font-label">
+          <div class="overflow-x-auto"><table class="w-full border-collapse min-w-[560px]">${headHtml}<tbody class="divide-y divide-outline-variant/5 font-label">
             ${data.map((t, i) => {
               let z = locked.get(t.team);
               if (z === "champion") z = "cup"; // grup tidak punya mahkota — rank 1 = Cup
@@ -3615,7 +3617,7 @@ const renderAllTimeHofScorers = () => {
               else if (i < adv) zones.set(t.team, "playoff-line");
               const isBestPos = !zones.has(t.team) && i === bestPos - 1 && bestSet.has(t.team);
               if (isBestPos) zones.set(t.team, allGroupsComplete ? "playoff" : "playoff-line");
-              return rowHtml(t, i, zones);
+              return rowHtml(t, i, zones, true);
             }).join("") || `<tr><td colspan="10" class="p-6 text-white/30 italic text-sm">Belum ada data grup ${letter}.</td></tr>`}
           </tbody></table></div></section>`;
       }).join("");
