@@ -5294,8 +5294,24 @@ const clearKnockoutData = async () => {
 
       if (!player || !team) return alert("Fill in player name and team!");
 
-      // Save to Firebase (including assists)
-      await addDoc(collection(db, "scorers"), { player, image, poster, team, goals, assists, rosterPlayerId: rosterId });
+      // Upsert: pemain+tim sama = tambah gol/assist, update gambar/poster bila diisi.
+      const existing = scorers.find((s) => normalizeKey(s.player) === normalizeKey(player) && normalizeKey(s.team) === normalizeKey(team));
+      if (existing) {
+        const payload = {
+          goals: (parseInt(existing.goals) || 0) + goals,
+          assists: (parseInt(existing.assists) || 0) + assists,
+          updatedAtMs: Date.now()
+        };
+        if (image) payload.image = image;
+        if (poster) payload.poster = poster;
+        if (rosterId) payload.rosterPlayerId = rosterId;
+        await updateDoc(doc(db, "scorers", existing.id), payload);
+        alert(`${player} sudah ada: gol/assist ditambah (kini ${payload.goals}G/${payload.assists}A).`);
+      } else {
+        // Save to Firebase (including assists)
+        await addDoc(collection(db, "scorers"), { player, image, poster, team, goals, assists, rosterPlayerId: rosterId });
+        alert(`${player} masuk top scorer.`);
+      }
 
       // Clear input fields after saving
       ["scorerPoster", "playerGoals", "playerAssists"].forEach(id => document.getElementById(id).value = "");
